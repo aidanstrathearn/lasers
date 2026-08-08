@@ -10,18 +10,24 @@ pub enum RootFindConfig {
     Bisection(BisectionConfig),
 }
 
+impl From<Newton1dConfig> for RootFindConfig {
+    fn from(config: Newton1dConfig) -> Self {
+        Self::Newton1d(config)
+    }
+}
+
+impl From<BisectionConfig> for RootFindConfig {
+    fn from(config: BisectionConfig) -> Self {
+        Self::Bisection(config)
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct Newton1dConfig {
     pub tolerance: f64,
     pub max_iters: usize,
     pub initial: f64,
     pub dx: f64,
-}
-
-impl Into<RootFindConfig> for Newton1dConfig {
-    fn into(self) -> RootFindConfig {
-        RootFindConfig::Newton1d(self)
-    }
 }
 
 pub fn newton1d(f: impl Fn(f64) -> f64, config: Newton1dConfig) -> Result<f64, RootFindError> {
@@ -51,12 +57,6 @@ pub struct BisectionConfig {
 pub enum Midpoint {
     Arithmetic,
     Geometric,
-}
-
-impl Into<RootFindConfig> for BisectionConfig {
-    fn into(self) -> RootFindConfig {
-        RootFindConfig::Bisection(self)
-    }
 }
 
 pub fn bisection(
@@ -115,6 +115,7 @@ pub fn rootfind_1d(
     config: impl Into<RootFindConfig>,
 ) -> Result<f64, RootFindError> {
     match config.into() {
+        // seems a bit silly to into() and then immediately destructure
         RootFindConfig::Newton1d(n_config) => newton1d(f, n_config),
         RootFindConfig::Bisection(b_config) => bracket_bisection(f, b_config),
     }
