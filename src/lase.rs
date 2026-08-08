@@ -23,23 +23,18 @@ pub struct Reflectivities {
 }
 
 #[derive(Copy, Clone)]
-pub struct GridPoints(usize);
+pub struct GridPoints(pub usize);
 
-#[derive(Copy, Clone)]
-pub struct Discretisation {
-    pub length: f64,
-    pub nz: usize,
-}
-
-impl Discretisation {
-    pub fn grid(self) -> Vec<f64> {
-        linspace(0.0, self.length, self.nz)
+impl GridPoints {
+    pub fn grid(self, length: f64) -> Vec<f64> {
+        linspace(0.0, length, self.0)
     }
 
-    pub fn step(self) -> f64 {
-        self.length / self.nz as f64
+    pub fn dz(self, length: f64) -> f64 {
+        length / self.0 as f64
     }
 }
+
 
 #[derive(Copy, Clone)]
 pub struct GratingProfile {
@@ -158,31 +153,26 @@ pub fn transfer(gain: f64, kappa: f64, dz: f64) -> (f64, f64, f64, f64) {
 pub fn solve_profile(
     fs: FieldState,
     fp: FibreParams,
-    ds: Discretisation,
     kappas: &[f64],
 ) -> FieldProfile {
-    let dz = ds.step();
-
+    let nz = kappas.len();
+    let dz = fp.length / nz as f64;
     let mut current = fs;
-    let mut result = FieldProfile::with_capacity(ds.nz + 1);
-
+    let mut result = FieldProfile::with_capacity(nz + 1);
     for &kappa in kappas {
         current = current.propagate(fp, kappa, dz);
         result.push(current);
     }
-
     result
 }
 
-pub fn residual(fs: FieldState, fp: FibreParams, ds: Discretisation, kappas: &[f64]) -> f64 {
-    let dz = ds.step();
-
+pub fn residual(fs: FieldState, fp: FibreParams, kappas: &[f64]) -> f64 {
+    let nz = kappas.len();
+    let dz = fp.length / nz as f64;
     let mut current = fs;
-
     for &kappa in kappas {
         current = current.propagate(fp, kappa, dz);
     }
-
     current.sgnl_b
 }
 
@@ -191,30 +181,30 @@ pub fn residual(fs: FieldState, fp: FibreParams, ds: Discretisation, kappas: &[f
 pub fn find_lasing(
     fs: FieldState,
     fp: FibreParams,
-    ds: Discretisation,
+    gp: GridPoints,
     kp: GratingProfile,
     config: BisectionConfig,
 ) -> Result<FieldProfile, BisectionError> {
-    let kappas = kp.grid(ds.nz);
+    let kappas = kp.grid(gp.0);
     let trial = |sgnl_b| FieldState { sgnl_b, ..fs };
-    let f = |sgnl_b| residual(trial(sgnl_b), fp, ds, &kappas);
+    let f = |sgnl_b| residual(trial(sgnl_b), fp, &kappas);
     let sgnl_b = bisection(f, geometric_mid, config)?;
-    Ok(solve_profile(trial(sgnl_b), fp, ds, &kappas))
+    Ok(solve_profile(trial(sgnl_b), fp, &kappas))
 }
 
 
 pub fn find_lasing_newton(
     fs: FieldState,
     fp: FibreParams,
-    ds: Discretisation,
+    gp: GridPoints,
     kp: GratingProfile,
     config: Newton1dConfig,
 ) -> Result<FieldProfile, Newton1dError> {
-    let kappas = kp.grid(ds.nz);
+    let kappas = kp.grid(gp.0);
     let trial = |sgnl_b| FieldState { sgnl_b, ..fs };
-    let f = |sgnl_b| residual(trial(sgnl_b), fp, ds, &kappas);
+    let f = |sgnl_b| residual(trial(sgnl_b), fp, &kappas);
     let sgnl_b = newton1d(f, config)?;
-    Ok(solve_profile(trial(sgnl_b), fp, ds, &kappas))
+    Ok(solve_profile(trial(sgnl_b), fp, &kappas))
 }
 
 pub enum FibreKind {

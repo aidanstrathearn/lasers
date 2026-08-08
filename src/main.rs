@@ -1,6 +1,4 @@
-use lasers::lase::{Discretisation, FibreParams, FieldState, GratingProfile,
-                   find_lasing, find_lasing_newton, gain, pops, transfer,
-};
+use lasers::lase::{find_lasing, find_lasing_newton, gain, pops, transfer, FibreParams, FieldState, GratingProfile, GridPoints};
 
 use lasers::rootfind::{Newton1dConfig, BisectionConfig};
 use lasers::myplotlib::Plotter;
@@ -25,10 +23,7 @@ fn main() -> eframe::Result {
         length: 10.0,
     };
 
-    let ds = Discretisation {
-        length: 10.0,
-        nz: 500usize,
-    };
+    let gp = GridPoints(500);
 
     let kp = GratingProfile {
         kappa_max: 1.0,
@@ -51,18 +46,18 @@ fn main() -> eframe::Result {
 
     let mut plt = Plotter::new();
 
-    let kappa: Vec<f64> = kp.grid(ds.nz);
+    let kappa: Vec<f64> = kp.grid(gp.0);
 
     let start = Instant::now();
-    let result0 = find_lasing(fs, fp, ds, kp, bc).unwrap();
-    let result = find_lasing_newton(fs, fp, ds, kp, nc).unwrap();
+    let result0 = find_lasing(fs, fp, gp, kp, bc).unwrap();
+    let result = find_lasing_newton(fs, fp, gp, kp, nc).unwrap();
     let elapsed = start.elapsed();
     println!("{:?}", elapsed);
 
     let runs = 1000usize;
     let start = Instant::now();
     for _ in 0..runs {
-        let result = find_lasing_newton(fs, fp, ds, kp, nc).unwrap();
+        let result = find_lasing(fs, fp, gp, kp, bc).unwrap();
         black_box(result);
     }
     let elapsed = start.elapsed();
@@ -71,7 +66,7 @@ fn main() -> eframe::Result {
         elapsed.as_secs_f64() * 1_000_000.0 / runs as f64
     );
 
-    let x = ds.grid();
+    let x = gp.grid(fp.length);
     let pump_f: Vec<f64> = result.pump_f().collect();
     let pump_b: Vec<f64> = result.pump_b().collect();
     let sgnl_f: Vec<f64> = result
