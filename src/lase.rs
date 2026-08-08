@@ -11,13 +11,13 @@ pub struct Dopant {
     pub pump_em: f64,
     pub sgnl_ab: f64,
     pub sgnl_em: f64,
-    pub length: f64
+    pub length: f64,
 }
 
 #[derive(Copy, Clone)]
 pub struct Reflectivities {
-left: f64,
-right: f64
+    left: f64,
+    right: f64,
 }
 
 //#[derive(Copy, Clone)]
@@ -27,11 +27,9 @@ right: f64
 //	pub right_reflection: f64,
 //	}
 
-#[derive(Copy, Clone)]	
+#[derive(Copy, Clone)]
 pub struct GridPoints(usize);
 
-
-	
 #[derive(Copy, Clone)]
 pub struct Discretisation {
     pub length: f64,
@@ -56,7 +54,9 @@ pub struct GratingProfile {
 
 impl GratingProfile {
     pub fn grid(self, n: usize) -> Vec<f64> {
-        (0..=n).map(|j| { let z = j as f64 / n as f64;
+        (0..=n)
+            .map(|j| {
+                let z = j as f64 / n as f64;
                 if z < self.pi_shift_position {
                     self.kappa_max
                 } else {
@@ -302,15 +302,13 @@ pub fn find_lasing_newton(
 }
 
 pub enum FibreKind {
-	Amplifier,
-	DFB(GratingProfile),
-	DBR(Reflectivities),
-	Hybrid(GratingProfile, Reflectivities)
-	}
-
-pub struct Solver {
-params: Dopant,
-kind: FibreKind
+    Amplifier,
+    DFB(GratingProfile),
+    DBR(Reflectivities),
+    Hybrid(GratingProfile, Reflectivities),
 }
 
-
+pub struct Solver {
+    params: Dopant,
+    kind: FibreKind,
+}

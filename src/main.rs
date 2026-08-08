@@ -1,6 +1,6 @@
 use lasers::lase::{
-    BisectionConfig, Newton1dConfig, Discretisation, Dopant, FieldState, GratingProfile, find_lasing, gain, pops,
-    transfer, find_lasing_newton
+    BisectionConfig, Discretisation, Dopant, FieldState, GratingProfile, Newton1dConfig,
+    find_lasing, find_lasing_newton, gain, pops, transfer,
 };
 use lasers::myplotlib::Plotter;
 use std::hint::black_box;
@@ -21,7 +21,7 @@ fn main() -> eframe::Result {
         pump_em: 0.0,
         sgnl_ab: 0.0,
         sgnl_em: 1.0,
-        length: 10.0
+        length: 10.0,
     };
 
     let ds = Discretisation {
@@ -40,7 +40,7 @@ fn main() -> eframe::Result {
         upper: fs.pump_f,
         lower: fs.sgnl_b,
     };
-    
+
     let nc = Newton1dConfig {
         tolerance: 1e-8f64,
         max_iters: 100usize,
@@ -48,10 +48,8 @@ fn main() -> eframe::Result {
         dx: 1e-6,
     };
 
-
     let mut plt = Plotter::new();
 
-    
     let kappa: Vec<f64> = kp.grid(ds.nz);
 
     let start = Instant::now();
@@ -71,8 +69,7 @@ fn main() -> eframe::Result {
         "average: {:.3} µs",
         elapsed.as_secs_f64() * 1_000_000.0 / runs as f64
     );
-    
-    
+
     let x = ds.grid();
     let pump_f: Vec<f64> = result.pump_f().collect();
     let pump_b: Vec<f64> = result.pump_b().collect();
@@ -94,8 +91,7 @@ fn main() -> eframe::Result {
     plt.ylabel("Amplitude");
     plt.title("Fields");
     plt.show()?;
-    
-    
+
     let (p1, p2) = pops(fs, dp);
     println!("Populations {}  {}", p1, p2);
 
