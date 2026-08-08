@@ -1,3 +1,5 @@
+use crate::rootfind::{newton1d, BisectionConfig, Newton1dConfig, Newton1dError, BisectionError, geometric_mid, bisection};
+
 pub fn linspace(start: f64, stop: f64, nsteps: usize) -> Vec<f64> {
     let step: f64 = (stop - start) / (nsteps as f64);
     (0..=nsteps).map(|x| start + (x as f64) * step).collect()
@@ -19,13 +21,6 @@ pub struct Reflectivities {
     left: f64,
     right: f64,
 }
-
-//#[derive(Copy, Clone)]
-//pub struct Fibre {
-//	pub length: f64,
-//	pub left_reflection: f64,
-//	pub right_reflection: f64,
-//	}
 
 #[derive(Copy, Clone)]
 pub struct GridPoints(usize);
@@ -191,60 +186,7 @@ pub fn residual(fs: FieldState, dp: Dopant, ds: Discretisation, kappas: &[f64]) 
     current.sgnl_b
 }
 
-#[derive(Copy, Clone)]
-pub struct BisectionConfig {
-    pub tolerance: f64,
-    pub max_iters: usize,
-    pub upper: f64,
-    pub lower: f64,
-}
 
-#[derive(Debug)]
-pub enum BisectionError {
-    DidNotConverge,
-    RootNotBracketed,
-}
-
-pub fn arithmetic_mid(a: f64, b: f64) -> f64 {
-    0.5 * (a + b)
-}
-
-pub fn geometric_mid(a: f64, b: f64) -> f64 {
-    (a * b).sqrt()
-}
-
-fn bisection(
-    f: impl Fn(f64) -> f64,
-    mid: impl Fn(f64, f64) -> f64,
-    config: BisectionConfig,
-) -> Result<f64, BisectionError> {
-    let mut lower = config.lower;
-    let mut upper = config.upper;
-    let mut f_lower = f(lower);
-    let f_upper = f(upper);
-
-    if f_lower * f_upper > 0.0 {
-        return Err(BisectionError::RootNotBracketed);
-    }
-
-    for _ in 0..config.max_iters {
-        let midpoint = mid(upper, lower);
-        let f_midpoint = f(midpoint);
-
-        if f_midpoint.abs() < config.tolerance {
-            return Ok(midpoint);
-        }
-
-        if f_lower * f_midpoint <= 0.0 {
-            upper = midpoint;
-        } else {
-            lower = midpoint;
-            f_lower = f_midpoint;
-        }
-    }
-
-    Err(BisectionError::DidNotConverge)
-}
 
 pub fn find_lasing(
     fs: FieldState,
@@ -260,32 +202,6 @@ pub fn find_lasing(
     Ok(solve_profile(trial(sgnl_b), dp, ds, &kappas))
 }
 
-#[derive(Debug)]
-pub enum Newton1dError {
-    DidNotConverge,
-}
-
-#[derive(Copy, Clone)]
-pub struct Newton1dConfig {
-    pub tolerance: f64,
-    pub max_iters: usize,
-    pub initial: f64,
-    pub dx: f64,
-}
-
-fn newton1d(f: impl Fn(f64) -> f64, config: Newton1dConfig) -> Result<f64, Newton1dError> {
-    let dx = config.dx;
-    let mut x = config.initial;
-    for _ in 0..config.max_iters {
-        let fx = f(x);
-        if fx.abs() < config.tolerance {
-            return Ok(x);
-        }
-        let dfdx = (f(x + dx) - fx) / dx;
-        x -= fx / dfdx;
-    }
-    Err(Newton1dError::DidNotConverge)
-}
 
 pub fn find_lasing_newton(
     fs: FieldState,

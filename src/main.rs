@@ -1,7 +1,8 @@
-use lasers::lase::{
-    BisectionConfig, Discretisation, Dopant, FieldState, GratingProfile, Newton1dConfig,
+use lasers::lase::{Discretisation, Dopant, FieldState, GratingProfile,
     find_lasing, find_lasing_newton, gain, pops, transfer,
 };
+
+use lasers::rootfind::{Newton1dConfig, BisectionConfig};
 use lasers::myplotlib::Plotter;
 use std::hint::black_box;
 use std::time::Instant;
