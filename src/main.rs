@@ -1,10 +1,7 @@
-use lasers::lase::{
-    FibreParams, FieldState, GratingProfile, GridPoints, find_lasing, find_lasing_newton, gain,
-    pops, transfer,
-};
+use lasers::lase::{find_lasing, find_lasing_newton, find_root_lasing, gain, pops, transfer, FibreParams, FieldState, GratingProfile, GridPoints};
 
 use lasers::myplotlib::Plotter;
-use lasers::rootfind::{BisectionConfig, Newton1dConfig};
+use lasers::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use std::hint::black_box;
 use std::time::Instant;
 
@@ -38,12 +35,13 @@ fn main() -> eframe::Result {
         max_iters: 100usize,
         upper: fs.pump_f,
         lower: fs.sgnl_b,
+        midpoint: Midpoint::Geometric
     };
 
     let nc = Newton1dConfig {
         tolerance: 1e-8f64,
         max_iters: 100usize,
-        initial: fs.pump_f * 1000.0,
+        initial: fs.pump_f,
         dx: 1e-6,
     };
 
@@ -54,13 +52,14 @@ fn main() -> eframe::Result {
     let start = Instant::now();
     let result0 = find_lasing(fs, fp, gp, kp, bc).unwrap();
     let result = find_lasing_newton(fs, fp, gp, kp, nc).unwrap();
+    let result = find_root_lasing(fs, fp, gp, kp, bc).unwrap();
     let elapsed = start.elapsed();
     println!("{:?}", elapsed);
 
     let runs = 1000usize;
     let start = Instant::now();
     for _ in 0..runs {
-        let result = find_lasing(fs, fp, gp, kp, bc).unwrap();
+        let result = find_root_lasing(fs, fp, gp, kp, nc).unwrap();
         black_box(result);
     }
     let elapsed = start.elapsed();

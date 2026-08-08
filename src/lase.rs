@@ -1,7 +1,4 @@
-use crate::rootfind::{
-    BisectionConfig, BisectionError, Newton1dConfig, Newton1dError, bisection, geometric_mid,
-    newton1d,
-};
+use crate::rootfind::{bisection, bracket_bisection, geometric_bisection, geometric_mid, newton1d, BisectionConfig, Newton1dConfig, RootFindConfig, RootFindError};
 
 pub fn linspace(start: f64, stop: f64, nsteps: usize) -> Vec<f64> {
     let step: f64 = (stop - start) / (nsteps as f64);
@@ -176,12 +173,12 @@ pub fn find_lasing(
     gp: GridPoints,
     kp: GratingProfile,
     config: BisectionConfig,
-) -> Result<FieldProfile, BisectionError> {
+) -> Result<FieldProfile, RootFindError> {
     let kappas = kp.grid(gp.0);
     let dz = gp.dz(fp.length);
     let trial = |sgnl_b| FieldState { sgnl_b, ..fs };
     let f = |sgnl_b| residual(trial(sgnl_b), fp, dz, &kappas);
-    let sgnl_b = bisection(f, geometric_mid, config)?;
+    let sgnl_b = geometric_bisection(f, config)?;
     Ok(solve_profile(trial(sgnl_b), fp, dz, &kappas))
 }
 
@@ -191,12 +188,30 @@ pub fn find_lasing_newton(
     gp: GridPoints,
     kp: GratingProfile,
     config: Newton1dConfig,
-) -> Result<FieldProfile, Newton1dError> {
+) -> Result<FieldProfile, RootFindError> {
     let kappas = kp.grid(gp.0);
     let dz = gp.dz(fp.length);
     let trial = |sgnl_b| FieldState { sgnl_b, ..fs };
     let f = |sgnl_b| residual(trial(sgnl_b), fp, dz, &kappas);
     let sgnl_b = newton1d(f, config)?;
+    Ok(solve_profile(trial(sgnl_b), fp, dz, &kappas))
+}
+
+pub fn find_root_lasing(
+    fs: FieldState,
+    fp: FibreParams,
+    gp: GridPoints,
+    kp: GratingProfile,
+    config: impl Into<RootFindConfig>,
+) -> Result<FieldProfile, RootFindError> {
+    let kappas = kp.grid(gp.0);
+    let dz = gp.dz(fp.length);
+    let trial = |sgnl_b| FieldState { sgnl_b, ..fs };
+    let f = |sgnl_b| residual(trial(sgnl_b), fp, dz, &kappas);
+    let sgnl_b = match config.into() {
+        RootFindConfig::Newton1d(n_config) => newton1d(f, n_config)?,
+        RootFindConfig::Bisection(b_config) => bracket_bisection(f, b_config)?,
+    };
     Ok(solve_profile(trial(sgnl_b), fp, dz, &kappas))
 }
 
