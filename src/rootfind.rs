@@ -44,13 +44,13 @@ pub struct BisectionConfig {
     pub max_iters: usize,
     pub upper: f64,
     pub lower: f64,
-    pub midpoint: Midpoint
+    pub midpoint: Midpoint,
 }
 
 #[derive(Copy, Clone)]
 pub enum Midpoint {
     Arithmetic,
-    Geometric
+    Geometric,
 }
 
 impl Into<RootFindConfig> for BisectionConfig {
@@ -106,27 +106,14 @@ pub fn bracket_bisection(
 ) -> Result<f64, RootFindError> {
     match config.midpoint {
         Midpoint::Arithmetic => bisection(f, arithmetic_mid, config),
-        Midpoint::Geometric => bisection(f, geometric_mid, config)
+        Midpoint::Geometric => bisection(f, geometric_mid, config),
     }
-
 }
 
-pub fn geometric_bisection(
+pub fn rootfind_1d(
     f: impl Fn(f64) -> f64,
-    config: BisectionConfig,
+    config: impl Into<RootFindConfig>,
 ) -> Result<f64, RootFindError> {
-    bisection(f, geometric_mid, config)
-}
-
-pub fn arithmetic_bisection(
-    f: impl Fn(f64) -> f64,
-    config: BisectionConfig,
-) -> Result<f64, RootFindError> {
-    bisection(f, arithmetic_mid, config)
-}
-
-pub fn rootfind_1d(f: impl Fn(f64) -> f64,
-                  config: impl Into<RootFindConfig>) -> Result<f64, RootFindError> {
     match config.into() {
         RootFindConfig::Newton1d(n_config) => newton1d(f, n_config),
         RootFindConfig::Bisection(b_config) => bracket_bisection(f, b_config),

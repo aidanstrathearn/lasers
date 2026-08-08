@@ -1,4 +1,6 @@
-use lasers::lase::{find_lasing, find_lasing_newton, find_root_lasing, gain, pops, transfer, FibreParams, FieldState, GratingProfile, GridPoints};
+use lasers::lase::{
+    FibreParams, FieldState, GratingProfile, GridPoints, find_lasing, gain, pops, transfer,
+};
 
 use lasers::myplotlib::Plotter;
 use lasers::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
@@ -35,7 +37,7 @@ fn main() -> eframe::Result {
         max_iters: 100usize,
         upper: fs.pump_f,
         lower: fs.sgnl_b,
-        midpoint: Midpoint::Geometric
+        midpoint: Midpoint::Geometric,
     };
 
     let nc = Newton1dConfig {
@@ -45,29 +47,17 @@ fn main() -> eframe::Result {
         dx: 1e-6,
     };
 
-
-
     let kappa: Vec<f64> = kp.grid(gp.0);
 
     let start = Instant::now();
-    let result0 = find_lasing(fs, fp, gp, kp, bc).unwrap();
-    let result1 = find_lasing_newton(fs, fp, gp, kp, nc).unwrap();
-    let result = find_root_lasing(fs, fp, gp, kp, nc).unwrap();
+    let result = find_lasing(fs, fp, gp, kp, nc).unwrap();
     let elapsed = start.elapsed();
     println!("{:?}", elapsed);
-
-    let mut plt = Plotter::new();
-    let x = gp.grid(fp.length);
-    let diff: Vec<f64> = result.sgnl_b().zip(result0.sgnl_b()).map(|(a, b)| a-b).collect();
-    let diff1: Vec<f64> = result.sgnl_b().zip(result1.sgnl_b()).map(|(a, b)| a-b).collect();
-    plt.plot(&x, &diff).label("Both bisection");
-    plt.plot(&x, &diff1).label("Bisection vs newton");;
-    plt.show()?;
 
     let runs = 1000usize;
     let start = Instant::now();
     for _ in 0..runs {
-        let result = find_root_lasing(fs, fp, gp, kp, nc).unwrap();
+        let result = find_lasing(fs, fp, gp, kp, nc).unwrap();
         black_box(result);
     }
     let elapsed = start.elapsed();

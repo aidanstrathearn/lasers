@@ -1,4 +1,4 @@
-use crate::rootfind::{bisection, bracket_bisection, geometric_bisection, geometric_mid, newton1d, BisectionConfig, Newton1dConfig, RootFindConfig, RootFindError, rootfind_1d};
+use crate::rootfind::{RootFindConfig, RootFindError, rootfind_1d};
 
 pub fn linspace(start: f64, stop: f64, nsteps: usize) -> Vec<f64> {
     let step: f64 = (stop - start) / (nsteps as f64);
@@ -168,36 +168,6 @@ pub fn residual(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> f64
 }
 
 pub fn find_lasing(
-    fs: FieldState,
-    fp: FibreParams,
-    gp: GridPoints,
-    kp: GratingProfile,
-    config: BisectionConfig,
-) -> Result<FieldProfile, RootFindError> {
-    let kappas = kp.grid(gp.0);
-    let dz = gp.dz(fp.length);
-    let trial = |sgnl_b| FieldState { sgnl_b, ..fs };
-    let f = |sgnl_b| residual(trial(sgnl_b), fp, dz, &kappas);
-    let sgnl_b = geometric_bisection(f, config)?;
-    Ok(solve_profile(trial(sgnl_b), fp, dz, &kappas))
-}
-
-pub fn find_lasing_newton(
-    fs: FieldState,
-    fp: FibreParams,
-    gp: GridPoints,
-    kp: GratingProfile,
-    config: Newton1dConfig,
-) -> Result<FieldProfile, RootFindError> {
-    let kappas = kp.grid(gp.0);
-    let dz = gp.dz(fp.length);
-    let trial = |sgnl_b| FieldState { sgnl_b, ..fs };
-    let f = |sgnl_b| residual(trial(sgnl_b), fp, dz, &kappas);
-    let sgnl_b = newton1d(f, config)?;
-    Ok(solve_profile(trial(sgnl_b), fp, dz, &kappas))
-}
-
-pub fn find_root_lasing(
     fs: FieldState,
     fp: FibreParams,
     gp: GridPoints,
