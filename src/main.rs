@@ -45,16 +45,24 @@ fn main() -> eframe::Result {
         dx: 1e-6,
     };
 
-    let mut plt = Plotter::new();
+
 
     let kappa: Vec<f64> = kp.grid(gp.0);
 
     let start = Instant::now();
     let result0 = find_lasing(fs, fp, gp, kp, bc).unwrap();
-    let result = find_lasing_newton(fs, fp, gp, kp, nc).unwrap();
-    let result = find_root_lasing(fs, fp, gp, kp, bc).unwrap();
+    let result1 = find_lasing_newton(fs, fp, gp, kp, nc).unwrap();
+    let result = find_root_lasing(fs, fp, gp, kp, nc).unwrap();
     let elapsed = start.elapsed();
     println!("{:?}", elapsed);
+
+    let mut plt = Plotter::new();
+    let x = gp.grid(fp.length);
+    let diff: Vec<f64> = result.sgnl_b().zip(result0.sgnl_b()).map(|(a, b)| a-b).collect();
+    let diff1: Vec<f64> = result.sgnl_b().zip(result1.sgnl_b()).map(|(a, b)| a-b).collect();
+    plt.plot(&x, &diff).label("Both bisection");
+    plt.plot(&x, &diff1).label("Bisection vs newton");;
+    plt.show()?;
 
     let runs = 1000usize;
     let start = Instant::now();
@@ -79,6 +87,8 @@ fn main() -> eframe::Result {
         .sgnl_b()
         .map(|x| (x.powi(2) + 1e-6).log10())
         .collect();
+
+    let mut plt = Plotter::new();
     plt.plot(&x, &kappa).label("Kappa");
     plt.plot(&x, &pump_f).label("Forward Pump");
     plt.plot(&x, &pump_b).label("Backward Pump");

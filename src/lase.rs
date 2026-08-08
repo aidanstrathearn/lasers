@@ -1,4 +1,4 @@
-use crate::rootfind::{bisection, bracket_bisection, geometric_bisection, geometric_mid, newton1d, BisectionConfig, Newton1dConfig, RootFindConfig, RootFindError};
+use crate::rootfind::{bisection, bracket_bisection, geometric_bisection, geometric_mid, newton1d, BisectionConfig, Newton1dConfig, RootFindConfig, RootFindError, rootfind_1d};
 
 pub fn linspace(start: f64, stop: f64, nsteps: usize) -> Vec<f64> {
     let step: f64 = (stop - start) / (nsteps as f64);
@@ -208,10 +208,7 @@ pub fn find_root_lasing(
     let dz = gp.dz(fp.length);
     let trial = |sgnl_b| FieldState { sgnl_b, ..fs };
     let f = |sgnl_b| residual(trial(sgnl_b), fp, dz, &kappas);
-    let sgnl_b = match config.into() {
-        RootFindConfig::Newton1d(n_config) => newton1d(f, n_config)?,
-        RootFindConfig::Bisection(b_config) => bracket_bisection(f, b_config)?,
-    };
+    let sgnl_b = rootfind_1d(f, config)?;
     Ok(solve_profile(trial(sgnl_b), fp, dz, &kappas))
 }
 
