@@ -1,0 +1,110 @@
+use lasers::lase::{
+    BisectionConfig, Newton1dConfig, Discretisation, Dopant, FieldState, GratingProfile, find_lasing, gain, pops,
+    transfer, find_lasing_newton
+};
+use lasers::myplotlib::Plotter;
+use std::hint::black_box;
+use std::time::Instant;
+
+fn main() -> eframe::Result {
+    let fs = FieldState {
+        sgnl_f: 0.0,
+        sgnl_b: 0.0001,
+        pump_f: 10.0,
+        pump_b: 0.0,
+    };
+
+    let dp = Dopant {
+        density: 1.0,
+        lifetime: 1.0,
+        pump_ab: 0.01,
+        pump_em: 0.0,
+        sgnl_ab: 0.0,
+        sgnl_em: 1.0,
+        length: 10.0
+    };
+
+    let ds = Discretisation {
+        length: 10.0,
+        nz: 500usize,
+    };
+
+    let kp = GratingProfile {
+        kappa_max: 1.0,
+        pi_shift_position: 0.5,
+    };
+
+    let bc = BisectionConfig {
+        tolerance: 1e-8f64,
+        max_iters: 100usize,
+        upper: fs.pump_f,
+        lower: fs.sgnl_b,
+    };
+    
+    let nc = Newton1dConfig {
+        tolerance: 1e-8f64,
+        max_iters: 100usize,
+        initial: fs.pump_f * 1000.0,
+        dx: 1e-6,
+    };
+
+
+    let mut plt = Plotter::new();
+
+    
+    let kappa: Vec<f64> = kp.grid(ds.nz);
+
+    let start = Instant::now();
+    let result0 = find_lasing(fs, dp, ds, kp, bc).unwrap();
+    let result = find_lasing_newton(fs, dp, ds, kp, nc).unwrap();
+    let elapsed = start.elapsed();
+    println!("{:?}", elapsed);
+
+    let runs = 1000usize;
+    let start = Instant::now();
+    for _ in 0..runs {
+        let result = find_lasing_newton(fs, dp, ds, kp, nc).unwrap();
+        black_box(result);
+    }
+    let elapsed = start.elapsed();
+    println!(
+        "average: {:.3} µs",
+        elapsed.as_secs_f64() * 1_000_000.0 / runs as f64
+    );
+    
+    
+    let x = ds.grid();
+    let pump_f: Vec<f64> = result.pump_f().collect();
+    let pump_b: Vec<f64> = result.pump_b().collect();
+    let sgnl_f: Vec<f64> = result
+        .sgnl_f()
+        .map(|x| (x.powi(2) + 1e-6).log10())
+        .collect();
+    let sgnl_b: Vec<f64> = result
+        .sgnl_b()
+        .map(|x| (x.powi(2) + 1e-6).log10())
+        .collect();
+    plt.plot(&x, &kappa).label("Kappa");
+    plt.plot(&x, &pump_f).label("Forward Pump");
+    plt.plot(&x, &pump_b).label("Backward Pump");
+    plt.plot(&x, &sgnl_f).label("Forward signal");
+    plt.plot(&x, &sgnl_b).label("Backward signal");
+
+    plt.xlabel("z");
+    plt.ylabel("Amplitude");
+    plt.title("Fields");
+    plt.show()?;
+    
+    
+    let (p1, p2) = pops(fs, dp);
+    println!("Populations {}  {}", p1, p2);
+
+    let (g1, g2) = gain(fs, dp);
+    println!("Gain {}  {}", g1, g2);
+
+    let (a, b, c, d) = transfer(1.0, 0.0, 1.0);
+    println!("Transfer {:?}", (a, b, c, d));
+    println!("{}", a == (0.5_f64).exp());
+
+    Ok(())
+}
