@@ -1,5 +1,5 @@
-use lasers::lase::{Discretisation, Dopant, FieldState, GratingProfile,
-    find_lasing, find_lasing_newton, gain, pops, transfer,
+use lasers::lase::{Discretisation, FibreParams, FieldState, GratingProfile,
+                   find_lasing, find_lasing_newton, gain, pops, transfer,
 };
 
 use lasers::rootfind::{Newton1dConfig, BisectionConfig};
@@ -15,7 +15,7 @@ fn main() -> eframe::Result {
         pump_b: 0.0,
     };
 
-    let dp = Dopant {
+    let fp = FibreParams {
         density: 1.0,
         lifetime: 1.0,
         pump_ab: 0.01,
@@ -54,15 +54,15 @@ fn main() -> eframe::Result {
     let kappa: Vec<f64> = kp.grid(ds.nz);
 
     let start = Instant::now();
-    let result0 = find_lasing(fs, dp, ds, kp, bc).unwrap();
-    let result = find_lasing_newton(fs, dp, ds, kp, nc).unwrap();
+    let result0 = find_lasing(fs, fp, ds, kp, bc).unwrap();
+    let result = find_lasing_newton(fs, fp, ds, kp, nc).unwrap();
     let elapsed = start.elapsed();
     println!("{:?}", elapsed);
 
     let runs = 1000usize;
     let start = Instant::now();
     for _ in 0..runs {
-        let result = find_lasing_newton(fs, dp, ds, kp, nc).unwrap();
+        let result = find_lasing_newton(fs, fp, ds, kp, nc).unwrap();
         black_box(result);
     }
     let elapsed = start.elapsed();
@@ -93,10 +93,10 @@ fn main() -> eframe::Result {
     plt.title("Fields");
     plt.show()?;
 
-    let (p1, p2) = pops(fs, dp);
+    let (p1, p2) = pops(fs, fp);
     println!("Populations {}  {}", p1, p2);
 
-    let (g1, g2) = gain(fs, dp);
+    let (g1, g2) = gain(fs, fp);
     println!("Gain {}  {}", g1, g2);
 
     let (a, b, c, d) = transfer(1.0, 0.0, 1.0);

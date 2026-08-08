@@ -6,7 +6,7 @@ pub fn linspace(start: f64, stop: f64, nsteps: usize) -> Vec<f64> {
 }
 
 #[derive(Copy, Clone)]
-pub struct Dopant {
+pub struct FibreParams {
     pub density: f64,
     pub lifetime: f64,
     pub pump_ab: f64,
@@ -71,8 +71,8 @@ pub struct FieldState {
 }
 
 impl FieldState {
-    fn propagate(self, dp: Dopant, kappa: f64, dz: f64) -> Self {
-        let (gp, gs) = gain(self, dp);
+    fn propagate(self, fp: FibreParams, kappa: f64, dz: f64) -> Self {
+        let (gp, gs) = gain(self, fp);
         let (a, b, c, d) = transfer(gs, kappa, dz);
         let expg = (0.5 * gp * dz).exp();
 
@@ -123,20 +123,20 @@ impl FieldProfile {
     }
 }
 
-pub fn pops(fs: FieldState, dp: Dopant) -> (f64, f64) {
+pub fn pops(fs: FieldState, fp: FibreParams) -> (f64, f64) {
     let pump_flux = fs.pump_f * fs.pump_f + fs.pump_b * fs.pump_b;
     let sgnl_flux = fs.sgnl_f * fs.sgnl_f + fs.sgnl_b * fs.sgnl_b;
-    let gamma_up = pump_flux * dp.pump_ab + sgnl_flux * dp.sgnl_ab;
-    let gamma_dn = pump_flux * dp.pump_em + sgnl_flux * dp.sgnl_em + 1.0 / dp.lifetime;
+    let gamma_up = pump_flux * fp.pump_ab + sgnl_flux * fp.sgnl_ab;
+    let gamma_dn = pump_flux * fp.pump_em + sgnl_flux * fp.sgnl_em + 1.0 / fp.lifetime;
     let denom = gamma_up + gamma_dn;
     (gamma_dn / denom, gamma_up / denom)
 }
 
-pub fn gain(fs: FieldState, dp: Dopant) -> (f64, f64) {
-    let (g, e) = pops(fs, dp);
+pub fn gain(fs: FieldState, fp: FibreParams) -> (f64, f64) {
+    let (g, e) = pops(fs, fp);
     (
-        dp.density * (-g * dp.pump_ab + e * dp.pump_em),
-        dp.density * (-g * dp.sgnl_ab + e * dp.sgnl_em),
+        fp.density * (-g * fp.pump_ab + e * fp.pump_em),
+        fp.density * (-g * fp.sgnl_ab + e * fp.sgnl_em),
     )
 }
 
@@ -157,7 +157,7 @@ pub fn transfer(gain: f64, kappa: f64, dz: f64) -> (f64, f64, f64, f64) {
 
 pub fn solve_profile(
     fs: FieldState,
-    dp: Dopant,
+    fp: FibreParams,
     ds: Discretisation,
     kappas: &[f64],
 ) -> FieldProfile {
@@ -167,20 +167,20 @@ pub fn solve_profile(
     let mut result = FieldProfile::with_capacity(ds.nz + 1);
 
     for &kappa in kappas {
-        current = current.propagate(dp, kappa, dz);
+        current = current.propagate(fp, kappa, dz);
         result.push(current);
     }
 
     result
 }
 
-pub fn residual(fs: FieldState, dp: Dopant, ds: Discretisation, kappas: &[f64]) -> f64 {
+pub fn residual(fs: FieldState, fp: FibreParams, ds: Discretisation, kappas: &[f64]) -> f64 {
     let dz = ds.step();
 
     let mut current = fs;
 
     for &kappa in kappas {
-        current = current.propagate(dp, kappa, dz);
+        current = current.propagate(fp, kappa, dz);
     }
 
     current.sgnl_b
@@ -190,31 +190,31 @@ pub fn residual(fs: FieldState, dp: Dopant, ds: Discretisation, kappas: &[f64]) 
 
 pub fn find_lasing(
     fs: FieldState,
-    dp: Dopant,
+    fp: FibreParams,
     ds: Discretisation,
     kp: GratingProfile,
     config: BisectionConfig,
 ) -> Result<FieldProfile, BisectionError> {
     let kappas = kp.grid(ds.nz);
     let trial = |sgnl_b| FieldState { sgnl_b, ..fs };
-    let f = |sgnl_b| residual(trial(sgnl_b), dp, ds, &kappas);
+    let f = |sgnl_b| residual(trial(sgnl_b), fp, ds, &kappas);
     let sgnl_b = bisection(f, geometric_mid, config)?;
-    Ok(solve_profile(trial(sgnl_b), dp, ds, &kappas))
+    Ok(solve_profile(trial(sgnl_b), fp, ds, &kappas))
 }
 
 
 pub fn find_lasing_newton(
     fs: FieldState,
-    dp: Dopant,
+    fp: FibreParams,
     ds: Discretisation,
     kp: GratingProfile,
     config: Newton1dConfig,
 ) -> Result<FieldProfile, Newton1dError> {
     let kappas = kp.grid(ds.nz);
     let trial = |sgnl_b| FieldState { sgnl_b, ..fs };
-    let f = |sgnl_b| residual(trial(sgnl_b), dp, ds, &kappas);
+    let f = |sgnl_b| residual(trial(sgnl_b), fp, ds, &kappas);
     let sgnl_b = newton1d(f, config)?;
-    Ok(solve_profile(trial(sgnl_b), dp, ds, &kappas))
+    Ok(solve_profile(trial(sgnl_b), fp, ds, &kappas))
 }
 
 pub enum FibreKind {
@@ -225,6 +225,6 @@ pub enum FibreKind {
 }
 
 pub struct Solver {
-    params: Dopant,
+    params: FibreParams,
     kind: FibreKind,
 }
