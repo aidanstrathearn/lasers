@@ -153,12 +153,11 @@ pub fn transfer(gain: f64, kappa: f64, dz: f64) -> (f64, f64, f64, f64) {
 pub fn solve_profile(
     fs: FieldState,
     fp: FibreParams,
+    dz: f64,
     kappas: &[f64],
 ) -> FieldProfile {
-    let nz = kappas.len();
-    let dz = fp.length / nz as f64;
     let mut current = fs;
-    let mut result = FieldProfile::with_capacity(nz + 1);
+    let mut result = FieldProfile::with_capacity(kappas.len() + 1);
     for &kappa in kappas {
         current = current.propagate(fp, kappa, dz);
         result.push(current);
@@ -166,9 +165,7 @@ pub fn solve_profile(
     result
 }
 
-pub fn residual(fs: FieldState, fp: FibreParams, kappas: &[f64]) -> f64 {
-    let nz = kappas.len();
-    let dz = fp.length / nz as f64;
+pub fn residual(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> f64 {
     let mut current = fs;
     for &kappa in kappas {
         current = current.propagate(fp, kappa, dz);
@@ -186,10 +183,11 @@ pub fn find_lasing(
     config: BisectionConfig,
 ) -> Result<FieldProfile, BisectionError> {
     let kappas = kp.grid(gp.0);
+    let dz = gp.dz(fp.length);
     let trial = |sgnl_b| FieldState { sgnl_b, ..fs };
-    let f = |sgnl_b| residual(trial(sgnl_b), fp, &kappas);
+    let f = |sgnl_b| residual(trial(sgnl_b), fp, dz, &kappas);
     let sgnl_b = bisection(f, geometric_mid, config)?;
-    Ok(solve_profile(trial(sgnl_b), fp, &kappas))
+    Ok(solve_profile(trial(sgnl_b), fp, dz, &kappas))
 }
 
 
@@ -201,10 +199,11 @@ pub fn find_lasing_newton(
     config: Newton1dConfig,
 ) -> Result<FieldProfile, Newton1dError> {
     let kappas = kp.grid(gp.0);
+    let dz = gp.dz(fp.length);
     let trial = |sgnl_b| FieldState { sgnl_b, ..fs };
-    let f = |sgnl_b| residual(trial(sgnl_b), fp, &kappas);
+    let f = |sgnl_b| residual(trial(sgnl_b), fp, dz, &kappas);
     let sgnl_b = newton1d(f, config)?;
-    Ok(solve_profile(trial(sgnl_b), fp, &kappas))
+    Ok(solve_profile(trial(sgnl_b), fp, dz, &kappas))
 }
 
 pub enum FibreKind {
