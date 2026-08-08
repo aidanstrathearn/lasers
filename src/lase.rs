@@ -1,4 +1,7 @@
-use crate::rootfind::{newton1d, BisectionConfig, Newton1dConfig, Newton1dError, BisectionError, geometric_mid, bisection};
+use crate::rootfind::{
+    BisectionConfig, BisectionError, Newton1dConfig, Newton1dError, bisection, geometric_mid,
+    newton1d,
+};
 
 pub fn linspace(start: f64, stop: f64, nsteps: usize) -> Vec<f64> {
     let step: f64 = (stop - start) / (nsteps as f64);
@@ -34,7 +37,6 @@ impl GridPoints {
         length / self.0 as f64
     }
 }
-
 
 #[derive(Copy, Clone)]
 pub struct GratingProfile {
@@ -150,12 +152,7 @@ pub fn transfer(gain: f64, kappa: f64, dz: f64) -> (f64, f64, f64, f64) {
     )
 }
 
-pub fn solve_profile(
-    fs: FieldState,
-    fp: FibreParams,
-    dz: f64,
-    kappas: &[f64],
-) -> FieldProfile {
+pub fn solve_profile(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> FieldProfile {
     let mut current = fs;
     let mut result = FieldProfile::with_capacity(kappas.len() + 1);
     for &kappa in kappas {
@@ -173,8 +170,6 @@ pub fn residual(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> f64
     current.sgnl_b
 }
 
-
-
 pub fn find_lasing(
     fs: FieldState,
     fp: FibreParams,
@@ -189,7 +184,6 @@ pub fn find_lasing(
     let sgnl_b = bisection(f, geometric_mid, config)?;
     Ok(solve_profile(trial(sgnl_b), fp, dz, &kappas))
 }
-
 
 pub fn find_lasing_newton(
     fs: FieldState,

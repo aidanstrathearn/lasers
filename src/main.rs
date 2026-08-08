@@ -1,7 +1,10 @@
-use lasers::lase::{find_lasing, find_lasing_newton, gain, pops, transfer, FibreParams, FieldState, GratingProfile, GridPoints};
+use lasers::lase::{
+    FibreParams, FieldState, GratingProfile, GridPoints, find_lasing, find_lasing_newton, gain,
+    pops, transfer,
+};
 
-use lasers::rootfind::{Newton1dConfig, BisectionConfig};
 use lasers::myplotlib::Plotter;
+use lasers::rootfind::{BisectionConfig, Newton1dConfig};
 use std::hint::black_box;
 use std::time::Instant;
 
