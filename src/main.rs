@@ -47,7 +47,7 @@ fn main() -> eframe::Result {
         dx: 1e-6,
     };
 
-    let kappa: Vec<f64> = kp.grid(gp.0);
+    let kappas: Vec<f64> = kp.grid(gp.0 + 1);
 
     let start = Instant::now();
     let result = find_lasing(fs, fp, gp, kp, nc).unwrap();
@@ -79,7 +79,7 @@ fn main() -> eframe::Result {
         .collect();
 
     let mut plt = Plotter::new();
-    plt.plot(&x, &kappa).label("Kappa");
+    plt.plot(&x, &kappas).label("Kappa");
     plt.plot(&x, &pump_f).label("Forward Pump");
     plt.plot(&x, &pump_b).label("Backward Pump");
     plt.plot(&x, &sgnl_f).label("Forward signal");

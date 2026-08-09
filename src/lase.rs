@@ -43,7 +43,7 @@ pub struct GratingProfile {
 
 impl GratingProfile {
     pub fn grid(self, n: usize) -> Vec<f64> {
-        (0..=n)
+        (0..n)
             .map(|j| {
                 let z = j as f64 / n as f64;
                 if z < self.pi_shift_position {
@@ -84,10 +84,6 @@ pub struct FieldProfile {
 }
 
 impl FieldProfile {
-    pub fn new() -> Self {
-        Self { data: Vec::new() }
-    }
-
     pub fn with_capacity(n: usize) -> Self {
         Self {
             data: Vec::with_capacity(n),
@@ -152,6 +148,7 @@ pub fn transfer(gain: f64, kappa: f64, dz: f64) -> (f64, f64, f64, f64) {
 pub fn solve_profile(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> FieldProfile {
     let mut current = fs;
     let mut result = FieldProfile::with_capacity(kappas.len() + 1);
+    result.push(current);
     for &kappa in kappas {
         current = current.propagate(fp, kappa, dz);
         result.push(current);
