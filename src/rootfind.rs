@@ -33,7 +33,7 @@ pub struct Newton1dConfig {
     pub dx: f64,
 }
 
-impl Default for Newton1dConfig{
+impl Default for Newton1dConfig {
     fn default() -> Self {
         Self {
             tolerance: DEFAULT_TOLERANCE,

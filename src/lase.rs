@@ -178,4 +178,3 @@ pub fn find_lasing_profile(
     let sgnl_b = rootfind_1d(f, config)?;
     Ok(solve_profile(trial(sgnl_b), fp, dz, &kappas))
 }
-

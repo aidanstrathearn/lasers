@@ -1,6 +1,5 @@
 use lasers::lase::{
-    FibreParams, FieldState, GratingProfile, GridPoints,
-    find_lasing_profile, gain, pops, transfer,
+    FibreParams, FieldState, GratingProfile, GridPoints, find_lasing_profile, gain, pops, transfer,
 };
 
 use lasers::myplotlib::Plotter;
@@ -66,14 +65,8 @@ fn main() -> eframe::Result {
     let x = gp.grid(fp.length);
     let pump_f: Vec<f64> = result.pump_f().collect();
     let pump_b: Vec<f64> = result.pump_b().collect();
-    let sgnl_f: Vec<f64> = result
-        .sgnl_f()
-        .map(|x| x.max(1e-6).log10())
-        .collect();
-    let sgnl_b: Vec<f64> = result
-        .sgnl_b()
-        .map(|x| x.max(1e-6).log10())
-        .collect();
+    let sgnl_f: Vec<f64> = result.sgnl_f().map(|x| x.max(1e-6).log10()).collect();
+    let sgnl_b: Vec<f64> = result.sgnl_b().map(|x| x.max(1e-6).log10()).collect();
 
     let mut plt = Plotter::new();
     plt.plot(&x, &kappas).label("Kappa");
