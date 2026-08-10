@@ -56,7 +56,7 @@ impl GratingProfile {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct FieldState {
     pub sgnl_f: f64,
     pub sgnl_b: f64,
@@ -156,15 +156,15 @@ pub fn solve_profile(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -
     result
 }
 
-pub fn residual(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> f64 {
+pub fn out_field(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> FieldState {
     let mut current = fs;
     for &kappa in kappas {
         current = current.propagate(fp, kappa, dz);
     }
-    current.sgnl_b
+    current
 }
 
-pub fn find_lasing(
+pub fn find_lasing_profile(
     fs: FieldState,
     fp: FibreParams,
     gp: GridPoints,
@@ -174,19 +174,8 @@ pub fn find_lasing(
     let kappas = kp.grid(gp.0);
     let dz = gp.dz(fp.length);
     let trial = |sgnl_b| FieldState { sgnl_b, ..fs };
-    let f = |sgnl_b| residual(trial(sgnl_b), fp, dz, &kappas);
+    let f = |sgnl_b| out_field(trial(sgnl_b), fp, dz, &kappas).sgnl_b;
     let sgnl_b = rootfind_1d(f, config)?;
     Ok(solve_profile(trial(sgnl_b), fp, dz, &kappas))
 }
 
-pub enum FibreKind {
-    Amplifier,
-    DFB(GratingProfile),
-    DBR(Reflectivities),
-    Hybrid(GratingProfile, Reflectivities),
-}
-
-pub struct Solver {
-    params: FibreParams,
-    kind: FibreKind,
-}
