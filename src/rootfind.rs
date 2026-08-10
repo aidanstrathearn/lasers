@@ -1,3 +1,6 @@
+const DEFAULT_TOLERANCE: f64 = 1e-8;
+const DEFAULT_MAX_ITERS: usize = 100;
+
 #[derive(Debug)]
 pub enum RootFindError {
     RootNotBracketed,
@@ -30,6 +33,17 @@ pub struct Newton1dConfig {
     pub dx: f64,
 }
 
+impl Default for Newton1dConfig{
+    fn default() -> Self {
+        Self {
+            tolerance: DEFAULT_TOLERANCE,
+            max_iters: DEFAULT_MAX_ITERS,
+            initial: 1.0,
+            dx: 1e-8,
+        }
+    }
+}
+
 pub fn newton1d(f: impl Fn(f64) -> f64, config: Newton1dConfig) -> Result<f64, RootFindError> {
     let dx = config.dx;
     let mut x = config.initial;
@@ -51,6 +65,18 @@ pub struct BisectionConfig {
     pub upper: f64,
     pub lower: f64,
     pub midpoint: Midpoint,
+}
+
+impl Default for BisectionConfig {
+    fn default() -> Self {
+        Self {
+            tolerance: DEFAULT_TOLERANCE,
+            max_iters: DEFAULT_MAX_ITERS,
+            upper: 1.0,
+            lower: 1e-8,
+            midpoint: Midpoint::Geometric,
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
