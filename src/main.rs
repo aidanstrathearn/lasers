@@ -1,5 +1,6 @@
 use lasers::lase::{
-    FibreParams, FieldState, GratingProfile, GridPoints, find_lasing_profile, gain, pops, transfer,
+    FibreParams, FieldState, GratingProfile, GridPoints, Pump, find_lasing_profile, gain, pops,
+    transfer,
 };
 
 use lasers::myplotlib::Plotter;
@@ -8,11 +9,9 @@ use std::hint::black_box;
 use std::time::Instant;
 
 fn main() -> eframe::Result {
-    let fs = FieldState {
-        sgnl_f: 0.0,
-        sgnl_b: 0.0001,
-        pump_f: 10.0,
-        pump_b: 0.0,
+    let pu = Pump {
+        forward: 10.0,
+        backward: 0.0,
     };
 
     let fp = FibreParams {
@@ -35,22 +34,22 @@ fn main() -> eframe::Result {
     let bc = BisectionConfig {
         tolerance: 1e-8f64,
         max_iters: 100usize,
-        upper: fs.pump_f,
-        lower: fs.sgnl_b,
+        upper: pu.forward,
+        lower: 1e-8,
         midpoint: Midpoint::Geometric,
     };
 
     let nc = Newton1dConfig {
         tolerance: 1e-8f64,
         max_iters: 100usize,
-        initial: fs.pump_f,
+        initial: pu.forward,
         dx: 1e-6,
     };
 
     let runs = 1000usize;
     let start = Instant::now();
     for _ in 0..runs {
-        let result = find_lasing_profile(fs, fp, gp, kp, nc).unwrap();
+        let result = find_lasing_profile(pu, fp, gp, kp, nc).unwrap();
         black_box(result);
     }
     let elapsed = start.elapsed();
@@ -59,7 +58,7 @@ fn main() -> eframe::Result {
         elapsed.as_secs_f64() * 1_000_000.0 / runs as f64
     );
 
-    let result = find_lasing_profile(fs, fp, gp, kp, nc).unwrap();
+    let result = find_lasing_profile(pu, fp, gp, kp, nc).unwrap();
     result.show()?;
 
     let mut plt = Plotter::new();
@@ -71,11 +70,11 @@ fn main() -> eframe::Result {
     plt.title("Coupling Profile");
     plt.show()?;
 
-    let (p1, p2) = pops(fs, fp);
-    println!("Populations {}  {}", p1, p2);
-
-    let (g1, g2) = gain(fs, fp);
-    println!("Gain {}  {}", g1, g2);
+    // let (p1, p2) = pops(fs, fp);
+    // println!("Populations {}  {}", p1, p2);
+    //
+    // let (g1, g2) = gain(fs, fp);
+    // println!("Gain {}  {}", g1, g2);
 
     let (a, b, c, d) = transfer(1.0, 0.0, 1.0);
     println!("Transfer {:?}", (a, b, c, d));

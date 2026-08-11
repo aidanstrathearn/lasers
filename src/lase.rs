@@ -186,9 +186,14 @@ pub fn out_field(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> Fi
     }
     current
 }
+#[derive(Copy, Clone)]
+pub struct Pump {
+    pub forward: f64,
+    pub backward: f64,
+}
 
 pub fn find_lasing_profile(
-    fs: FieldState,
+    pu: Pump,
     fp: FibreParams,
     gp: GridPoints,
     kp: GratingProfile,
@@ -196,7 +201,12 @@ pub fn find_lasing_profile(
 ) -> Result<FieldProfile, RootFindError> {
     let kappas = kp.grid(gp.0);
     let dz = gp.dz(fp.length);
-    let trial = |sgnl_b| FieldState { sgnl_b, ..fs };
+    let trial = |sgnl_b| FieldState {
+        sgnl_f: 0.0,
+        sgnl_b: sgnl_b,
+        pump_f: pu.forward,
+        pump_b: 0.0, // bidirectional pump not implemented yet
+    };
     let f = |sgnl_b| out_field(trial(sgnl_b), fp, dz, &kappas).sgnl_b;
     let sgnl_b = rootfind_1d(f, config)?;
     Ok(FieldProfile {
