@@ -86,8 +86,9 @@ pub struct FieldProfile {
 }
 
 impl FieldProfile {
-    pub fn push(&mut self, item: FieldState) {
-        self.fields.push(item);
+    pub fn new(z: Vec<f64>, fields: Vec<FieldState>) -> Self {
+        assert_eq!(z.len(), fields.len());
+        Self { z, fields }
     }
 
     pub fn sgnl_f(&self) -> impl Iterator<Item = f64> + '_ {
@@ -209,8 +210,8 @@ pub fn find_lasing_profile(
     };
     let f = |sgnl_b| out_field(trial(sgnl_b), fp, dz, &kappas).sgnl_b;
     let sgnl_b = rootfind_1d(f, config)?;
-    Ok(FieldProfile {
-        z: gp.grid(fp.length),
-        fields: solve_profile(trial(sgnl_b), fp, dz, &kappas),
-    })
+
+    let z = gp.grid(fp.length);
+    let fields = solve_profile(trial(sgnl_b), fp, dz, &kappas);
+    Ok(FieldProfile::new(z, fields))
 }
