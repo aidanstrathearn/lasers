@@ -59,26 +59,17 @@ fn main() -> eframe::Result {
         elapsed.as_secs_f64() * 1_000_000.0 / runs as f64
     );
 
-    let kappas: Vec<f64> = kp.grid(gp.0 + 1);
-    let result = find_lasing_profile(fs, fp, gp, kp, nc).unwrap();
 
-    //let x = gp.grid(fp.length);
-    let x: Vec<f64> = result.z().collect();
-    let pump_f: Vec<f64> = result.pump_f().collect();
-    let pump_b: Vec<f64> = result.pump_b().collect();
-    let sgnl_f: Vec<f64> = result.sgnl_f().map(|x| x.max(1e-6).log10()).collect();
-    let sgnl_b: Vec<f64> = result.sgnl_b().map(|x| x.max(1e-6).log10()).collect();
+    let result = find_lasing_profile(fs, fp, gp, kp, nc).unwrap();
+    result.show()?;
 
     let mut plt = Plotter::new();
-    plt.plot(&x, &kappas).label("Kappa");
-    plt.plot(&x, &pump_f).label("Forward Pump");
-    plt.plot(&x, &pump_b).label("Backward Pump");
-    plt.plot(&x, &sgnl_f).label("Forward signal");
-    plt.plot(&x, &sgnl_b).label("Backward signal");
-
+    let x: Vec<f64> = gp.grid(fp.length);
+    let kappas: Vec<f64> = kp.grid(gp.0 + 1);
+    plt.plot(&x, &kappas);
     plt.xlabel("z");
-    plt.ylabel("Amplitude");
-    plt.title("Fields");
+    plt.ylabel("Kappa");
+    plt.title("Coupling Profile");
     plt.show()?;
 
     let (p1, p2) = pops(fs, fp);

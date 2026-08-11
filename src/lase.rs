@@ -1,3 +1,4 @@
+use crate::myplotlib::Plotter;
 use crate::rootfind::{RootFindConfig, RootFindError, rootfind_1d};
 
 pub fn linspace(start: f64, stop: f64, nsteps: usize) -> Vec<f64> {
@@ -111,6 +112,26 @@ impl FieldProfile {
         //manual deref needed here and not for self.fields because struct field access e.g. x.sgnl_b derefs implicitly.
         //could also do self.z.iter().copied()
         self.z.iter().map(|&z| z)
+    }
+
+    pub fn show(&self) -> eframe::Result {
+        let x: Vec<f64> = self.z().collect();
+        let pump_f: Vec<f64> = self.pump_f().map(|x| x.max(1e-6).log10()).collect();
+        let pump_b: Vec<f64> = self.pump_b().map(|x| x.max(1e-6).log10()).collect();
+        let sgnl_f: Vec<f64> = self.sgnl_f().map(|x| x.max(1e-6).log10()).collect();
+        let sgnl_b: Vec<f64> = self.sgnl_b().map(|x| x.max(1e-6).log10()).collect();
+
+        let mut plt = Plotter::new();
+        plt.plot(&x, &pump_f).label("Forward Pump");
+        plt.plot(&x, &pump_b).label("Backward Pump");
+        plt.plot(&x, &sgnl_f).label("Forward Signal");
+        plt.plot(&x, &sgnl_b).label("Backward Signal");
+
+        plt.xlabel("z");
+        plt.ylabel("Amplitude");
+        plt.title("Fields");
+        plt.show()?;
+        Ok(())
     }
 }
 
