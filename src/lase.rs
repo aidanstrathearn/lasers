@@ -193,7 +193,7 @@ pub struct Pump {
     pub backward: f64,
 }
 
-pub fn find_lasing_profile(
+pub fn dfb_solve(
     pu: Pump,
     fp: FibreParams,
     gp: GridPoints,
@@ -214,4 +214,58 @@ pub fn find_lasing_profile(
     let z = gp.grid(fp.length);
     let fields = solve_profile(trial(sgnl_b), fp, dz, &kappas);
     Ok(FieldProfile::new(z, fields))
+}
+
+pub fn dfb_threshold_curve(
+    pumps: Vec<f64>,
+    fp: FibreParams,
+    gp: GridPoints,
+    kp: GratingProfile,
+    config: impl Into<RootFindConfig> + Copy,
+) -> Vec<Result<f64, RootFindError>> {
+    pumps
+        .iter()
+        .map(|&pmp| {
+            let pu = Pump {
+                forward: pmp,
+                backward: 0.0,
+            };
+            let result = dfb_solve(pu, fp, gp, kp, config)?;
+            Ok(result.sgnl_f().last().unwrap())
+        })
+        .collect()
+}
+
+pub fn dfb_threshold_curve_with_zeros(
+    pumps: &[f64],
+    fp: FibreParams,
+    gp: GridPoints,
+    kp: GratingProfile,
+    config: impl Into<RootFindConfig> + Copy,
+) -> Vec<f64> {
+    pumps
+        .iter()
+        .map(|&pmp| {
+            let pu = Pump {
+                forward: pmp,
+                backward: 0.0,
+            };
+            let result = dfb_solve(pu, fp, gp, kp, config)?;
+            Ok(result.sgnl_f().last().unwrap())
+        })
+        .map(|result: Result<f64, RootFindError>| result.unwrap_or(0.0))
+        .collect()
+
+    // pumps.iter()
+    //     .map(|&pmp| {
+    //         let pu = Pump {
+    //             forward: pmp,
+    //             backward: 0.0,
+    //         };
+    //
+    //         dfb_solve(pu, fp, gp, kp, config).map_or(0.0, |result| {
+    //             result.sgnl_f().last().unwrap()
+    //         })
+    //     })
+    //     .collect()
 }

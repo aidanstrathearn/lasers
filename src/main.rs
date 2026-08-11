@@ -1,6 +1,6 @@
 use lasers::lase::{
-    FibreParams, FieldState, GratingProfile, GridPoints, Pump, find_lasing_profile, gain, pops,
-    transfer,
+    FibreParams, FieldState, GratingProfile, GridPoints, Pump, dfb_solve,
+    dfb_threshold_curve_with_zeros, gain, linspace, pops, transfer,
 };
 
 use lasers::myplotlib::Plotter;
@@ -10,7 +10,7 @@ use std::time::Instant;
 
 fn main() -> eframe::Result {
     let pu = Pump {
-        forward: 10.0,
+        forward: 100.0,
         backward: 0.0,
     };
 
@@ -49,7 +49,7 @@ fn main() -> eframe::Result {
     let runs = 1000usize;
     let start = Instant::now();
     for _ in 0..runs {
-        let result = find_lasing_profile(pu, fp, gp, kp, nc).unwrap();
+        let result = dfb_solve(pu, fp, gp, kp, nc).unwrap();
         black_box(result);
     }
     let elapsed = start.elapsed();
@@ -58,8 +58,16 @@ fn main() -> eframe::Result {
         elapsed.as_secs_f64() * 1_000_000.0 / runs as f64
     );
 
-    let result = find_lasing_profile(pu, fp, gp, kp, nc).unwrap();
+    let result = dfb_solve(pu, fp, gp, kp, nc).unwrap();
     result.show()?;
+
+    let mut plt = Plotter::new();
+    let mut pumps = linspace(1e-3, 100.0, 20000);
+    let mut threshold = dfb_threshold_curve_with_zeros(&pumps, fp, gp, kp, bc);
+    pumps = pumps.iter().map(|x| x.log10()).collect();
+    threshold = threshold.iter().map(|x| x.max(1e-10).log10()).collect();
+    plt.plot(&pumps, &threshold);
+    plt.show()?;
 
     let mut plt = Plotter::new();
     let x: Vec<f64> = gp.grid(fp.length);
