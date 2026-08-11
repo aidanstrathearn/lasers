@@ -80,36 +80,37 @@ impl FieldState {
 }
 
 pub struct FieldProfile {
-    data: Vec<FieldState>,
+    z: Vec<f64>,
+    fields: Vec<FieldState>,
 }
 
 impl FieldProfile {
-    pub fn with_capacity(n: usize) -> Self {
-        Self {
-            data: Vec::with_capacity(n),
-        }
-    }
-
     pub fn push(&mut self, item: FieldState) {
-        self.data.push(item);
+        self.fields.push(item);
     }
 
     pub fn sgnl_f(&self) -> impl Iterator<Item = f64> + '_ {
         // borrows from self so '_ lifetime needs to match self
         // but looks like rust can infer this so doesnt need to be explicit
-        self.data.iter().map(|x| x.sgnl_f)
+        self.fields.iter().map(|x| x.sgnl_f)
     }
 
     pub fn sgnl_b(&self) -> impl Iterator<Item = f64> {
-        self.data.iter().map(|x| x.sgnl_b)
+        self.fields.iter().map(|x| x.sgnl_b)
     }
 
     pub fn pump_f(&self) -> impl Iterator<Item = f64> {
-        self.data.iter().map(|x| x.pump_f)
+        self.fields.iter().map(|x| x.pump_f)
     }
 
     pub fn pump_b(&self) -> impl Iterator<Item = f64> {
-        self.data.iter().map(|x| x.pump_b)
+        self.fields.iter().map(|x| x.pump_b)
+    }
+
+    pub fn z(&self) -> impl Iterator<Item = f64> {
+        //manual deref needed here and not for self.fields because struct field access e.g. x.sgnl_b derefs implicitly.
+        //could also do self.z.iter().copied()
+        self.z.iter().map(|&z| z)
     }
 }
 
@@ -145,9 +146,9 @@ pub fn transfer(gain: f64, kappa: f64, dz: f64) -> (f64, f64, f64, f64) {
     )
 }
 
-pub fn solve_profile(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> FieldProfile {
+pub fn solve_profile(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> Vec<FieldState> {
     let mut current = fs;
-    let mut result = FieldProfile::with_capacity(kappas.len() + 1);
+    let mut result = Vec::with_capacity(kappas.len() + 1);
     result.push(current);
     for &kappa in kappas {
         current = current.propagate(fp, kappa, dz);
@@ -176,5 +177,8 @@ pub fn find_lasing_profile(
     let trial = |sgnl_b| FieldState { sgnl_b, ..fs };
     let f = |sgnl_b| out_field(trial(sgnl_b), fp, dz, &kappas).sgnl_b;
     let sgnl_b = rootfind_1d(f, config)?;
-    Ok(solve_profile(trial(sgnl_b), fp, dz, &kappas))
+    Ok(FieldProfile {
+        z: gp.grid(fp.length),
+        fields: solve_profile(trial(sgnl_b), fp, dz, &kappas),
+    })
 }

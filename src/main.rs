@@ -62,7 +62,8 @@ fn main() -> eframe::Result {
     let kappas: Vec<f64> = kp.grid(gp.0 + 1);
     let result = find_lasing_profile(fs, fp, gp, kp, nc).unwrap();
 
-    let x = gp.grid(fp.length);
+    //let x = gp.grid(fp.length);
+    let x: Vec<f64> = result.z().collect();
     let pump_f: Vec<f64> = result.pump_f().collect();
     let pump_b: Vec<f64> = result.pump_b().collect();
     let sgnl_f: Vec<f64> = result.sgnl_f().map(|x| x.max(1e-6).log10()).collect();
