@@ -59,7 +59,6 @@ fn main() -> eframe::Result {
         elapsed.as_secs_f64() * 1_000_000.0 / runs as f64
     );
 
-
     let result = find_lasing_profile(fs, fp, gp, kp, nc).unwrap();
     result.show()?;
 

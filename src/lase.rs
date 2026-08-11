@@ -116,10 +116,11 @@ impl FieldProfile {
 
     pub fn show(&self) -> eframe::Result {
         let x: Vec<f64> = self.z().collect();
-        let pump_f: Vec<f64> = self.pump_f().map(|x| x.max(1e-6).log10()).collect();
-        let pump_b: Vec<f64> = self.pump_b().map(|x| x.max(1e-6).log10()).collect();
-        let sgnl_f: Vec<f64> = self.sgnl_f().map(|x| x.max(1e-6).log10()).collect();
-        let sgnl_b: Vec<f64> = self.sgnl_b().map(|x| x.max(1e-6).log10()).collect();
+        let clipped_log = |x: f64| x.powi(2).max(1e-6).log10();
+        let pump_f: Vec<f64> = self.pump_f().map(clipped_log).collect();
+        let pump_b: Vec<f64> = self.pump_b().map(clipped_log).collect();
+        let sgnl_f: Vec<f64> = self.sgnl_f().map(clipped_log).collect();
+        let sgnl_b: Vec<f64> = self.sgnl_b().map(clipped_log).collect();
 
         let mut plt = Plotter::new();
         plt.plot(&x, &pump_f).label("Forward Pump");
@@ -128,7 +129,7 @@ impl FieldProfile {
         plt.plot(&x, &sgnl_b).label("Backward Signal");
 
         plt.xlabel("z");
-        plt.ylabel("Amplitude");
+        plt.ylabel("log10(Power)");
         plt.title("Fields");
         plt.show()?;
         Ok(())
