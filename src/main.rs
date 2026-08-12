@@ -1,7 +1,4 @@
-use lasers::lase::{
-    FibreParams, FieldState, GratingProfile, GridPoints, Pump, dfb_solve,
-    dfb_threshold_curve_with_zeros, gain, linspace, pops, transfer,
-};
+use lasers::lase::{dfb_solve, dfb_threshold_curve_with_zeros, gain, geomspace, linspace, pops, transfer, FibreParams, FieldState, GratingProfile, GridPoints, Pump};
 
 use lasers::myplotlib::Plotter;
 use lasers::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
@@ -64,6 +61,7 @@ fn main() -> eframe::Result {
 
     let mut plt = Plotter::new();
     let mut pumps = linspace(1e-1, 0.5, 200);
+    let mut pumps = geomspace(-1.0, 1.0, 200);
     let start = Instant::now();
     let mut threshold = dfb_threshold_curve_with_zeros(&pumps, fp, gp, kp, bc);
     let sgnl_f: Vec<f64> = threshold.iter().map(|x| x.0).collect();
@@ -71,7 +69,7 @@ fn main() -> eframe::Result {
     let elapsed = start.elapsed();
     println!("pump sweep {:.3}", elapsed.as_secs_f64());
 
-    //pumps = pumps.iter().map(|x| x.log10()).collect();
+    pumps = pumps.iter().map(|x| x.log10()).collect();
     //threshold = threshold.iter().map(|x| x.max(1e-10).log10()).collect();
     plt.plot(&pumps, &sgnl_f).label("Forward");
     plt.plot(&pumps, &sgnl_b).label("Back");

@@ -6,6 +6,11 @@ pub fn linspace(start: f64, stop: f64, nsteps: usize) -> Vec<f64> {
     (0..=nsteps).map(|x| start + (x as f64) * step).collect()
 }
 
+pub fn geomspace(start: f64, stop: f64, nsteps: usize) -> Vec<f64> {
+    linspace(start, stop, nsteps).iter().map(|&x| 10.0_f64.powf(x)).collect()
+
+}
+
 #[derive(Copy, Clone)]
 pub struct FibreParams {
     pub density: f64,
@@ -251,18 +256,6 @@ pub fn dfb_threshold_curve_with_zeros(
     kp: GratingProfile,
     config: impl Into<RootFindConfig> + Copy,
 ) -> Vec<(f64, f64)> {
-    // pumps
-    //     .iter()
-    //     .map(|&pmp| {
-    //         let pu = Pump {
-    //             forward: pmp,
-    //             backward: 0.0,
-    //         };
-    //         let result = dfb_solve(pu, fp, gp, kp, config)?;
-    //         Ok(result.sgnl_f().last().unwrap())
-    //     })
-    //     .map(|result: Result<f64, RootFindError>| result.unwrap_or(0.0))
-    //     .collect()
     let full_profile = false;
     pumps
         .iter()
@@ -271,13 +264,28 @@ pub fn dfb_threshold_curve_with_zeros(
                 forward: pmp,
                 backward: 0.0,
             };
-
-            dfb_solve(pu, fp, gp, kp, full_profile, config).map_or((0.0, 0.0), |result| {
-                (
-                    result.sgnl_f().last().unwrap(),
-                    result.sgnl_b().next().unwrap(),
-                )
-            })
+            let result = dfb_solve(pu, fp, gp, kp, full_profile, config)?;
+            Ok(
+                 (result.sgnl_f().last().unwrap(),
+                 result.sgnl_b().next().unwrap()))
         })
+        .map(|result: Result<(f64, f64), RootFindError>| result.unwrap_or((0.0, 0.0)))
         .collect()
+
+    // pumps
+    //     .iter()
+    //     .map(|&pmp| {
+    //         let pu = Pump {
+    //             forward: pmp,
+    //             backward: 0.0,
+    //         };
+    //
+    //         dfb_solve(pu, fp, gp, kp, full_profile, config).map_or((0.0, 0.0), |result| {
+    //             (
+    //                 result.sgnl_f().last().unwrap(),
+    //                 result.sgnl_b().next().unwrap(),
+    //             )
+    //         })
+    //     })
+    //     .collect()
 }
