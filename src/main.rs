@@ -25,10 +25,11 @@ fn main() -> eframe::Result {
     };
 
     let gp = GridPoints(500);
+    let full_profile = true;
 
     let kp = GratingProfile {
         kappa_max: 1.0,
-        pi_shift_position: 0.5,
+        pi_shift_position: 0.45,
     };
 
     let bc = BisectionConfig {
@@ -49,7 +50,7 @@ fn main() -> eframe::Result {
     let runs = 1000usize;
     let start = Instant::now();
     for _ in 0..runs {
-        let result = dfb_solve(pu, fp, gp, kp, nc).unwrap();
+        let result = dfb_solve(pu, fp, gp, kp, full_profile, nc).unwrap();
         black_box(result);
     }
     let elapsed = start.elapsed();
@@ -58,15 +59,22 @@ fn main() -> eframe::Result {
         elapsed.as_secs_f64() * 1_000_000.0 / runs as f64
     );
 
-    let result = dfb_solve(pu, fp, gp, kp, nc).unwrap();
+    let result = dfb_solve(pu, fp, gp, kp, full_profile, nc).unwrap();
     result.show()?;
 
     let mut plt = Plotter::new();
-    let mut pumps = linspace(1e-3, 100.0, 20000);
+    let mut pumps = linspace(1e-1, 0.5, 200);
+    let start = Instant::now();
     let mut threshold = dfb_threshold_curve_with_zeros(&pumps, fp, gp, kp, bc);
-    pumps = pumps.iter().map(|x| x.log10()).collect();
-    threshold = threshold.iter().map(|x| x.max(1e-10).log10()).collect();
-    plt.plot(&pumps, &threshold);
+    let sgnl_f: Vec<f64> = threshold.iter().map(|x| x.0).collect();
+    let sgnl_b: Vec<f64> = threshold.iter().map(|x| x.1).collect();
+    let elapsed = start.elapsed();
+    println!("pump sweep {:.3}", elapsed.as_secs_f64());
+
+    //pumps = pumps.iter().map(|x| x.log10()).collect();
+    //threshold = threshold.iter().map(|x| x.max(1e-10).log10()).collect();
+    plt.plot(&pumps, &sgnl_f).label("Forward");
+    plt.plot(&pumps, &sgnl_b).label("Back");
     plt.show()?;
 
     let mut plt = Plotter::new();

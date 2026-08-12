@@ -198,6 +198,7 @@ pub fn dfb_solve(
     fp: FibreParams,
     gp: GridPoints,
     kp: GratingProfile,
+    full_profile: bool,
     config: impl Into<RootFindConfig>,
 ) -> Result<FieldProfile, RootFindError> {
     let kappas = kp.grid(gp.0);
@@ -211,9 +212,16 @@ pub fn dfb_solve(
     let f = |sgnl_b| out_field(trial(sgnl_b), fp, dz, &kappas).sgnl_b;
     let sgnl_b = rootfind_1d(f, config)?;
 
-    let z = gp.grid(fp.length);
-    let fields = solve_profile(trial(sgnl_b), fp, dz, &kappas);
-    Ok(FieldProfile::new(z, fields))
+    if full_profile {
+        let z = gp.grid(fp.length);
+        let fields = solve_profile(trial(sgnl_b), fp, dz, &kappas);
+        Ok(FieldProfile::new(z, fields))
+    } else {
+        let z = vec![0.0_f64, fp.length];
+        let out_left = trial(sgnl_b);
+        let fields = vec![out_left, out_field(out_left, fp, dz, &kappas)];
+        Ok(FieldProfile::new(z, fields))
+    }
 }
 
 pub fn dfb_threshold_curve(
@@ -230,7 +238,7 @@ pub fn dfb_threshold_curve(
                 forward: pmp,
                 backward: 0.0,
             };
-            let result = dfb_solve(pu, fp, gp, kp, config)?;
+            let result = dfb_solve(pu, fp, gp, kp, false, config)?;
             Ok(result.sgnl_f().last().unwrap())
         })
         .collect()
@@ -242,7 +250,20 @@ pub fn dfb_threshold_curve_with_zeros(
     gp: GridPoints,
     kp: GratingProfile,
     config: impl Into<RootFindConfig> + Copy,
-) -> Vec<f64> {
+) -> Vec<(f64, f64)> {
+    // pumps
+    //     .iter()
+    //     .map(|&pmp| {
+    //         let pu = Pump {
+    //             forward: pmp,
+    //             backward: 0.0,
+    //         };
+    //         let result = dfb_solve(pu, fp, gp, kp, config)?;
+    //         Ok(result.sgnl_f().last().unwrap())
+    //     })
+    //     .map(|result: Result<f64, RootFindError>| result.unwrap_or(0.0))
+    //     .collect()
+    let full_profile = false;
     pumps
         .iter()
         .map(|&pmp| {
@@ -250,22 +271,13 @@ pub fn dfb_threshold_curve_with_zeros(
                 forward: pmp,
                 backward: 0.0,
             };
-            let result = dfb_solve(pu, fp, gp, kp, config)?;
-            Ok(result.sgnl_f().last().unwrap())
-        })
-        .map(|result: Result<f64, RootFindError>| result.unwrap_or(0.0))
-        .collect()
 
-    // pumps.iter()
-    //     .map(|&pmp| {
-    //         let pu = Pump {
-    //             forward: pmp,
-    //             backward: 0.0,
-    //         };
-    //
-    //         dfb_solve(pu, fp, gp, kp, config).map_or(0.0, |result| {
-    //             result.sgnl_f().last().unwrap()
-    //         })
-    //     })
-    //     .collect()
+            dfb_solve(pu, fp, gp, kp, full_profile, config).map_or((0.0, 0.0), |result| {
+                (
+                    result.sgnl_f().last().unwrap(),
+                    result.sgnl_b().next().unwrap(),
+                )
+            })
+        })
+        .collect()
 }
