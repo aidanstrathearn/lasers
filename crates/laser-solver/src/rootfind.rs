@@ -1,3 +1,5 @@
+//! One-dimensional root-finding algorithms used by the laser solver.
+
 const DEFAULT_TOLERANCE: f64 = 1e-8;
 const DEFAULT_MAX_ITERS: usize = 100;
 

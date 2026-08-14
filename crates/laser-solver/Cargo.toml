@@ -1,0 +1,5 @@
+[package]
+name = "laser-solver"
+version.workspace = true
+edition.workspace = true
+publish = false

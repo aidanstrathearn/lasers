@@ -1,0 +1,10 @@
+[package]
+name = "laser-app"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+eframe.workspace = true
+egui_plot.workspace = true
+laser-solver.workspace = true

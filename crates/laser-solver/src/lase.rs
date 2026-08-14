@@ -1,4 +1,3 @@
-use crate::myplotlib::Plotter;
 use crate::rootfind::{RootFindConfig, RootFindError, rootfind_1d};
 
 pub fn linspace(start: f64, stop: f64, nsteps: usize) -> Vec<f64> {
@@ -7,8 +6,10 @@ pub fn linspace(start: f64, stop: f64, nsteps: usize) -> Vec<f64> {
 }
 
 pub fn geomspace(start: f64, stop: f64, nsteps: usize) -> Vec<f64> {
-    linspace(start, stop, nsteps).iter().map(|&x| 10.0_f64.powf(x)).collect()
-
+    linspace(start, stop, nsteps)
+        .iter()
+        .map(|&x| 10.0_f64.powf(x))
+        .collect()
 }
 
 #[derive(Copy, Clone)]
@@ -118,27 +119,6 @@ impl FieldProfile {
         //manual deref needed here and not for self.fields because struct field access e.g. x.sgnl_b derefs implicitly.
         //could also do self.z.iter().copied()
         self.z.iter().map(|&z| z)
-    }
-
-    pub fn show(&self) -> eframe::Result {
-        let x: Vec<f64> = self.z().collect();
-        let clipped_log = |x: f64| x.powi(2).max(1e-6).log10();
-        let pump_f: Vec<f64> = self.pump_f().map(clipped_log).collect();
-        let pump_b: Vec<f64> = self.pump_b().map(clipped_log).collect();
-        let sgnl_f: Vec<f64> = self.sgnl_f().map(clipped_log).collect();
-        let sgnl_b: Vec<f64> = self.sgnl_b().map(clipped_log).collect();
-
-        let mut plt = Plotter::new();
-        plt.plot(&x, &pump_f).label("Forward Pump");
-        plt.plot(&x, &pump_b).label("Backward Pump");
-        plt.plot(&x, &sgnl_f).label("Forward Signal");
-        plt.plot(&x, &sgnl_b).label("Backward Signal");
-
-        plt.xlabel("z");
-        plt.ylabel("log10(Power)");
-        plt.title("Fields");
-        plt.show()?;
-        Ok(())
     }
 }
 
@@ -265,9 +245,10 @@ pub fn dfb_threshold_curve_with_zeros(
                 backward: 0.0,
             };
             let result = dfb_solve(pu, fp, gp, kp, full_profile, config)?;
-            Ok(
-                 (result.sgnl_f().last().unwrap(),
-                 result.sgnl_b().next().unwrap()))
+            Ok((
+                result.sgnl_f().last().unwrap(),
+                result.sgnl_b().next().unwrap(),
+            ))
         })
         .map(|result: Result<(f64, f64), RootFindError>| result.unwrap_or((0.0, 0.0)))
         .collect()

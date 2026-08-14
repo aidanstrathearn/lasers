@@ -1,7 +1,13 @@
-use lasers::lase::{dfb_solve, dfb_threshold_curve_with_zeros, gain, geomspace, linspace, pops, transfer, FibreParams, FieldState, GratingProfile, GridPoints, Pump};
+mod myplotlib;
+mod plots;
 
-use lasers::myplotlib::Plotter;
-use lasers::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
+use laser_solver::lase::{
+    FibreParams, GratingProfile, GridPoints, Pump, dfb_solve, dfb_threshold_curve_with_zeros,
+    geomspace, transfer,
+};
+use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
+use myplotlib::Plotter;
+use plots::show_field_profile;
 use std::hint::black_box;
 use std::time::Instant;
 
@@ -57,13 +63,12 @@ fn main() -> eframe::Result {
     );
 
     let result = dfb_solve(pu, fp, gp, kp, full_profile, nc).unwrap();
-    result.show()?;
+    show_field_profile(&result)?;
 
     let mut plt = Plotter::new();
-    let mut pumps = linspace(1e-1, 0.5, 200);
     let mut pumps = geomspace(-1.0, 1.0, 200);
     let start = Instant::now();
-    let mut threshold = dfb_threshold_curve_with_zeros(&pumps, fp, gp, kp, bc);
+    let threshold = dfb_threshold_curve_with_zeros(&pumps, fp, gp, kp, bc);
     let sgnl_f: Vec<f64> = threshold.iter().map(|x| x.0).collect();
     let sgnl_b: Vec<f64> = threshold.iter().map(|x| x.1).collect();
     let elapsed = start.elapsed();

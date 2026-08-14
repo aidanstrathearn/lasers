@@ -1,3 +1,5 @@
+//! Lightweight native plotting helpers for exploratory solver work.
+
 use eframe::egui;
 use egui_plot::{Legend, Line, Plot, PlotPoints};
 
