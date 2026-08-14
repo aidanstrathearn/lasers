@@ -25,8 +25,15 @@ jobs:
       - name: Install WASM target
         run: rustup target add wasm32-unknown-unknown
 
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: wasm_plot_demo -> target
+
       - name: Install Trunk
-        run: cargo install trunk --locked --version 0.21.14
+        uses: taiki-e/install-action@v2
+        with:
+          tool: trunk@0.21.14
 
       - name: Build
         working-directory: wasm_plot_demo
