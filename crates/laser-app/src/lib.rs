@@ -1,8 +1,14 @@
 use eframe::egui;
 use egui_plot::{Line, Plot, PlotPoints};
 
+#[derive(PartialEq)]
+pub enum View {
+    Cos,
+    Sin,
+}
 pub struct LaserApp {
     frequency: f64,
+    view: View,
 }
 
 impl LaserApp {
@@ -12,11 +18,22 @@ impl LaserApp {
             .set_visuals(egui::Visuals::light());
         Self::default()
     }
+
+    pub fn points(&self) -> Vec<[f64; 2]> {
+        let x = (0..=200).map(|i| f64::from(i));
+        match self.view {
+            View::Sin => x.map(move |x| [x, (x * self.frequency).sin()]).collect(),
+            View::Cos => x.map(move |x| [x, (x * self.frequency).cos()]).collect(),
+        }
+    }
 }
 
 impl Default for LaserApp {
     fn default() -> Self {
-        Self { frequency: 0.05 }
+        Self {
+            frequency: 0.05,
+            view: View::Sin,
+        }
     }
 }
 
@@ -32,10 +49,12 @@ impl eframe::App for LaserApp {
                 );
             });
 
-            let points = PlotPoints::from_iter((0..=200).map(|i| {
-                let x = f64::from(i);
-                [x, (x * self.frequency).sin()]
-            }));
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.view, View::Sin, "Sin");
+                ui.selectable_value(&mut self.view, View::Cos, "Cos");
+            });
+
+            let points = PlotPoints::from(self.points());
 
             Plot::new("sine-wave")
                 .x_axis_label("x")
