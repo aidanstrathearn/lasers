@@ -3,16 +3,24 @@ use egui_plot::{Line, Plot, PlotPoints};
 use wasm_bindgen::{JsCast as _, prelude::*};
 
 #[derive(Default)]
-struct PlotDemo;
+struct PlotDemo {frequency: f64}
+
 
 impl eframe::App for PlotDemo {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("eframe + egui_plot + WebAssembly");
+            ui.horizontal(|ui|
+                ui.add(
+                // '&mut f' required to prevent copying because f: f64: Copy
+                egui::Slider::new(&mut self.frequency, 0.01..=1.0)
+                    .text("frequency")
+                    .step_by(0.01),
+            ));
 
             let points = PlotPoints::from_iter((0..=200).map(|i| {
-                let x = f64::from(i) * 0.05;
-                [x, x.sin()]
+                let x = f64::from(i);
+                [x, (x * self.frequency).sin()]
             }));
 
             Plot::new("sine-wave")
@@ -47,7 +55,7 @@ pub fn start() -> Result<(), JsValue> {
                     creation_context
                         .egui_ctx
                         .set_visuals(egui::Visuals::light());
-                    Ok(Box::new(PlotDemo))
+                    Ok(Box::new(PlotDemo {frequency: 0.05}))
                 }),
             )
             .await
