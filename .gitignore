@@ -1,2 +1,5 @@
 /target
 .idea/
+wasm_plot_demo/
+src/iter_ext.rs
+src/tests.rs
