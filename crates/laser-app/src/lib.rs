@@ -1,5 +1,9 @@
 use eframe::egui;
+use eframe::egui::Ui;
 use egui_plot::{Line, Plot, PlotPoints};
+use laser_solver::lase::{dfb_solve, FibreParams, GratingProfile, GridPoints, Pump};
+use laser_solver::rootfind::Newton1dConfig;
+
 
 #[derive(PartialEq)]
 pub enum View {
@@ -9,6 +13,8 @@ pub enum View {
 pub struct LaserApp {
     frequency: f64,
     view: View,
+    fibre_params: FibreParams,
+    grating: GratingProfile
 }
 
 impl LaserApp {
@@ -26,13 +32,76 @@ impl LaserApp {
             View::Cos => x.map(move |x| [x, (x * self.frequency).cos()]).collect(),
         }
     }
+
+    pub fn plot(&self, ui: &mut Ui) {
+        let points = PlotPoints::from(self.points());
+
+        Plot::new("sine-wave")
+            .x_axis_label("x")
+            .y_axis_label("sin(x)")
+            .show(ui, |plot_ui| {
+                plot_ui.line(Line::new("sine", points));
+            });
+    }
+
+    pub fn plot_fields(&self, ui: &mut Ui) {
+        let pu = Pump {
+            forward: 100.0,
+            backward: 0.0,
+        };
+        let gp = GridPoints(500);
+        let full_profile = true;
+        let nc = Newton1dConfig {
+            tolerance: 1e-8f64,
+            max_iters: 100usize,
+            initial: pu.forward,
+            dx: 1e-6,
+        };
+        let result = dfb_solve(pu, self.fibre_params, gp, self.grating, full_profile, nc).unwrap();
+        let z = result.z();
+        let field = result.sgnl_b();
+        let points: Vec<[f64;2]> = z.zip(field).map(|(x,y)| [x,y.abs()]).collect();
+
+        let z = result.z();
+        let field2 = result.sgnl_f();
+        let points2: Vec<[f64;2]> = z.zip(field2).map(|(x,y)| [x,y.abs()]).collect();
+        Plot::new("sine-wave")
+            .x_axis_label("z")
+            .y_axis_label("sgnl_b")
+            .show(ui, |plot_ui| {
+                plot_ui.line(Line::new("field", points));
+                plot_ui.line(Line::new("field", points2));
+            });
+
+    }
 }
 
 impl Default for LaserApp {
     fn default() -> Self {
+
+
+        let fp = FibreParams {
+            density: 1.0,
+            lifetime: 1.0,
+            pump_ab: 0.01,
+            pump_em: 0.0,
+            sgnl_ab: 0.0,
+            sgnl_em: 1.0,
+            length: 10.0,
+        };
+
+
+
+        let kp = GratingProfile {
+            kappa_max: 1.0,
+            pi_shift_position: 0.45,
+        };
+
         Self {
             frequency: 0.05,
             view: View::Sin,
+            fibre_params: fp,
+            grating: kp,
         }
     }
 }
@@ -42,26 +111,34 @@ impl eframe::App for LaserApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("eframe + egui_plot");
             ui.horizontal(|ui| {
+
+                ui.label("frequency");
                 ui.add(
                     egui::Slider::new(&mut self.frequency, 0.01..=1.0)
-                        .text("frequency")
                         .step_by(0.01),
+
+                );
+                ui.label("pi pos");
+                ui.add(
+                    egui::Slider::new(&mut self.grating.pi_shift_position, 0.01..=1.0)
+                        .step_by(0.01),
+
+                );
+
+                ui.label("density");
+                ui.add(
+                    egui::Slider::new(&mut self.fibre_params.density, 0.01..=10.0)
+                        .step_by(0.01),
+
                 );
             });
-
+            ui.vertical(|ui|{
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.view, View::Sin, "Sin");
                 ui.selectable_value(&mut self.view, View::Cos, "Cos");
             });
+            self.plot_fields(ui);})
 
-            let points = PlotPoints::from(self.points());
-
-            Plot::new("sine-wave")
-                .x_axis_label("x")
-                .y_axis_label("sin(x)")
-                .show(ui, |plot_ui| {
-                    plot_ui.line(Line::new("sine", points));
-                });
         });
     }
 }
