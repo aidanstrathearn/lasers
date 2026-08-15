@@ -1,5 +1,7 @@
 //! One-dimensional root-finding algorithms used by the laser solver.
 
+use std::fmt;
+
 const DEFAULT_TOLERANCE: f64 = 1e-8;
 const DEFAULT_MAX_ITERS: usize = 100;
 
@@ -8,6 +10,21 @@ pub enum RootFindError {
     RootNotBracketed,
     DidNotConverge,
 }
+
+impl fmt::Display for RootFindError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::RootNotBracketed => {
+                write!(formatter, "root is not bracketed")
+            }
+            Self::DidNotConverge => {
+                write!(formatter, "root finder did not converge")
+            }
+        }
+    }
+}
+
+impl std::error::Error for RootFindError {}
 
 #[derive(Copy, Clone)]
 pub enum RootFindConfig {
