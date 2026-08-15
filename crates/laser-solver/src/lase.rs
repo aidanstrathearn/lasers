@@ -120,6 +120,32 @@ impl FieldProfile {
         //could also do self.z.iter().copied()
         self.z.iter().map(|&z| z)
     }
+
+    pub fn plotpoints(&self, field: &str) -> Vec<[f64; 2]> {
+        let z = self.z();
+        match field {
+            "sgnl_b" => {
+                let field = self.sgnl_b();
+                z.zip(field).map(|(x, y)| [x, y]).collect()
+            }
+
+            "sgnl_f" => {
+                let field = self.sgnl_f();
+                z.zip(field).map(|(x, y)| [x, y]).collect()
+            }
+
+            "pump_f" => {
+                let field = self.pump_f();
+                z.zip(field).map(|(x, y)| [x, y]).collect()
+            }
+
+            "pump_b" => {
+                let field = self.pump_b();
+                z.zip(field).map(|(x, y)| [x, y]).collect()
+            }
+            _ => panic!(),
+        }
+    }
 }
 
 pub fn pops(fs: FieldState, fp: FibreParams) -> (f64, f64) {
