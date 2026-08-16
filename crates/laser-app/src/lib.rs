@@ -3,6 +3,8 @@ use eframe::egui::Ui;
 use egui_plot::{Legend, Line, Plot, PlotPoints};
 use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump, dfb_solve};
 use laser_solver::rootfind::{Newton1dConfig, RootFindError};
+use std::sync::{mpsc, Arc};
+use std::sync::mpsc::Receiver;
 
 #[derive(PartialEq)]
 pub enum View {
@@ -74,7 +76,7 @@ impl LaserApp {
             });
     }
 
-    pub fn plot_fields(&mut self, ui: &mut Ui) -> Result<(), RootFindError> {
+    pub fn compute_and_plot(&mut self, ui: &mut Ui) -> Result<(), RootFindError> {
         let pu = Pump {
             forward: 100.0,
             backward: 0.0,
@@ -104,55 +106,56 @@ impl LaserApp {
             .x_axis_label("z")
             .y_axis_label("fields")
             .show(ui, |plot_ui| {
-                plot_ui.line(Line::new("field", sgnl_f).name("Forward Signal"));
-                plot_ui.line(Line::new("field", sgnl_b).name("Backward Signal"));
-                plot_ui.line(Line::new("field", pump_f).name("Forward Pump"));
-                plot_ui.line(Line::new("field", pump_b).name("Backward Pump"));
+                plot_ui.line(Line::new("field", sgnl_f).name("Forward Signal").width(3.0));
+                plot_ui.line(
+                    Line::new("field", sgnl_b)
+                        .name("Backward Signal")
+                        .width(3.0),
+                );
+                plot_ui.line(Line::new("field", pump_f).name("Forward Pump").width(3.0));
+                plot_ui.line(Line::new("field", pump_b).name("Backward Pump").width(3.0));
             });
         Ok(())
     }
+
+    pub fn param_sliders(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            ui.label("pi pos");
+            let response = ui.add(egui::Slider::new(&mut self.grating.pi_shift_position, 0.01..=1.0).step_by(0.01));
+            ui.separator();
+
+            ui.label("density");
+            ui.add(egui::Slider::new(&mut self.fibre_params.density, 0.01..=10.0).step_by(0.01));
+            ui.separator();
+
+            ui.label("length");
+            ui.add(egui::Slider::new(&mut self.fibre_params.length, 0.5..=20.0).step_by(0.01));
+            ui.separator();
+
+            ui.label("grid points");
+            ui.add(egui::Slider::new(&mut self.grid_points.0, 10..=1000).step_by(0.01));
+            ui.separator();
+        });
+    }
+
+    pub fn view_selectors(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            ui.selectable_value(&mut self.view, View::Sin, "Sin");
+            ui.selectable_value(&mut self.view, View::Cos, "Cos");
+        });
+    }
 }
+
 
 impl eframe::App for LaserApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("eframe + egui_plot");
-            ui.horizontal(|ui| {
-                ui.label("pi pos");
-                ui.add(
-                    egui::Slider::new(&mut self.grating.pi_shift_position, 0.01..=1.0)
-                        .step_by(0.01),
-                );
-                ui.separator();
-
-                ui.label("density");
-                ui.add(
-                    egui::Slider::new(&mut self.fibre_params.density, 0.01..=10.0).step_by(0.01),
-                );
-                ui.separator();
-
-                ui.label("length");
-                ui.add(egui::Slider::new(&mut self.fibre_params.length, 0.5..=20.0).step_by(0.01));
-                ui.separator();
-
-                ui.label("grid points");
-                ui.add(egui::Slider::new(&mut self.grid_points.0, 10..=1000).step_by(0.01));
-                ui.separator();
+            ui.heading("Lasers");
+            self.param_sliders(ui);
+            self.view_selectors(ui);
+            self.compute_and_plot(ui).unwrap_or_else(|error| {
+                ui.colored_label(ui.visuals().error_fg_color, error.to_string());
             });
-            ui.vertical(|ui| {
-                ui.horizontal(|ui| {
-                    ui.selectable_value(&mut self.view, View::Sin, "Sin");
-                    ui.selectable_value(&mut self.view, View::Cos, "Cos");
-                });
-                match self.plot_fields(ui) {
-                    Ok(()) => {
-                        ui.label("Ok");
-                    }
-                    Err(error) => {
-                        ui.colored_label(ui.visuals().error_fg_color, error.to_string());
-                    }
-                };
-            })
         });
     }
 }
