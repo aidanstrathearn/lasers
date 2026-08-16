@@ -3,8 +3,9 @@ use eframe::egui::Ui;
 use egui_plot::{Legend, Line, Plot, PlotPoints};
 use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump, dfb_solve};
 use laser_solver::rootfind::{Newton1dConfig, RootFindError};
-use std::sync::{mpsc, Arc};
 use std::sync::mpsc::Receiver;
+use std::sync::{Arc, mpsc};
+use std::thread;
 
 #[derive(PartialEq)]
 pub enum View {
@@ -12,12 +13,16 @@ pub enum View {
     Sin,
 }
 
+type Points = Vec<[f64; 2]>;
+
 pub struct LaserApp {
     frequency: f64,
     view: View,
     fibre_params: FibreParams,
     grid_points: GridPoints,
     grating: GratingProfile,
+    pending: Option<Receiver<Points>>,
+    result: Option<Points>,
 }
 
 impl Default for LaserApp {
@@ -45,6 +50,8 @@ impl Default for LaserApp {
             fibre_params: fp,
             grating: kp,
             grid_points: gp,
+            pending: None,
+            result: None,
         }
     }
 }
@@ -121,7 +128,9 @@ impl LaserApp {
     pub fn param_sliders(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.label("pi pos");
-            let response = ui.add(egui::Slider::new(&mut self.grating.pi_shift_position, 0.01..=1.0).step_by(0.01));
+            let response = ui.add(
+                egui::Slider::new(&mut self.grating.pi_shift_position, 0.01..=1.0).step_by(0.01),
+            );
             ui.separator();
 
             ui.label("density");
@@ -144,8 +153,53 @@ impl LaserApp {
             ui.selectable_value(&mut self.view, View::Cos, "Cos");
         });
     }
-}
 
+    #[cfg(not(target_arch = "wasm32"))]
+    fn start_compute(&mut self, ctx: egui::Context) {
+        let pu = Pump {
+            forward: 100.0,
+            backward: 0.0,
+        };
+        let full_profile = true;
+        let nc = Newton1dConfig {
+            tolerance: 1e-8f64,
+            max_iters: 100usize,
+            initial: pu.forward,
+            dx: 1e-6,
+        };
+        let fibre_params = self.fibre_params;
+        let grid_points = self.grid_points;
+        let grating = self.grating;
+        let compute_fn = move || {
+            let result = dfb_solve(pu, fibre_params, grid_points, grating, full_profile, nc)?;
+            Ok(result.plotpoints("sgnl_f"))
+        };
+
+        let (tx, rx) = mpsc::channel();
+
+        self.pending = Some(rx);
+
+        thread::spawn(move || {
+            //thread::sleep(Duration::from_millis(100));
+            let points: Result<Points, RootFindError> = compute_fn();
+            let _ = tx.send(points.unwrap());
+            ctx.request_repaint();
+        });
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn fetch_result(&mut self) {
+        // &self.pending: &Option<..>, and rust treats LHS as &Some(ref rx) -- generally derefs through pattern matching
+        // e.g. (a, b) = &my_tuple derefs the outer tuple and makes a,b: &...
+        // using self.pending.as_ref(): Option<&..> would mean nothing implicit happens
+        if let Some(rx) = &self.pending {
+            if let Ok(points) = rx.try_recv() {
+                self.result = Some(points);
+                self.pending = None;
+            }
+        }
+    }
+}
 
 impl eframe::App for LaserApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
