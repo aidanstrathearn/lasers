@@ -33,7 +33,8 @@ impl Default for FibreParams {
             sgnl_ab: 0.0,
             sgnl_em: 1.0,
             length: 10.0,
-        }    }
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -69,7 +70,10 @@ pub struct GratingProfile {
 
 impl Default for GratingProfile {
     fn default() -> Self {
-        Self { kappa_max: 1.0, pi_shift_position: 0.45}
+        Self {
+            kappa_max: 1.0,
+            pi_shift_position: 0.45,
+        }
     }
 }
 
@@ -231,7 +235,10 @@ pub struct Pump {
 
 impl Default for Pump {
     fn default() -> Self {
-        Self { forward: 100.0, backward: 0.0}
+        Self {
+            forward: 100.0,
+            backward: 0.0,
+        }
     }
 }
 

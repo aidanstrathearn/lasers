@@ -7,7 +7,14 @@ use std::sync::mpsc::Receiver;
 use std::sync::{Arc, mpsc};
 use std::thread;
 
-pub fn f64_slider(handle: &mut f64, name: &str, min: f64, max: f64, step: f64, ui: &mut Ui) -> Response {
+pub fn f64_slider(
+    handle: &mut f64,
+    name: &str,
+    min: f64,
+    max: f64,
+    step: f64,
+    ui: &mut Ui,
+) -> Response {
     ui.horizontal(|ui| {
         ui.label(name);
         ui.add(egui::Slider::new(handle, min..=max).step_by(step))
@@ -31,7 +38,7 @@ pub struct ProfilePlot {
     grid_points: GridPoints,
     grating: GratingProfile,
     pending: Option<Receiver<[Points; 4]>>,
-    result: Option<[Points; 4]>
+    result: Option<[Points; 4]>,
 }
 
 impl ProfilePlot {
@@ -50,10 +57,12 @@ impl ProfilePlot {
         let grating = self.grating;
         let compute_fn = move || {
             let result = dfb_solve(pump, fibre_params, grid_points, grating, full_profile, nc)?;
-            Ok([result.plotpoints("sgnl_f"),
+            Ok([
+                result.plotpoints("sgnl_f"),
                 result.plotpoints("sgnl_b"),
                 result.plotpoints("pump_f"),
-                result.plotpoints("pump_f")])
+                result.plotpoints("pump_f"),
+            ])
         };
 
         let (tx, rx) = mpsc::channel();
@@ -62,7 +71,7 @@ impl ProfilePlot {
 
         thread::spawn(move || {
             //thread::sleep(Duration::from_millis(100));
-            let points: Result<[Points;4], RootFindError> = compute_fn();
+            let points: Result<[Points; 4], RootFindError> = compute_fn();
             let _ = tx.send(points.unwrap());
             ctx.request_repaint();
         });
@@ -163,8 +172,22 @@ impl LaserApp {
             ui.add(egui::Slider::new(&mut self.pump.forward, 0.1..=200.0).step_by(0.01));
             ui.separator();
 
-            f64_slider(&mut self.fibre_params.pump_em, "pump_em", 0.0, 10.0, 0.01, ui);
-            f64_slider(&mut self.fibre_params.lifetime, "lifetime", 0.01, 10.0, 0.01, ui);
+            f64_slider(
+                &mut self.fibre_params.pump_em,
+                "pump_em",
+                0.0,
+                10.0,
+                0.01,
+                ui,
+            );
+            f64_slider(
+                &mut self.fibre_params.lifetime,
+                "lifetime",
+                0.01,
+                10.0,
+                0.01,
+                ui,
+            );
         });
     }
 
@@ -174,8 +197,6 @@ impl LaserApp {
             ui.selectable_value(&mut self.view, View::Cos, "Cos");
         });
     }
-
-
 }
 
 impl eframe::App for LaserApp {
