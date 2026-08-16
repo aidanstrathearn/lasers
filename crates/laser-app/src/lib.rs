@@ -16,7 +16,6 @@ pub enum View {
 type Points = Vec<[f64; 2]>;
 
 pub struct LaserApp {
-    frequency: f64,
     view: View,
     fibre_params: FibreParams,
     grid_points: GridPoints,
@@ -45,7 +44,6 @@ impl Default for LaserApp {
         let gp = GridPoints(500);
 
         Self {
-            frequency: 0.05,
             view: View::Sin,
             fibre_params: fp,
             grating: kp,
@@ -62,25 +60,6 @@ impl LaserApp {
             .egui_ctx
             .set_visuals(egui::Visuals::light());
         Self::default()
-    }
-
-    pub fn points(&self) -> Vec<[f64; 2]> {
-        let x = (0..=200).map(|i| f64::from(i));
-        match self.view {
-            View::Sin => x.map(move |x| [x, (x * self.frequency).sin()]).collect(),
-            View::Cos => x.map(move |x| [x, (x * self.frequency).cos()]).collect(),
-        }
-    }
-
-    pub fn plot(&self, ui: &mut Ui) {
-        let points = PlotPoints::from(self.points());
-
-        Plot::new("sine-wave")
-            .x_axis_label("x")
-            .y_axis_label("sin(x)")
-            .show(ui, |plot_ui| {
-                plot_ui.line(Line::new("sine", points));
-            });
     }
 
     pub fn compute_and_plot(&mut self, ui: &mut Ui) -> Result<(), RootFindError> {
