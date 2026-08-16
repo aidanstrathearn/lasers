@@ -37,6 +37,7 @@ impl Default for FibreParams {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Copy, Clone)]
 pub struct Reflectivities {
     left: f64,

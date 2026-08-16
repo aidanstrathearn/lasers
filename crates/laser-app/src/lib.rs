@@ -1,13 +1,13 @@
 use eframe::egui;
-use eframe::egui::{Response, Ui};
-use egui_plot::{Legend, Line, Plot, PlotPoints};
+use eframe::egui::{Ui};
+use egui_plot::{Legend, Line, Plot};
 use laser_solver::lase::{
     FibreParams, GratingProfile, GridPoints, Pump, dfb_solve, dfb_threshold_curve_with_zeros,
     linspace,
 };
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindError};
 use std::sync::mpsc::Receiver;
-use std::sync::{Arc, mpsc};
+use std::sync::{mpsc};
 use std::thread;
 
 // pub fn f64_slider(
@@ -34,6 +34,7 @@ pub enum View {
 
 type Points = Vec<[f64; 2]>;
 
+#[allow(dead_code)]
 #[derive(Default)]
 pub struct ProfilePlot {
     pump: Pump,
@@ -45,6 +46,7 @@ pub struct ProfilePlot {
 }
 
 impl ProfilePlot {
+    #[allow(dead_code)]
     #[cfg(not(target_arch = "wasm32"))]
     fn start_compute(&mut self, ctx: egui::Context) {
         let full_profile = true;
@@ -79,7 +81,7 @@ impl ProfilePlot {
             ctx.request_repaint();
         });
     }
-
+    #[allow(dead_code)]
     #[cfg(not(target_arch = "wasm32"))]
     fn fetch_result(&mut self) {
         // &self.pending: &Option<..>, and rust treats LHS as &Some(ref rx) -- generally derefs through pattern matching
@@ -101,8 +103,6 @@ pub struct LaserApp {
     fibre_params: FibreParams,
     grid_points: GridPoints,
     grating: GratingProfile,
-    pending: Option<Receiver<Points>>,
-    result: Option<Points>,
 }
 
 impl LaserApp {
