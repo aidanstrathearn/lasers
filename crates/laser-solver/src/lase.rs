@@ -23,6 +23,19 @@ pub struct FibreParams {
     pub length: f64,
 }
 
+impl Default for FibreParams {
+    fn default() -> Self {
+        Self {
+            density: 1.0,
+            lifetime: 1.0,
+            pump_ab: 0.01,
+            pump_em: 0.0,
+            sgnl_ab: 0.0,
+            sgnl_em: 1.0,
+            length: 10.0,
+        }    }
+}
+
 #[derive(Copy, Clone)]
 pub struct Reflectivities {
     left: f64,
@@ -31,6 +44,12 @@ pub struct Reflectivities {
 
 #[derive(Copy, Clone)]
 pub struct GridPoints(pub usize);
+
+impl Default for GridPoints {
+    fn default() -> Self {
+        Self(500)
+    }
+}
 
 impl GridPoints {
     pub fn grid(self, length: f64) -> Vec<f64> {
@@ -46,6 +65,12 @@ impl GridPoints {
 pub struct GratingProfile {
     pub kappa_max: f64,
     pub pi_shift_position: f64,
+}
+
+impl Default for GratingProfile {
+    fn default() -> Self {
+        Self { kappa_max: 1.0, pi_shift_position: 0.45}
+    }
 }
 
 impl GratingProfile {
@@ -202,6 +227,12 @@ pub fn out_field(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> Fi
 pub struct Pump {
     pub forward: f64,
     pub backward: f64,
+}
+
+impl Default for Pump {
+    fn default() -> Self {
+        Self { forward: 100.0, backward: 0.0}
+    }
 }
 
 pub fn dfb_solve(

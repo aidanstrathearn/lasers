@@ -15,14 +15,16 @@ pub fn f64_slider(handle: &mut f64, name: &str, min: f64, max: f64, step: f64, u
     .inner
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Default)]
 pub enum View {
     Cos,
+    #[default]
     Sin,
 }
 
 type Points = Vec<[f64; 2]>;
 
+#[derive(Default)]
 pub struct ProfilePlot {
     pump: Pump,
     fibre_params: FibreParams,
@@ -80,7 +82,7 @@ impl ProfilePlot {
     }
 }
 
-
+#[derive(Default)]
 pub struct LaserApp {
     view: View,
     pump: Pump,
@@ -89,42 +91,6 @@ pub struct LaserApp {
     grating: GratingProfile,
     pending: Option<Receiver<Points>>,
     result: Option<Points>,
-}
-
-impl Default for LaserApp {
-    fn default() -> Self {
-        let fp = FibreParams {
-            density: 1.0,
-            lifetime: 1.0,
-            pump_ab: 0.01,
-            pump_em: 0.0,
-            sgnl_ab: 0.0,
-            sgnl_em: 1.0,
-            length: 10.0,
-        };
-
-        let pu = Pump {
-            forward: 100.0,
-            backward: 0.0,
-        };
-
-        let kp = GratingProfile {
-            kappa_max: 1.0,
-            pi_shift_position: 0.45,
-        };
-
-        let gp = GridPoints(500);
-
-        Self {
-            view: View::Sin,
-            pump: pu,
-            fibre_params: fp,
-            grating: kp,
-            grid_points: gp,
-            pending: None,
-            result: None,
-        }
-    }
 }
 
 impl LaserApp {
