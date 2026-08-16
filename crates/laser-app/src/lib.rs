@@ -1,13 +1,13 @@
 use eframe::egui;
-use eframe::egui::{Ui};
+use eframe::egui::Ui;
 use egui_plot::{Legend, Line, Plot};
 use laser_solver::lase::{
     FibreParams, GratingProfile, GridPoints, Pump, dfb_solve, dfb_threshold_curve_with_zeros,
     linspace,
 };
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindError};
+use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
-use std::sync::{mpsc};
 use std::thread;
 
 // pub fn f64_slider(
@@ -164,9 +164,16 @@ impl LaserApp {
         let full_profile = true;
         let nc = Newton1dConfig {
             tolerance: 1e-8f64,
-            max_iters: 100usize,
+            max_iters: 200usize,
             initial: self.pump.forward,
             dx: 1e-6,
+        };
+        let bc = BisectionConfig {
+            tolerance: 1e-9f64,
+            max_iters: 200usize,
+            upper: self.pump.forward,
+            lower: 1e-10,
+            midpoint: Midpoint::Geometric,
         };
         let result = dfb_solve(
             self.pump,
@@ -243,11 +250,11 @@ fn fibre_params_slider_grid(params: &mut FibreParams, ui: &mut Ui) {
             ui.end_row();
 
             ui.label("lifetime");
-            ui.add(egui::Slider::new(&mut params.lifetime, 0.1..=200.0).step_by(0.01));
+            ui.add(egui::Slider::new(&mut params.lifetime, 0.1..=2.0).step_by(0.01));
             ui.end_row();
 
             ui.label("length");
-            ui.add(egui::Slider::new(&mut params.length, 0.1..=200.0).step_by(0.01));
+            ui.add(egui::Slider::new(&mut params.length, 0.1..=50.0).step_by(0.01));
             ui.end_row();
         });
     });
