@@ -10,26 +10,26 @@ use std::sync::mpsc::Receiver;
 use std::sync::{Arc, mpsc};
 use std::thread;
 
-pub fn f64_slider(
-    handle: &mut f64,
-    name: &str,
-    min: f64,
-    max: f64,
-    step: f64,
-    ui: &mut Ui,
-) -> Response {
-    ui.horizontal(|ui| {
-        ui.label(name);
-        ui.add(egui::Slider::new(handle, min..=max).step_by(step))
-    })
-    .inner
-}
+// pub fn f64_slider(
+//     handle: &mut f64,
+//     name: &str,
+//     min: f64,
+//     max: f64,
+//     step: f64,
+//     ui: &mut Ui,
+// ) -> Response {
+//     ui.horizontal(|ui| {
+//         ui.label(name);
+//         ui.add(egui::Slider::new(handle, min..=max).step_by(step))
+//     })
+//     .inner
+// }
 
 #[derive(PartialEq, Default)]
 pub enum View {
-    Cos,
+    Profile,
     #[default]
-    Sin,
+    Threshold,
 }
 
 type Points = Vec<[f64; 2]>;
@@ -130,25 +130,33 @@ impl LaserApp {
             self.grating,
             bc,
         );
-        let sgnl_f: Vec<f64> = threshold.iter().map(|x| x.0).collect();
-        let sgnl_b: Vec<f64> = threshold.iter().map(|x| x.1).collect();
+        let sgnl_f = threshold.iter().map(|x| x.0);
+        let sgnl_b = threshold.iter().map(|x| x.1);
         let sgnl_f_points: Points = pumps
             .iter()
-            .zip(sgnl_f.iter())
-            .map(|(&x, &y)| [x, y.abs()])
+            .zip(sgnl_f)
+            .map(|(&x, y)| [x, y.abs()])
             .collect();
         let sgnl_b_points: Points = pumps
             .iter()
-            .zip(sgnl_b.iter())
-            .map(|(&x, &y)| [x, y.abs()])
+            .zip(sgnl_b)
+            .map(|(&x, y)| [x, y.abs()])
             .collect();
         Plot::new("threshold")
             .legend(Legend::default())
             .x_axis_label("pump")
             .y_axis_label("signal")
             .show(ui, |plot_ui| {
-                plot_ui.line(Line::new("field", sgnl_f_points).name("Forward Signal").width(3.0));
-                plot_ui.line(Line::new("field", sgnl_b_points).name("Backward Signal").width(3.0));
+                plot_ui.line(
+                    Line::new("field", sgnl_f_points)
+                        .name("Forward Signal")
+                        .width(3.0),
+                );
+                plot_ui.line(
+                    Line::new("field", sgnl_b_points)
+                        .name("Backward Signal")
+                        .width(3.0),
+                );
             });
     }
 
@@ -191,10 +199,22 @@ impl LaserApp {
 
     pub fn view_selectors(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.view, View::Sin, "Sin");
-            ui.selectable_value(&mut self.view, View::Cos, "Cos");
+            ui.selectable_value(&mut self.view, View::Threshold, "Threshold");
+            ui.selectable_value(&mut self.view, View::Profile, "Profile");
         });
     }
+}
+
+fn grating_slider_grid(grating: &mut GratingProfile, ui: &mut Ui) {
+    egui::Grid::new("grating").show(ui, |ui| {
+        ui.label("kappa");
+        ui.add(egui::Slider::new(&mut grating.kappa_max, 0.0..=10.0).step_by(0.01));
+        ui.end_row();
+
+        ui.label("pi pos");
+        ui.add(egui::Slider::new(&mut grating.pi_shift_position, 0.0..=1.0).step_by(0.01));
+        ui.end_row();
+    });
 }
 
 fn fibre_params_slider_grid(params: &mut FibreParams, ui: &mut Ui) {
@@ -205,7 +225,7 @@ fn fibre_params_slider_grid(params: &mut FibreParams, ui: &mut Ui) {
             ui.end_row();
 
             ui.label("pump_ab");
-            ui.add(egui::Slider::new(&mut params.pump_ab, 0.0..=200.0).step_by(0.01));
+            ui.add(egui::Slider::new(&mut params.pump_ab, 0.0..=10.0).step_by(0.01));
             ui.end_row();
 
             ui.label("sgnl_em");
@@ -213,7 +233,7 @@ fn fibre_params_slider_grid(params: &mut FibreParams, ui: &mut Ui) {
             ui.end_row();
 
             ui.label("sgnl_ab");
-            ui.add(egui::Slider::new(&mut params.sgnl_ab, 0.0..=200.0).step_by(0.01));
+            ui.add(egui::Slider::new(&mut params.sgnl_ab, 0.0..=10.0).step_by(0.01));
             ui.end_row();
         });
 
@@ -236,13 +256,24 @@ fn fibre_params_slider_grid(params: &mut FibreParams, ui: &mut Ui) {
 impl eframe::App for LaserApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Lasers");
-            self.view_selectors(ui);
-            fibre_params_slider_grid(&mut self.fibre_params, ui);
-            // self.profile_plot(ui).unwrap_or_else(|error| {
-            //     ui.colored_label(ui.visuals().error_fg_color, error.to_string());
-            // });
-            self.threshold_plot(ui);
+            ui.horizontal(|ui| {
+                ui.heading("Lasers");
+                ui.separator();
+                self.view_selectors(ui);
+            });
+
+            egui::Grid::new("all-params").show(ui, |ui| {
+                fibre_params_slider_grid(&mut self.fibre_params, ui);
+                grating_slider_grid(&mut self.grating, ui);
+                ui.end_row();
+            });
+
+            match self.view {
+                View::Threshold => self.threshold_plot(ui),
+                View::Profile => self.profile_plot(ui).unwrap_or_else(|error| {
+                    ui.colored_label(ui.visuals().error_fg_color, error.to_string());
+                }),
+            };
         });
     }
 }

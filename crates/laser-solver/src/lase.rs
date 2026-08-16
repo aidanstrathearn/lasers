@@ -236,7 +236,7 @@ pub struct Pump {
 impl Default for Pump {
     fn default() -> Self {
         Self {
-            forward: 100.0,
+            forward: 10.0,
             backward: 0.0,
         }
     }
