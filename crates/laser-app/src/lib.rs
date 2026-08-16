@@ -103,6 +103,7 @@ pub struct LaserApp {
     fibre_params: FibreParams,
     grid_points: GridPoints,
     grating: GratingProfile,
+    config: BisectionConfig,
 }
 
 impl LaserApp {
@@ -115,11 +116,8 @@ impl LaserApp {
 
     pub fn threshold_plot(&mut self, ui: &mut Ui) {
         let bc = BisectionConfig {
-            tolerance: 1e-8f64,
-            max_iters: 100usize,
             upper: self.pump.forward,
-            lower: 1e-6,
-            midpoint: Midpoint::Geometric,
+            ..self.config
         };
 
         let pumps = linspace(0.1, 20.0, 20);
@@ -162,18 +160,15 @@ impl LaserApp {
 
     pub fn profile_plot(&mut self, ui: &mut Ui) -> Result<(), RootFindError> {
         let full_profile = true;
-        let nc = Newton1dConfig {
-            tolerance: 1e-8f64,
-            max_iters: 200usize,
-            initial: self.pump.forward,
-            dx: 1e-6,
-        };
+        // let nc = Newton1dConfig {
+        //     tolerance: 1e-8f64,
+        //     max_iters: 200usize,
+        //     initial: self.pump.forward,
+        //     dx: 1e-6,
+        // };
         let bc = BisectionConfig {
-            tolerance: 1e-9f64,
-            max_iters: 200usize,
             upper: self.pump.forward,
-            lower: 1e-10,
-            midpoint: Midpoint::Geometric,
+            ..self.config
         };
         let result = dfb_solve(
             self.pump,
@@ -181,7 +176,7 @@ impl LaserApp {
             self.grid_points,
             self.grating,
             full_profile,
-            nc,
+            bc,
         )?;
         let sgnl_f = result.plotpoints("sgnl_f");
         let sgnl_b = result.plotpoints("sgnl_b");
@@ -212,6 +207,18 @@ impl LaserApp {
     }
 }
 
+fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) {
+    egui::Grid::new("bisection").show(ui, |ui| {
+        ui.label("iters");
+        ui.add(egui::Slider::new(&mut config.max_iters, 10..=500).step_by(10.0));
+        ui.end_row();
+
+        // uh oh - how to do log slider?
+        // ui.label("tolerance");
+        // ui.add(egui::Slider::new(&mut config.tolerance, 0.0..=1.0).step_by(0.01));
+        // ui.end_row();
+    });
+}
 fn grating_slider_grid(grating: &mut GratingProfile, ui: &mut Ui) {
     egui::Grid::new("grating").show(ui, |ui| {
         ui.label("kappa");
@@ -272,6 +279,7 @@ impl eframe::App for LaserApp {
             egui::Grid::new("all-params").show(ui, |ui| {
                 fibre_params_slider_grid(&mut self.fibre_params, ui);
                 grating_slider_grid(&mut self.grating, ui);
+                bisection_slider_grid(&mut self.config, ui);
                 ui.end_row();
             });
 
