@@ -1,10 +1,7 @@
 mod myplotlib;
 mod plots;
 
-use laser_solver::lase::{
-    FibreParams, GratingProfile, GridPoints, Pump, dfb_solve, dfb_threshold_curve_with_zeros,
-    geomspace, transfer,
-};
+use laser_solver::lase::{dfb_solve, dfb_threshold_curve_with_zeros, geomspace, initial_profile, transfer, FibreParams, GratingProfile, GridPoints, Pump, find_pump_b_out};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use myplotlib::Plotter;
 use plots::show_field_profile;
@@ -14,13 +11,13 @@ use std::time::Instant;
 fn main() -> eframe::Result {
     let pu = Pump {
         forward: 100.0,
-        backward: 0.0,
+        backward: 10.0,
     };
 
     let fp = FibreParams {
         density: 1.0,
         lifetime: 1.0,
-        pump_ab: 0.01,
+        pump_ab: 0.01 * 100.0,
         pump_em: 0.0,
         sgnl_ab: 0.0,
         sgnl_em: 1.0,
@@ -64,6 +61,12 @@ fn main() -> eframe::Result {
 
     let result = dfb_solve(pu, fp, gp, kp, full_profile, nc).unwrap();
     show_field_profile(&result)?;
+
+    let profile = initial_profile(pu, fp, gp);
+    //let calc = profile.fields[0].pump_b;
+    show_field_profile(&profile)?;
+    // let pump_b_left = find_pump_b_out(pu.backward, profile, fp, gp.dz(fp.length));
+    // println!("caclulate {}   actual {}", pump_b_left, calc);
 
     let mut plt = Plotter::new();
     let mut pumps = geomspace(-1.0, 1.0, 200);

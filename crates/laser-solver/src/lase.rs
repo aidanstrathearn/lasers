@@ -116,9 +116,32 @@ impl FieldState {
     }
 }
 
+pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProfile {
+    let g = -fp.pump_ab * fp.density;
+    let zs = gp.grid(fp.length);
+    let expg_f: Vec<f64> = zs.iter().map(|z| (0.5 * g * z).exp()).collect();
+    let pump_f = expg_f.iter().map(|e| e * pump.forward);
+    let pump_b = expg_f.iter().rev().map(|e| e * pump.backward);
+    let fields = pump_f.zip(pump_b)
+        .map(|(f,b)| FieldState { sgnl_f: 0.0, sgnl_b: 0.0, pump_b: b, pump_f: f}).collect();
+    FieldProfile::new(zs, fields)
+
+
+}
+pub fn find_pump_b_out(pump_b_in: f64, profile: FieldProfile, fp: FibreParams, dz: f64) -> f64 {
+    let expg: f64 = profile.fields[..profile.fields.len()-1]
+        .iter()
+        .map(|&field| { let (g, _) = gain(field, fp);
+        0.5 * g * dz})
+        .sum::<f64>() // dont know why it couldnt infer f64 here
+        .exp();
+    pump_b_in * expg
+
+}
+
 pub struct FieldProfile {
-    z: Vec<f64>,
-    fields: Vec<FieldState>,
+    pub z: Vec<f64>,
+    pub fields: Vec<FieldState>,
 }
 
 impl FieldProfile {
