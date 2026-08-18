@@ -151,12 +151,25 @@ fn main() -> eframe::Result {
     let picard_sgnl_f: Vec<f64> = picard_profile.sgnl_f().collect();
     let direct_sgnl_b: Vec<f64> = direct_profile.sgnl_b().collect();
     let picard_sgnl_b: Vec<f64> = picard_profile.sgnl_b().collect();
+    let diff_f: Vec<f64> = direct_sgnl_f
+        .iter()
+        .zip(picard_sgnl_f.iter())
+        .map(|(a, b)| a - b)
+        .collect();
+
+    let diff_b: Vec<f64> = direct_sgnl_b
+        .iter()
+        .zip(picard_sgnl_b.iter())
+        .map(|(a, b)| a - b)
+        .collect();
 
     let mut plt = Plotter::new();
     plt.plot(&z, &direct_sgnl_f).label("Direct forward signal");
     plt.plot(&z, &picard_sgnl_f).label("Picard forward signal");
     plt.plot(&z, &direct_sgnl_b).label("Direct backward signal");
     plt.plot(&z, &picard_sgnl_b).label("Picard backward signal");
+    plt.plot(&z, &diff_b).label("backward diff");
+    plt.plot(&z, &diff_f).label("forward diff");
     plt.xlabel("z");
     plt.ylabel("Field amplitude");
     plt.title("Direct vs Picard profile (zero backward pump)");
