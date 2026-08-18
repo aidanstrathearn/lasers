@@ -102,8 +102,25 @@ pub struct FieldState {
 }
 
 impl FieldState {
+    // fn propagate2(self, fp: FibreParams, kappa: f64, dz: f64) -> Self {
+    //     let (gp, gs) = gain(self, fp);
+    //     let (a, b, c, d) = transfer(gs, kappa, dz);
+    //     let expg = (0.5 * gp * dz).exp();
+    //
+    //     FieldState {
+    //         sgnl_f: a * self.sgnl_f + b * self.sgnl_b,
+    //         sgnl_b: c * self.sgnl_f + d * self.sgnl_b,
+    //         pump_f: self.pump_f * expg,
+    //         pump_b: self.pump_b / expg,
+    //     }
+    // }
+
     fn propagate(self, fp: FibreParams, kappa: f64, dz: f64) -> Self {
-        let (gp, gs) = gain(self, fp);
+        self.general_step(self, fp, kappa, dz)
+    }
+
+    fn general_step(self, other: Self, fp: FibreParams, kappa: f64, dz: f64) -> Self {
+        let (gp, gs) = gain(other, fp);
         let (a, b, c, d) = transfer(gs, kappa, dz);
         let expg = (0.5 * gp * dz).exp();
 
@@ -137,7 +154,7 @@ pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProf
         .collect();
     FieldProfile::new(zs, fields)
 }
-pub fn find_pump_b_out(pump_b_in: f64, profile: FieldProfile, fp: FibreParams, dz: f64) -> f64 {
+pub fn find_pump_b(pump: Pump, profile: &FieldProfile, fp: FibreParams, dz: f64) -> f64 {
     let expg: f64 = profile.fields[..profile.fields.len() - 1]
         .iter()
         .map(|&field| {
@@ -146,14 +163,72 @@ pub fn find_pump_b_out(pump_b_in: f64, profile: FieldProfile, fp: FibreParams, d
         })
         .sum::<f64>() // dont know why it couldnt infer f64 here
         .exp();
-    pump_b_in * expg
+    pump.backward * expg
 }
 
-// pub fn picard_propagation(fs: FieldState, profile: FieldProfile, fp: FibreParams, dz: f64) -> FieldProfile
-// {
-//
-// }
+pub struct PicardConfig {
+    pub max_iters: usize,
+    pub tolerance: f64,
+}
 
+pub fn picard_propagation(
+    sgnl_b: f64,
+    pump: Pump,
+    fp: FibreParams,
+    gp: GridPoints,
+    pc: PicardConfig,
+    kappas: &[f64]
+) -> FieldProfile {
+    let dz = gp.dz(fp.length);
+    let mut current = initial_profile(pump, fp, gp);
+    let mut new_fields = current.fields.clone();
+    let z: Vec<f64> = current.z().collect();
+    let mut boundary = FieldState {
+        sgnl_f: 0.0,
+        sgnl_b: sgnl_b,
+        pump_f: pump.forward,
+        pump_b: 0.0,
+    };
+    for _ in 0..pc.max_iters {
+        new_fields[0] = FieldState { pump_b: find_pump_b(pump, &current, fp, dz), ..boundary};
+        for j in 1..=new_fields.len() {
+            new_fields[j] = new_fields[j-1].general_step(current.fields[j-1], fp, kappas[j-1], dz)
+        }
+
+    }
+    current
+}
+
+pub fn rel_rms_diff(x1: f64, x2: f64) -> f64 {
+    if x1 == 0.0
+    {return x2.abs()}
+    else if x2 == 0.0
+    {return x1.abs()}
+    else if x1 == 0.0 && x2 == 0.0
+    {return 0.0}
+    else
+    {(x1 - x2).abs() / x2.abs()}
+}
+pub fn field_max_diff(f1: FieldState, f2: FieldState) -> f64
+{
+    let diffs = [rel_rms_diff(f1.pump_f, f2.pump_f),
+    rel_rms_diff(f1.pump_b, f2.pump_b),
+    rel_rms_diff(f1.sgnl_f, f2.sgnl_f),
+                 rel_rms_diff(f1.sgnl_b, f2.sgnl_b)
+    ];
+    diffs.into_iter().reduce(f64::max).unwrap()
+}
+pub fn profile_max_diff(p1: FieldProfile, p2: FieldProfile) -> f64 {
+    let fields1 = p1.fields;
+    let fields2 = p2.fields;
+
+    fields1
+        .iter()
+        .zip(fields2.iter())
+        .map(|(&f1, &f2)| field_max_diff(f1, f2))
+        .reduce(f64::max).unwrap()
+
+}
 pub struct FieldProfile {
     pub z: Vec<f64>,
     pub fields: Vec<FieldState>,
