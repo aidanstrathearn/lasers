@@ -176,12 +176,12 @@ impl LaserApp {
             .y_axis_label("signal")
             .show(ui, |plot_ui| {
                 plot_ui.line(
-                    Line::new("field", sgnl_f_points)
+                    Line::new("threshold f", sgnl_f_points)
                         .name("Forward Signal")
                         .width(3.0),
                 );
                 plot_ui.line(
-                    Line::new("field", sgnl_b_points)
+                    Line::new("threshold b", sgnl_b_points)
                         .name("Backward Signal")
                         .width(3.0),
                 );
@@ -217,14 +217,14 @@ impl LaserApp {
             .x_axis_label("z")
             .y_axis_label("fields")
             .show(ui, |plot_ui| {
-                plot_ui.line(Line::new("field", sgnl_f).name("Forward Signal").width(3.0));
+                plot_ui.line(Line::new("profile sf", sgnl_f).name("Forward Signal").width(3.0));
                 plot_ui.line(
-                    Line::new("field", sgnl_b)
+                    Line::new("profile sb", sgnl_b)
                         .name("Backward Signal")
                         .width(3.0),
                 );
-                plot_ui.line(Line::new("field", pump_f).name("Forward Pump").width(3.0));
-                plot_ui.line(Line::new("field", pump_b).name("Backward Pump").width(3.0));
+                plot_ui.line(Line::new("profile pf", pump_f).name("Forward Pump").width(3.0));
+                plot_ui.line(Line::new("profile pb", pump_b).name("Backward Pump").width(3.0));
             });
         Ok(())
     }
