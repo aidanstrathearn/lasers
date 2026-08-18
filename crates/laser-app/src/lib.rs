@@ -1,10 +1,8 @@
 use eframe::egui;
 use eframe::egui::Ui;
 use egui_plot::{Legend, Line, Plot};
-use laser_solver::lase::{
-    FibreParams, FieldProfile, GratingProfile, GridPoints, Pump, dfb_solve,
-    dfb_threshold_curve_with_zeros,
-};
+use laser_solver::dfb::{dfb_solve, dfb_threshold_curve_with_zeros};
+use laser_solver::lase::{FibreParams, FieldProfile, GratingProfile, GridPoints, Pump};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindError};
 use laser_solver::utils::linspace;
 use std::sync::mpsc;

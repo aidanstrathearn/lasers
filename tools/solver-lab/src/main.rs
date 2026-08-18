@@ -1,10 +1,8 @@
 mod myplotlib;
 mod plots;
 
-use laser_solver::lase::{
-    FibreParams, GratingProfile, GridPoints, Pump, dfb_solve, dfb_threshold_curve_with_zeros,
-    transfer,
-};
+use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump};
+use laser_solver::dfb::{dfb_solve, dfb_threshold_curve_with_zeros, transfer};
 use laser_solver::picard::{find_pump_b, initial_profile};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::geomspace;
