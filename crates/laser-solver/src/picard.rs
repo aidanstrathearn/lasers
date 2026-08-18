@@ -41,7 +41,7 @@ pub enum PicardError {
     DidNotConverge,
 }
 
-impl fmt::Display for crate::picard::PicardError {
+impl fmt::Display for PicardError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::DidNotConverge => {
@@ -56,7 +56,7 @@ pub struct PicardConfig {
     pub tolerance: f64,
 }
 
-pub fn picard_propagation(
+pub fn solve_profile_picard(
     sgnl_b: f64,
     pump: Pump,
     fp: FibreParams,
@@ -66,9 +66,9 @@ pub fn picard_propagation(
 ) -> Result<FieldProfile, PicardError> {
     let dz = gp.dz(fp.length);
     let mut current = initial_profile(pump, fp, gp);
+    assert_eq!(kappas.len() + 1, current.fields.len());
     let mut new_fields = current.fields.clone();
-    let z: Vec<f64> = current.z().collect();
-    let mut boundary = FieldState {
+    let boundary = FieldState {
         sgnl_f: 0.0,
         sgnl_b: sgnl_b,
         pump_f: pump.forward,
@@ -79,14 +79,14 @@ pub fn picard_propagation(
             pump_b: find_pump_b(pump, &current, fp, dz),
             ..boundary
         };
-        for j in 1..=new_fields.len() {
+        for j in 1..new_fields.len() {
             new_fields[j] =
                 new_fields[j - 1].general_step(current.fields[j - 1], fp, kappas[j - 1], dz);
-            let diff = profile_max_diff(&current.fields, &new_fields);
-            current.fields = new_fields.clone();
-            if diff < pc.tolerance {
-                return Ok(current);
-            }
+        }
+        let diff = profile_max_diff(&current.fields, &new_fields);
+        current.fields = new_fields.clone();
+        if diff < pc.tolerance {
+            return Ok(current);
         }
     }
     Err(PicardError::DidNotConverge)

@@ -1,9 +1,11 @@
 mod myplotlib;
 mod plots;
 
-use laser_solver::dfb::{dfb_pump_scan, dfb_solve, transfer};
-use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump};
-use laser_solver::picard::{find_pump_b, initial_profile};
+use laser_solver::dfb::{dfb_pump_scan, dfb_solve, solve_profile, transfer};
+use laser_solver::lase::{
+    FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
+};
+use laser_solver::picard::{PicardConfig, initial_profile, solve_profile_picard};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::geomspace;
 use myplotlib::Plotter;
@@ -105,6 +107,60 @@ fn main() -> eframe::Result {
     let (a, b, c, d) = transfer(1.0, 0.0, 1.0);
     println!("Transfer {:?}", (a, b, c, d));
     println!("{}", a == (0.5_f64).exp());
+
+    let comparison_pump = Pump {
+        backward: 0.0,
+        ..pu
+    };
+    let comparison_sgnl_b = 1.0;
+    let comparison_kappas = kp.grid(gp.0);
+    let comparison_boundary = FieldState {
+        sgnl_f: 0.0,
+        sgnl_b: comparison_sgnl_b,
+        pump_f: comparison_pump.forward,
+        pump_b: 0.0,
+    };
+
+    let direct_profile = FieldProfile::new(
+        gp.grid(fp.length),
+        solve_profile(
+            comparison_boundary,
+            fp,
+            gp.dz(fp.length),
+            &comparison_kappas,
+        ),
+    );
+    let picard_profile = solve_profile_picard(
+        comparison_sgnl_b,
+        comparison_pump,
+        fp,
+        gp,
+        PicardConfig {
+            max_iters: gp.0 + 2,
+            tolerance: 1e-10,
+        },
+        &comparison_kappas,
+    )
+    .expect("Picard profile comparison did not converge");
+
+    let max_diff = profile_max_diff(&direct_profile.fields, &picard_profile.fields);
+    println!("Picard/direct profile max diff: {max_diff:e}");
+
+    let z: Vec<f64> = direct_profile.z().collect();
+    let direct_sgnl_f: Vec<f64> = direct_profile.sgnl_f().collect();
+    let picard_sgnl_f: Vec<f64> = picard_profile.sgnl_f().collect();
+    let direct_sgnl_b: Vec<f64> = direct_profile.sgnl_b().collect();
+    let picard_sgnl_b: Vec<f64> = picard_profile.sgnl_b().collect();
+
+    let mut plt = Plotter::new();
+    plt.plot(&z, &direct_sgnl_f).label("Direct forward signal");
+    plt.plot(&z, &picard_sgnl_f).label("Picard forward signal");
+    plt.plot(&z, &direct_sgnl_b).label("Direct backward signal");
+    plt.plot(&z, &picard_sgnl_b).label("Picard backward signal");
+    plt.xlabel("z");
+    plt.ylabel("Field amplitude");
+    plt.title("Direct vs Picard profile (zero backward pump)");
+    plt.show()?;
 
     Ok(())
 }
