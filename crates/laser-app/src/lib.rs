@@ -8,6 +8,7 @@ use laser_solver::utils::{IterationConfig, linspace};
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::thread;
+use laser_solver::error::SolverError;
 
 // pub fn f64_slider(
 //     handle: &mut f64,
@@ -105,7 +106,7 @@ impl ProfilePlot {
 
         thread::spawn(move || {
             //thread::sleep(Duration::from_millis(100));
-            let points: Result<[Points; 4], RootFindError> = compute_fn();
+            let points: Result<[Points; 4], SolverError> = compute_fn();
             let _ = tx.send(points.unwrap());
             ctx.request_repaint();
         });
@@ -187,7 +188,7 @@ impl LaserApp {
             });
     }
 
-    pub fn profile_plot(&mut self, ui: &mut Ui) -> Result<(), RootFindError> {
+    pub fn profile_plot(&mut self, ui: &mut Ui) -> Result<(), SolverError> {
         let full_profile = true;
         // let nc = Newton1dConfig {
         //     tolerance: 1e-8f64,

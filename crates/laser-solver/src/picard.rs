@@ -52,6 +52,8 @@ impl fmt::Display for PicardError {
     }
 }
 
+impl std::error::Error for PicardError {}
+
 pub fn solve_profile_picard(
     sgnl_b: f64,
     pump: Pump,

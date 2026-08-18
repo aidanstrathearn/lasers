@@ -1,5 +1,6 @@
+use crate::error::SolverError;
 use crate::lase::{FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, gain};
-use crate::rootfind::{RootFindConfig, RootFindError, rootfind_1d};
+use crate::rootfind::{RootFindConfig, rootfind_1d};
 
 impl FieldState {
     pub fn propagate(self, fp: FibreParams, kappa: f64, dz: f64) -> Self {
@@ -61,7 +62,7 @@ pub fn dfb_solve(
     kp: GratingProfile,
     full_profile: bool,
     config: impl Into<RootFindConfig>,
-) -> Result<FieldProfile, RootFindError> {
+) -> Result<FieldProfile, SolverError> {
     let kappas = kp.grid(gp.0);
     let dz = gp.dz(fp.length);
     let trial = |sgnl_b| FieldState {
