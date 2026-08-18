@@ -2,7 +2,8 @@ use eframe::egui;
 use eframe::egui::Ui;
 use egui_plot::{Legend, Line, Plot};
 use laser_solver::lase::{
-    FibreParams, GratingProfile, GridPoints, Pump, dfb_solve, dfb_threshold_curve_with_zeros,
+    FibreParams, FieldProfile, GratingProfile, GridPoints, Pump, dfb_solve,
+    dfb_threshold_curve_with_zeros,
 };
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindError};
 use laser_solver::utils::linspace;
@@ -24,6 +25,37 @@ use std::thread;
 //     })
 //     .inner
 // }
+trait FieldProfileExt {
+    fn plotpoints(&self, field: &str) -> Vec<[f64; 2]>;
+}
+
+impl FieldProfileExt for FieldProfile {
+    fn plotpoints(&self, field: &str) -> Vec<[f64; 2]> {
+        let z = self.z();
+        match field {
+            "sgnl_b" => {
+                let field = self.sgnl_b();
+                z.zip(field).map(|(x, y)| [x, y]).collect()
+            }
+
+            "sgnl_f" => {
+                let field = self.sgnl_f();
+                z.zip(field).map(|(x, y)| [x, y]).collect()
+            }
+
+            "pump_f" => {
+                let field = self.pump_f();
+                z.zip(field).map(|(x, y)| [x, y]).collect()
+            }
+
+            "pump_b" => {
+                let field = self.pump_b();
+                z.zip(field).map(|(x, y)| [x, y]).collect()
+            }
+            _ => panic!(),
+        }
+    }
+}
 
 #[derive(PartialEq, Default)]
 pub enum View {
