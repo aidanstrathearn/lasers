@@ -1,4 +1,5 @@
 use crate::rootfind::{RootFindConfig, RootFindError, rootfind_1d};
+use std::fmt;
 
 pub fn linspace(start: f64, stop: f64, nsteps: usize) -> Vec<f64> {
     let step: f64 = (stop - start) / (nsteps as f64);
@@ -102,19 +103,6 @@ pub struct FieldState {
 }
 
 impl FieldState {
-    // fn propagate2(self, fp: FibreParams, kappa: f64, dz: f64) -> Self {
-    //     let (gp, gs) = gain(self, fp);
-    //     let (a, b, c, d) = transfer(gs, kappa, dz);
-    //     let expg = (0.5 * gp * dz).exp();
-    //
-    //     FieldState {
-    //         sgnl_f: a * self.sgnl_f + b * self.sgnl_b,
-    //         sgnl_b: c * self.sgnl_f + d * self.sgnl_b,
-    //         pump_f: self.pump_f * expg,
-    //         pump_b: self.pump_b / expg,
-    //     }
-    // }
-
     fn propagate(self, fp: FibreParams, kappa: f64, dz: f64) -> Self {
         self.general_step(self, fp, kappa, dz)
     }
@@ -166,6 +154,21 @@ pub fn find_pump_b(pump: Pump, profile: &FieldProfile, fp: FibreParams, dz: f64)
     pump.backward * expg
 }
 
+#[derive(Debug)]
+pub enum PicardError {
+    DidNotConverge,
+}
+
+impl fmt::Display for crate::lase::PicardError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::DidNotConverge => {
+                write!(formatter, "picard iteration did not converge")
+            }
+        }
+    }
+}
+
 pub struct PicardConfig {
     pub max_iters: usize,
     pub tolerance: f64,
@@ -178,7 +181,7 @@ pub fn picard_propagation(
     gp: GridPoints,
     pc: PicardConfig,
     kappas: &[f64],
-) -> FieldProfile {
+) -> Result<FieldProfile, PicardError> {
     let dz = gp.dz(fp.length);
     let mut current = initial_profile(pump, fp, gp);
     let mut new_fields = current.fields.clone();
@@ -196,10 +199,15 @@ pub fn picard_propagation(
         };
         for j in 1..=new_fields.len() {
             new_fields[j] =
-                new_fields[j - 1].general_step(current.fields[j - 1], fp, kappas[j - 1], dz)
+                new_fields[j - 1].general_step(current.fields[j - 1], fp, kappas[j - 1], dz);
+            let diff = profile_max_diff(&current.fields, &new_fields);
+            current.fields = new_fields.clone();
+            if diff < pc.tolerance {
+                return Ok(current);
+            }
         }
     }
-    current
+    Err(PicardError::DidNotConverge)
 }
 
 pub fn relative_diff(x1: f64, x2: f64) -> f64 {
@@ -219,10 +227,9 @@ pub fn field_max_diff(f1: FieldState, f2: FieldState) -> f64 {
     ];
     diffs.into_iter().reduce(f64::max).unwrap_or(f64::NAN)
 }
-pub fn profile_max_diff(p1: &FieldProfile, p2: &FieldProfile) -> f64 {
-    p1.fields
-        .iter()
-        .zip(p2.fields.iter())
+pub fn profile_max_diff(p1: &Vec<FieldState>, p2: &Vec<FieldState>) -> f64 {
+    p1.iter()
+        .zip(p2.iter())
         .map(|(&f1, &f2)| field_max_diff(f1, f2))
         .reduce(f64::max)
         .unwrap_or(f64::NAN)
