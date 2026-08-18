@@ -1,8 +1,8 @@
 mod myplotlib;
 mod plots;
 
+use laser_solver::dfb::{dfb_pump_scan, dfb_solve, transfer};
 use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump};
-use laser_solver::dfb::{dfb_solve, dfb_threshold_curve_with_zeros, transfer};
 use laser_solver::picard::{find_pump_b, initial_profile};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::geomspace;
@@ -75,7 +75,7 @@ fn main() -> eframe::Result {
     let mut plt = Plotter::new();
     let mut pumps = geomspace(-1.0, 1.0, 200);
     let start = Instant::now();
-    let threshold = dfb_threshold_curve_with_zeros(&pumps, fp, gp, kp, bc);
+    let threshold = dfb_pump_scan(&pumps, fp, gp, kp, bc);
     let sgnl_f: Vec<f64> = threshold.iter().map(|x| x.0).collect();
     let sgnl_b: Vec<f64> = threshold.iter().map(|x| x.1).collect();
     let elapsed = start.elapsed();

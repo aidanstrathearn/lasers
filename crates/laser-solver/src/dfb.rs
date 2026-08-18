@@ -85,33 +85,13 @@ pub fn dfb_solve(
     }
 }
 
-pub fn dfb_threshold_curve(
-    pumps: Vec<f64>,
-    fp: FibreParams,
-    gp: GridPoints,
-    kp: GratingProfile,
-    config: impl Into<RootFindConfig> + Copy,
-) -> Vec<Result<f64, RootFindError>> {
-    pumps
-        .iter()
-        .map(|&pmp| {
-            let pu = Pump {
-                forward: pmp,
-                backward: 0.0,
-            };
-            let result = dfb_solve(pu, fp, gp, kp, false, config)?;
-            Ok(result.sgnl_f().last().unwrap())
-        })
-        .collect()
-}
-
-pub fn dfb_threshold_curve_with_zeros(
+pub fn dfb_pump_scan(
     pumps: &[f64],
     fp: FibreParams,
     gp: GridPoints,
     kp: GratingProfile,
     config: impl Into<RootFindConfig> + Copy,
-) -> Vec<(f64, f64)> {
+) -> Vec<(f64, f64, bool)> {
     let full_profile = false;
     pumps
         .iter()
@@ -120,29 +100,14 @@ pub fn dfb_threshold_curve_with_zeros(
                 forward: pmp,
                 backward: 0.0,
             };
-            let result = dfb_solve(pu, fp, gp, kp, full_profile, config)?;
-            Ok((
-                result.sgnl_f().last().unwrap(),
-                result.sgnl_b().next().unwrap(),
-            ))
-        })
-        .map(|result: Result<(f64, f64), RootFindError>| result.unwrap_or((0.0, 0.0)))
-        .collect()
 
-    // pumps
-    //     .iter()
-    //     .map(|&pmp| {
-    //         let pu = Pump {
-    //             forward: pmp,
-    //             backward: 0.0,
-    //         };
-    //
-    //         dfb_solve(pu, fp, gp, kp, full_profile, config).map_or((0.0, 0.0), |result| {
-    //             (
-    //                 result.sgnl_f().last().unwrap(),
-    //                 result.sgnl_b().next().unwrap(),
-    //             )
-    //         })
-    //     })
-    //     .collect()
+            dfb_solve(pu, fp, gp, kp, full_profile, config).map_or((0.0, 0.0, false), |result| {
+                (
+                    result.sgnl_f().last().unwrap(),
+                    result.sgnl_b().next().unwrap(),
+                    true,
+                )
+            })
+        })
+        .collect()
 }

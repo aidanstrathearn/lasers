@@ -1,7 +1,7 @@
 use eframe::egui;
 use eframe::egui::Ui;
 use egui_plot::{Legend, Line, Plot};
-use laser_solver::dfb::{dfb_solve, dfb_threshold_curve_with_zeros};
+use laser_solver::dfb::{dfb_pump_scan, dfb_solve};
 use laser_solver::lase::{FibreParams, FieldProfile, GratingProfile, GridPoints, Pump};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindError};
 use laser_solver::utils::linspace;
@@ -151,7 +151,7 @@ impl LaserApp {
         };
 
         let pumps = linspace(0.1, 20.0, 20);
-        let threshold = dfb_threshold_curve_with_zeros(
+        let threshold = dfb_pump_scan(
             &pumps,
             self.fibre_params,
             self.grid_points,
