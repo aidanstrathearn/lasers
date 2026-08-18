@@ -177,7 +177,7 @@ pub fn picard_propagation(
     fp: FibreParams,
     gp: GridPoints,
     pc: PicardConfig,
-    kappas: &[f64]
+    kappas: &[f64],
 ) -> FieldProfile {
     let dz = gp.dz(fp.length);
     let mut current = initial_profile(pump, fp, gp);
@@ -190,44 +190,42 @@ pub fn picard_propagation(
         pump_b: 0.0,
     };
     for _ in 0..pc.max_iters {
-        new_fields[0] = FieldState { pump_b: find_pump_b(pump, &current, fp, dz), ..boundary};
+        new_fields[0] = FieldState {
+            pump_b: find_pump_b(pump, &current, fp, dz),
+            ..boundary
+        };
         for j in 1..=new_fields.len() {
-            new_fields[j] = new_fields[j-1].general_step(current.fields[j-1], fp, kappas[j-1], dz)
+            new_fields[j] =
+                new_fields[j - 1].general_step(current.fields[j - 1], fp, kappas[j - 1], dz)
         }
-
     }
     current
 }
 
-pub fn rel_rms_diff(x1: f64, x2: f64) -> f64 {
-    if x1 == 0.0
-    {return x2.abs()}
-    else if x2 == 0.0
-    {return x1.abs()}
-    else if x1 == 0.0 && x2 == 0.0
-    {return 0.0}
-    else
-    {(x1 - x2).abs() / x2.abs()}
+pub fn relative_diff(x1: f64, x2: f64) -> f64 {
+    let scale = x1.abs().max(x2.abs());
+    if scale == 0.0 {
+        0.0
+    } else {
+        (x1 - x2).abs() / scale
+    }
 }
-pub fn field_max_diff(f1: FieldState, f2: FieldState) -> f64
-{
-    let diffs = [rel_rms_diff(f1.pump_f, f2.pump_f),
-    rel_rms_diff(f1.pump_b, f2.pump_b),
-    rel_rms_diff(f1.sgnl_f, f2.sgnl_f),
-                 rel_rms_diff(f1.sgnl_b, f2.sgnl_b)
+pub fn field_max_diff(f1: FieldState, f2: FieldState) -> f64 {
+    let diffs = [
+        relative_diff(f1.pump_f, f2.pump_f),
+        relative_diff(f1.pump_b, f2.pump_b),
+        relative_diff(f1.sgnl_f, f2.sgnl_f),
+        relative_diff(f1.sgnl_b, f2.sgnl_b),
     ];
-    diffs.into_iter().reduce(f64::max).unwrap()
+    diffs.into_iter().reduce(f64::max).unwrap_or(f64::NAN)
 }
-pub fn profile_max_diff(p1: FieldProfile, p2: FieldProfile) -> f64 {
-    let fields1 = p1.fields;
-    let fields2 = p2.fields;
-
-    fields1
+pub fn profile_max_diff(p1: &FieldProfile, p2: &FieldProfile) -> f64 {
+    p1.fields
         .iter()
-        .zip(fields2.iter())
+        .zip(p2.fields.iter())
         .map(|(&f1, &f2)| field_max_diff(f1, f2))
-        .reduce(f64::max).unwrap()
-
+        .reduce(f64::max)
+        .unwrap_or(f64::NAN)
 }
 pub struct FieldProfile {
     pub z: Vec<f64>,
