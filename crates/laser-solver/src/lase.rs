@@ -1,17 +1,5 @@
 use crate::rootfind::{RootFindConfig, RootFindError, rootfind_1d};
-use std::fmt;
-
-pub fn linspace(start: f64, stop: f64, nsteps: usize) -> Vec<f64> {
-    let step: f64 = (stop - start) / (nsteps as f64);
-    (0..=nsteps).map(|x| start + (x as f64) * step).collect()
-}
-
-pub fn geomspace(start: f64, stop: f64, nsteps: usize) -> Vec<f64> {
-    linspace(start, stop, nsteps)
-        .iter()
-        .map(|&x| 10.0_f64.powf(x))
-        .collect()
-}
+use crate::utils::{linspace, relative_diff};
 
 #[derive(Copy, Clone)]
 pub struct FibreParams {
@@ -121,14 +109,6 @@ impl FieldState {
     }
 }
 
-pub fn relative_diff(x1: f64, x2: f64) -> f64 {
-    let scale = x1.abs().max(x2.abs());
-    if scale == 0.0 {
-        0.0
-    } else {
-        (x1 - x2).abs() / scale
-    }
-}
 pub fn field_max_diff(f1: FieldState, f2: FieldState) -> f64 {
     let diffs = [
         relative_diff(f1.pump_f, f2.pump_f),
@@ -145,6 +125,7 @@ pub fn profile_max_diff(p1: &Vec<FieldState>, p2: &Vec<FieldState>) -> f64 {
         .reduce(f64::max)
         .unwrap_or(f64::NAN)
 }
+
 pub struct FieldProfile {
     pub z: Vec<f64>,
     pub fields: Vec<FieldState>,

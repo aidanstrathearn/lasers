@@ -3,11 +3,11 @@ mod plots;
 
 use laser_solver::lase::{
     FibreParams, GratingProfile, GridPoints, Pump, dfb_solve, dfb_threshold_curve_with_zeros,
-    geomspace, transfer,
+    transfer,
 };
-
 use laser_solver::picard::{find_pump_b, initial_profile};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
+use laser_solver::utils::geomspace;
 use myplotlib::Plotter;
 use plots::show_field_profile;
 use std::hint::black_box;

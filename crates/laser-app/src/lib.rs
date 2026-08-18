@@ -3,9 +3,9 @@ use eframe::egui::Ui;
 use egui_plot::{Legend, Line, Plot};
 use laser_solver::lase::{
     FibreParams, GratingProfile, GridPoints, Pump, dfb_solve, dfb_threshold_curve_with_zeros,
-    linspace,
 };
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindError};
+use laser_solver::utils::linspace;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::thread;
