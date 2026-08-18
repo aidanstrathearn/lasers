@@ -31,7 +31,8 @@ fn main() -> eframe::Result {
     let full_profile = true;
 
     let kp = GratingProfile {
-        kappa_max: 1.0,
+        kappa_left: 1.0,
+        kappa_right: 1.0,
         pi_shift_position: 0.45,
     };
 

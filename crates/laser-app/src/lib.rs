@@ -251,8 +251,12 @@ fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) {
 }
 fn grating_slider_grid(grating: &mut GratingProfile, ui: &mut Ui) {
     egui::Grid::new("grating").show(ui, |ui| {
-        ui.label("kappa");
-        ui.add(egui::Slider::new(&mut grating.kappa_max, 0.0..=10.0).step_by(0.01));
+        ui.label("kappa left");
+        ui.add(egui::Slider::new(&mut grating.kappa_left, 0.0..=10.0).step_by(0.01));
+        ui.end_row();
+
+        ui.label("kappa right");
+        ui.add(egui::Slider::new(&mut grating.kappa_right, 0.0..=10.0).step_by(0.01));
         ui.end_row();
 
         ui.label("pi pos");

@@ -53,14 +53,16 @@ impl GridPoints {
 
 #[derive(Copy, Clone)]
 pub struct GratingProfile {
-    pub kappa_max: f64,
+    pub kappa_left: f64,
+    pub kappa_right: f64,
     pub pi_shift_position: f64,
 }
 
 impl Default for GratingProfile {
     fn default() -> Self {
         Self {
-            kappa_max: 1.0,
+            kappa_left: 1.0,
+            kappa_right: 1.0,
             pi_shift_position: 0.45,
         }
     }
@@ -72,9 +74,9 @@ impl GratingProfile {
             .map(|j| {
                 let z = j as f64 / n as f64;
                 if z < self.pi_shift_position {
-                    self.kappa_max
+                    self.kappa_left
                 } else {
-                    -self.kappa_max
+                    -self.kappa_right
                 }
             })
             .collect()
