@@ -96,7 +96,7 @@ pub fn field_max_diff(f1: FieldState, f2: FieldState) -> f64 {
         relative_diff(f1.sgnl_f, f2.sgnl_f),
         relative_diff(f1.sgnl_b, f2.sgnl_b),
     ];
-    diffs.into_iter().reduce(f64::max).unwrap_or(f64::NAN)
+    diffs.into_iter().fold(0.0, f64::max)
 }
 pub fn profile_max_diff(p1: &Vec<FieldState>, p2: &Vec<FieldState>) -> f64 {
     p1.iter()
