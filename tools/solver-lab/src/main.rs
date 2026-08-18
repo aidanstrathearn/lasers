@@ -5,9 +5,9 @@ use laser_solver::dfb::{dfb_pump_scan, dfb_solve, solve_profile, transfer};
 use laser_solver::lase::{
     FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
 };
-use laser_solver::picard::{PicardConfig, initial_profile, solve_profile_picard};
+use laser_solver::picard::{initial_profile, solve_profile_picard};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
-use laser_solver::utils::geomspace;
+use laser_solver::utils::{IterationConfig, geomspace};
 use myplotlib::Plotter;
 use plots::show_field_profile;
 use std::hint::black_box;
@@ -38,17 +38,20 @@ fn main() -> eframe::Result {
         pi_shift_position: 0.45,
     };
 
+    let ic = IterationConfig {
+        max: 100usize,
+        tol: 1e-10f64,
+    };
+
     let bc = BisectionConfig {
-        tolerance: 1e-8f64,
-        max_iters: 100usize,
+        iteration: ic,
         upper: pu.forward,
         lower: 1e-8,
         midpoint: Midpoint::Geometric,
     };
 
     let nc = Newton1dConfig {
-        tolerance: 1e-8f64,
-        max_iters: 100usize,
+        iteration: ic,
         initial: pu.forward,
         dx: 1e-6,
     };
@@ -135,10 +138,7 @@ fn main() -> eframe::Result {
         comparison_pump,
         fp,
         gp,
-        PicardConfig {
-            max_iters: gp.0 + 2,
-            tolerance: 1e-10,
-        },
+        ic,
         &comparison_kappas,
     )
     .expect("Picard profile comparison did not converge");

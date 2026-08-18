@@ -1,6 +1,7 @@
 use crate::lase::{
     FibreParams, FieldProfile, FieldState, GridPoints, Pump, gain, profile_max_diff,
 };
+use crate::utils::IterationConfig;
 use std::fmt;
 
 pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProfile {
@@ -51,17 +52,12 @@ impl fmt::Display for PicardError {
     }
 }
 
-pub struct PicardConfig {
-    pub max_iters: usize,
-    pub tolerance: f64,
-}
-
 pub fn solve_profile_picard(
     sgnl_b: f64,
     pump: Pump,
     fp: FibreParams,
     gp: GridPoints,
-    pc: PicardConfig,
+    ic: IterationConfig,
     kappas: &[f64],
 ) -> Result<FieldProfile, PicardError> {
     let dz = gp.dz(fp.length);
@@ -74,7 +70,7 @@ pub fn solve_profile_picard(
         pump_f: pump.forward,
         pump_b: 0.0,
     };
-    for _ in 0..pc.max_iters {
+    for _ in 0..ic.max {
         new_fields[0] = FieldState {
             pump_b: find_pump_b(pump, &current, fp, dz),
             ..boundary
@@ -85,7 +81,7 @@ pub fn solve_profile_picard(
         }
         let diff = profile_max_diff(&current.fields, &new_fields);
         current.fields = new_fields.clone();
-        if diff < pc.tolerance {
+        if diff < ic.tol {
             return Ok(current);
         }
     }

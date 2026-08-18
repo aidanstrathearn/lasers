@@ -18,3 +18,18 @@ pub fn relative_diff(x1: f64, x2: f64) -> f64 {
         (x1 - x2).abs() / scale
     }
 }
+
+#[derive(Copy, Clone)]
+pub struct IterationConfig {
+    pub max: usize,
+    pub tol: f64,
+}
+
+impl Default for IterationConfig {
+    fn default() -> Self {
+        Self {
+            max: 500,
+            tol: 1e-8,
+        }
+    }
+}

@@ -1,5 +1,6 @@
 //! One-dimensional root-finding algorithms used by the laser solver.
 
+use crate::utils::IterationConfig;
 use std::fmt;
 
 const DEFAULT_TOLERANCE: f64 = 1e-8;
@@ -46,8 +47,7 @@ impl From<BisectionConfig> for RootFindConfig {
 
 #[derive(Copy, Clone)]
 pub struct Newton1dConfig {
-    pub tolerance: f64,
-    pub max_iters: usize,
+    pub iteration: IterationConfig,
     pub initial: f64,
     pub dx: f64,
 }
@@ -55,8 +55,7 @@ pub struct Newton1dConfig {
 impl Default for Newton1dConfig {
     fn default() -> Self {
         Self {
-            tolerance: DEFAULT_TOLERANCE,
-            max_iters: DEFAULT_MAX_ITERS,
+            iteration: IterationConfig::default(),
             initial: 1.0,
             dx: 1e-8,
         }
@@ -66,9 +65,9 @@ impl Default for Newton1dConfig {
 pub fn newton1d(f: impl Fn(f64) -> f64, config: Newton1dConfig) -> Result<f64, RootFindError> {
     let dx = config.dx;
     let mut x = config.initial;
-    for _ in 0..config.max_iters {
+    for _ in 0..config.iteration.max {
         let fx = f(x);
-        if fx.abs() < config.tolerance {
+        if fx.abs() < config.iteration.tol {
             return Ok(x);
         }
         let dfdx = (f(x + dx) - fx) / dx;
@@ -79,8 +78,7 @@ pub fn newton1d(f: impl Fn(f64) -> f64, config: Newton1dConfig) -> Result<f64, R
 
 #[derive(Copy, Clone)]
 pub struct BisectionConfig {
-    pub tolerance: f64,
-    pub max_iters: usize,
+    pub iteration: IterationConfig,
     pub upper: f64,
     pub lower: f64,
     pub midpoint: Midpoint,
@@ -89,8 +87,7 @@ pub struct BisectionConfig {
 impl Default for BisectionConfig {
     fn default() -> Self {
         Self {
-            tolerance: DEFAULT_TOLERANCE,
-            max_iters: DEFAULT_MAX_ITERS,
+            iteration: IterationConfig::default(),
             upper: 1.0,
             lower: 1e-8,
             midpoint: Midpoint::Geometric,
@@ -118,11 +115,11 @@ pub fn bisection(
         return Err(RootFindError::RootNotBracketed);
     }
 
-    for _ in 0..config.max_iters {
+    for _ in 0..config.iteration.max {
         let midpoint = mid(upper, lower);
         let f_midpoint = f(midpoint);
 
-        if f_midpoint.abs() < config.tolerance {
+        if f_midpoint.abs() < config.iteration.tol {
             return Ok(midpoint);
         }
 

@@ -4,7 +4,7 @@ use egui_plot::{Legend, Line, Plot};
 use laser_solver::dfb::{dfb_pump_scan, dfb_solve};
 use laser_solver::lase::{FibreParams, FieldProfile, GratingProfile, GridPoints, Pump};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindError};
-use laser_solver::utils::linspace;
+use laser_solver::utils::{IterationConfig, linspace};
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::thread;
@@ -81,8 +81,7 @@ impl ProfilePlot {
     fn start_compute(&mut self, ctx: egui::Context) {
         let full_profile = true;
         let nc = Newton1dConfig {
-            tolerance: 1e-8f64,
-            max_iters: 100usize,
+            iteration: IterationConfig::default(),
             initial: self.pump.forward,
             dx: 1e-6,
         };
@@ -240,7 +239,7 @@ impl LaserApp {
 fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) {
     egui::Grid::new("bisection").show(ui, |ui| {
         ui.label("iters");
-        ui.add(egui::Slider::new(&mut config.max_iters, 10..=500).step_by(10.0));
+        ui.add(egui::Slider::new(&mut config.iteration.max, 10..=500).step_by(10.0));
         ui.end_row();
 
         // uh oh - how to do log slider?
