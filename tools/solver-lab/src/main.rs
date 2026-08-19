@@ -5,7 +5,7 @@ use laser_solver::dfb::{dfb_pump_scan, dfb_solve, solve_profile, transfer};
 use laser_solver::lase::{
     FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
 };
-use laser_solver::picard::{initial_profile, solve_profile_picard};
+use laser_solver::picard::{dfb_solve_picard, initial_profile, solve_profile_picard};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::{IterationConfig, geomspace};
 use myplotlib::Plotter;
@@ -178,6 +178,58 @@ fn main() -> eframe::Result {
     plt.xlabel("z");
     plt.ylabel("Field amplitude");
     plt.title("Direct vs Picard profile (zero backward pump)");
+    plt.show()?;
+
+    let start = Instant::now();
+    let shooting_dfb_profile =
+        dfb_solve(comparison_pump, fp, gp, kp, true, nc).expect("shooting DFB solve failed");
+    let shooting_elapsed = start.elapsed();
+
+    let start = Instant::now();
+    let picard_dfb_profile = dfb_solve_picard(comparison_pump, fp, gp, kp, true, nc, ic)
+        .expect("Picard DFB solve failed");
+    let picard_elapsed = start.elapsed();
+
+    let max_diff = profile_max_diff(&shooting_dfb_profile.fields, &picard_dfb_profile.fields);
+    println!(
+        "shooting DFB solve: {:.3} ms",
+        shooting_elapsed.as_secs_f64() * 1_000.0
+    );
+    println!(
+        "Picard DFB solve: {:.3} ms",
+        picard_elapsed.as_secs_f64() * 1_000.0
+    );
+    println!("shooting/Picard profile max diff: {max_diff:e}");
+
+    let z: Vec<f64> = shooting_dfb_profile.z().collect();
+    let shooting_sgnl_f: Vec<f64> = shooting_dfb_profile.sgnl_f().collect();
+    let shooting_sgnl_b: Vec<f64> = shooting_dfb_profile.sgnl_b().collect();
+    let picard_sgnl_f: Vec<f64> = picard_dfb_profile.sgnl_f().collect();
+    let picard_sgnl_b: Vec<f64> = picard_dfb_profile.sgnl_b().collect();
+    let diff_f: Vec<f64> = shooting_sgnl_f
+        .iter()
+        .zip(picard_sgnl_f.iter())
+        .map(|(a, b)| a - b)
+        .collect();
+
+    let diff_b: Vec<f64> = shooting_sgnl_b
+        .iter()
+        .zip(picard_sgnl_b.iter())
+        .map(|(a, b)| a - b)
+        .collect();
+
+    let mut plt = Plotter::new();
+    // plt.plot(&z, &shooting_sgnl_f)
+    //     .label("Shooting forward signal");
+    // plt.plot(&z, &picard_sgnl_f).label("Picard forward signal");
+    // plt.plot(&z, &shooting_sgnl_b)
+    //     .label("Shooting backward signal");
+    // plt.plot(&z, &picard_sgnl_b).label("Picard backward signal");
+    plt.plot(&z, &diff_b).label("backward diff");
+    plt.plot(&z, &diff_f).label("forward diff");
+    plt.xlabel("z");
+    plt.ylabel("Field amplitude");
+    plt.title("Shooting vs Picard DFB signals");
     plt.show()?;
 
     Ok(())
