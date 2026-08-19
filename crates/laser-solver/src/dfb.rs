@@ -1,8 +1,7 @@
 use crate::error::SolverError;
 use crate::lase::{FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, gain};
-use crate::picard::{dfb_solve_picard, dfb_solve_picard_buffers};
+use crate::picard::{dfb_solve_picard, dfb_solve_picard_buffers, PicardConfig};
 use crate::rootfind::{RootFindConfig, rootfind_1d};
-use crate::utils::IterationConfig;
 
 impl FieldState {
     pub fn propagate(self, fp: FibreParams, kappa: f64, dz: f64) -> Self {
@@ -104,13 +103,16 @@ pub fn dfb_pump_scan(
                 backward: 0.0,
             };
 
-            dfb_solve_shooting(pu, fp, gp, kp, full_profile, config).map_or((0.0, 0.0, false), |result| {
-                (
-                    result.sgnl_f().last().unwrap(),
-                    result.sgnl_b().next().unwrap(),
-                    true,
-                )
-            })
+            dfb_solve_shooting(pu, fp, gp, kp, full_profile, config).map_or(
+                (0.0, 0.0, false),
+                |result| {
+                    (
+                        result.sgnl_f().last().unwrap(),
+                        result.sgnl_b().next().unwrap(),
+                        true,
+                    )
+                },
+            )
         })
         .collect()
 }
@@ -122,14 +124,12 @@ pub fn dfb_solve(
     kp: GratingProfile,
     full_profile: bool,
     config: impl Into<RootFindConfig>,
-    ic: IterationConfig,
+    picard_config: PicardConfig,
 ) -> Result<FieldProfile, SolverError> {
     let use_picard = pu.backward.abs() > 0.0;
     if use_picard {
-        dfb_solve_picard(pu, fp, gp, kp, full_profile, config, ic)
-    }
-    else {
+        dfb_solve_picard(pu, fp, gp, kp, full_profile, config, picard_config)
+    } else {
         dfb_solve_shooting(pu, fp, gp, kp, full_profile, config)
     }
-
 }

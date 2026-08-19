@@ -1,8 +1,7 @@
 use crate::dfb::{out_field, solve_profile};
 use crate::error::SolverError;
-use crate::lase::{gain, profile_avg_diff, profile_max_diff, FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump};
+use crate::lase::{gain, profile_convergence_error, FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump};
 use crate::rootfind::{RootFindConfig, rootfind_1d, try_rootfind_1d};
-use crate::utils::IterationConfig;
 use std::fmt;
 
 pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProfile {
@@ -55,6 +54,23 @@ impl fmt::Display for PicardError {
 
 impl std::error::Error for PicardError {}
 
+#[derive(Copy, Clone, Debug)]
+pub struct PicardConfig {
+    pub max_iterations: usize,
+    pub relative_tolerance: f64,
+    pub absolute_tolerance: f64,
+}
+
+impl Default for PicardConfig {
+    fn default() -> Self {
+        Self {
+            max_iterations: 500,
+            relative_tolerance: 1e-8,
+            absolute_tolerance: 1e-12,
+        }
+    }
+}
+
 pub struct PicardDfbSolver {
     initial: Vec<FieldState>,
     current: Vec<FieldState>,
@@ -76,7 +92,7 @@ impl PicardDfbSolver {
         sgnl_b: f64,
         pump: Pump,
         fp: FibreParams,
-        ic: IterationConfig,
+        config: PicardConfig,
         kappas: &[f64],
         dz: f64,
     ) -> Result<&[FieldState], PicardError> {
@@ -89,7 +105,7 @@ impl PicardDfbSolver {
             pump_f: pump.forward,
             pump_b: 0.0,
         };
-        for _ in 0..ic.max {
+        for _ in 0..config.max_iterations {
             self.new[0] = FieldState {
                 pump_b: find_pump_b(pump, &self.current, fp, dz),
                 ..boundary
@@ -98,10 +114,10 @@ impl PicardDfbSolver {
                 self.new[j] =
                     self.new[j - 1].general_step(self.current[j - 1], fp, kappas[j - 1], dz);
             }
-            let diff = profile_max_diff(&self.current, &self.new);
+            let error = profile_convergence_error(&self.current, &self.new, config);
             //current = new.clone();
             std::mem::swap(&mut self.current, &mut self.new);
-            if diff < ic.tol {
+            if error <= 1.0 {
                 self.initial.copy_from_slice(&self.current);
                 return Ok(&self.current);
             }
@@ -115,7 +131,7 @@ pub fn solve_profile_picard(
     initial: Vec<FieldState>,
     pump: Pump,
     fp: FibreParams,
-    ic: IterationConfig,
+    config: PicardConfig,
     kappas: &[f64],
     dz: f64,
 ) -> Result<Vec<FieldState>, PicardError> {
@@ -129,7 +145,7 @@ pub fn solve_profile_picard(
         pump_f: pump.forward,
         pump_b: 0.0,
     };
-    for _ in 0..ic.max {
+    for _ in 0..config.max_iterations {
         new[0] = FieldState {
             pump_b: find_pump_b(pump, &current, fp, dz),
             ..boundary
@@ -137,10 +153,10 @@ pub fn solve_profile_picard(
         for j in 1..new.len() {
             new[j] = new[j - 1].general_step(current[j - 1], fp, kappas[j - 1], dz);
         }
-        let diff = profile_avg_diff(&current, &new);
+        let error = profile_convergence_error(&current, &new, config);
         //current = new.clone();
         std::mem::swap(&mut current, &mut new);
-        if diff < ic.tol {
+        if error <= 1.0 {
             return Ok(current);
         }
     }
@@ -154,7 +170,7 @@ pub fn dfb_solve_picard(
     kp: GratingProfile,
     full_profile: bool,
     config: impl Into<RootFindConfig>,
-    ic: IterationConfig,
+    picard_config: PicardConfig,
 ) -> Result<FieldProfile, SolverError> {
     let kappas = kp.grid(gp.0);
     let dz = gp.dz(fp.length);
@@ -163,11 +179,19 @@ pub fn dfb_solve_picard(
     let initial_fields = initial.fields;
 
     let mut f = |sgnl_b| -> Result<f64, SolverError> {
-        let fields = solve_profile_picard(sgnl_b, initial_fields.clone(), pu, fp, ic, &kappas, dz)?;
+        let fields = solve_profile_picard(
+            sgnl_b,
+            initial_fields.clone(),
+            pu,
+            fp,
+            picard_config,
+            &kappas,
+            dz,
+        )?;
         Ok(fields.last().unwrap().sgnl_b)
     };
     let sgnl_b = try_rootfind_1d(&mut f, config)?;
-    let fields = solve_profile_picard(sgnl_b, initial_fields, pu, fp, ic, &kappas, dz)?;
+    let fields = solve_profile_picard(sgnl_b, initial_fields, pu, fp, picard_config, &kappas, dz)?;
     if full_profile {
         Ok(FieldProfile::new(z, fields))
     } else {
@@ -184,7 +208,7 @@ pub fn dfb_solve_picard_buffers(
     kp: GratingProfile,
     full_profile: bool,
     config: impl Into<RootFindConfig>,
-    ic: IterationConfig,
+    picard_config: PicardConfig,
 ) -> Result<FieldProfile, SolverError> {
     let kappas = kp.grid(gp.0);
     let dz = gp.dz(fp.length);
@@ -194,11 +218,11 @@ pub fn dfb_solve_picard_buffers(
     let mut solver = PicardDfbSolver::init(initial_fields.clone());
 
     let f = |sgnl_b| -> Result<f64, SolverError> {
-        let fields = solver.solve_profile_picard(sgnl_b, pu, fp, ic, &kappas, dz)?;
+        let fields = solver.solve_profile_picard(sgnl_b, pu, fp, picard_config, &kappas, dz)?;
         Ok(fields.last().unwrap().sgnl_b)
     };
     let sgnl_b = try_rootfind_1d(f, config)?;
-    let fields = solve_profile_picard(sgnl_b, initial_fields, pu, fp, ic, &kappas, dz)?;
+    let fields = solve_profile_picard(sgnl_b, initial_fields, pu, fp, picard_config, &kappas, dz)?;
     if full_profile {
         Ok(FieldProfile::new(z, fields))
     } else {

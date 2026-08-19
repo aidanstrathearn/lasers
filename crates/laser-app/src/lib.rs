@@ -4,6 +4,7 @@ use egui_plot::{Legend, Line, Plot};
 use laser_solver::dfb::{dfb_pump_scan, dfb_solve, dfb_solve_shooting};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{FibreParams, FieldProfile, GratingProfile, GridPoints, Pump};
+use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindError};
 use laser_solver::utils::{IterationConfig, linspace};
 use std::sync::mpsc;
@@ -91,7 +92,8 @@ impl ProfilePlot {
         let grid_points = self.grid_points;
         let grating = self.grating;
         let compute_fn = move || {
-            let result = dfb_solve_shooting(pump, fibre_params, grid_points, grating, full_profile, nc)?;
+            let result =
+                dfb_solve_shooting(pump, fibre_params, grid_points, grating, full_profile, nc)?;
             Ok([
                 result.plotpoints("sgnl_f"),
                 result.plotpoints("sgnl_b"),
@@ -201,9 +203,10 @@ impl LaserApp {
             ..self.config
         };
 
-        let ic = IterationConfig {
-            max: 5000,
-            tol: 1e-6,
+        let picard_config = PicardConfig {
+            max_iterations: 5_000,
+            relative_tolerance: 1e-6,
+            absolute_tolerance: 1e-10,
         };
         let result = dfb_solve(
             self.pump,
@@ -212,7 +215,7 @@ impl LaserApp {
             self.grating,
             full_profile,
             bc,
-            ic
+            picard_config,
         )?;
         let sgnl_f = result.plotpoints("sgnl_f");
         let sgnl_b = result.plotpoints("sgnl_b");
@@ -292,7 +295,6 @@ fn pump_slider_grid(pump: &mut Pump, ui: &mut Ui) {
         ui.label("pump b");
         ui.add(egui::Slider::new(&mut pump.backward, 0.0..=100.0).step_by(0.01));
         ui.end_row();
-
     });
 }
 fn fibre_params_slider_grid(params: &mut FibreParams, ui: &mut Ui) {

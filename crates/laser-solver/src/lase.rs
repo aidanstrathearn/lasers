@@ -1,3 +1,4 @@
+use crate::picard::PicardConfig;
 use crate::utils::{linspace, relative_diff};
 
 #[derive(Copy, Clone)]
@@ -20,7 +21,7 @@ impl Default for FibreParams {
             pump_em: 0.0,
             sgnl_ab: 0.0,
             sgnl_em: 1.0,
-            length: 10.0,
+            length: 5.0,
         }
     }
 }
@@ -91,6 +92,15 @@ pub struct FieldState {
     pub pump_b: f64,
 }
 
+impl FieldState {
+    fn field_powers(self) -> [f64; 2] {
+        [
+            self.sgnl_f * self.sgnl_f + self.sgnl_b * self.sgnl_b,
+            self.pump_f * self.pump_f + self.pump_b * self.pump_b,
+        ]
+    }
+}
+
 pub fn field_max_diff(f1: FieldState, f2: FieldState) -> f64 {
     let diffs = [
         relative_diff(f1.pump_f, f2.pump_f),
@@ -121,7 +131,38 @@ pub fn profile_avg_diff(p1: &Vec<FieldState>, p2: &Vec<FieldState>) -> f64 {
     p1.iter()
         .zip(p2.iter())
         .map(|(&f1, &f2)| field_max_diff(f1, f2))
-        .sum::<f64>() / p1.len() as f64
+        .sum::<f64>()
+        / p1.len() as f64
+}
+
+pub fn profile_convergence_error(
+    current: &[FieldState],
+    new: &[FieldState],
+    config: PicardConfig,
+) -> f64 {
+    let tol = config.relative_tolerance;
+    assert_eq!(current.len(), new.len());
+    let mut max_dif_s = 0.0_f64;
+    let mut max_dif_p = 0.0_f64;
+    let mut max_mag_s = 0.0_f64;
+    let mut max_mag_p = 0.0_f64;
+
+    for (&current, &new) in current.iter().zip(new) {
+        let current_powers = current.field_powers();
+        let new_powers = new.field_powers();
+        if !current_powers[0].is_finite()
+            || !new_powers[0].is_finite()
+            || !current_powers[1].is_finite()
+            || !new_powers[1].is_finite()
+        {
+            return f64::INFINITY;
+        }
+        max_dif_s = max_dif_s.max((current_powers[0] - new_powers[0]).abs().sqrt());
+        max_dif_p = max_dif_p.max((current_powers[1] - new_powers[1]).abs().sqrt());
+        max_mag_s = max_mag_s.max(current_powers[0].max(new_powers[0]).sqrt());
+        max_mag_p = max_mag_p.max(current_powers[1].max(new_powers[1]).sqrt());
+    }
+    (max_dif_p / (tol * max_mag_p)).max(max_dif_s / (tol * max_mag_s))
 }
 
 #[derive(Clone)]
