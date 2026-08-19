@@ -24,76 +24,76 @@ impl fmt::Display for RootFindError {
 
 impl std::error::Error for RootFindError {}
 
-pub struct RfConfig<G> {
-    iteration: IterationConfig,
-    method: G
-}
-
-pub struct NConfig {
-    initial: f64,
-    dx: f64
-}
-
-impl Default for NConfig {
-    fn default() -> Self {
-        Self { initial: 0.0, dx: 1e-6}
-    }
-}
-
-pub struct BConfig {
-    upper: f64,
-    lower: f64,
-    midpoint: Midpoint
-}
-
-impl Default for BConfig {
-    fn default() -> Self {
-        Self { upper: 2.0, lower: 1e-6, midpoint: Midpoint::Geometric}
-    }
-}
-
-impl<G> RfConfig<G> {
-    pub fn max_iters(&mut self, max: usize) -> &mut Self {
-        self.iteration.max = max;
-        self
-    }
-    pub fn tolerance(&mut self, tol: f64) -> &mut Self {
-        self.iteration.tol = tol;
-        self
-    }
-}
-
-impl RfConfig<NConfig> {
-    pub fn newton() -> Self {
-        RfConfig {iteration: IterationConfig::default(), method: NConfig::default()}
-    }
-    pub fn initial(&mut self, initial: f64) -> &mut Self {
-        self.method.initial = initial;
-        self
-    }
-    pub fn dx(&mut self, dx: f64) -> &mut Self {
-        self.method.dx = dx;
-        self
-    }
-}
-
-impl RfConfig<BConfig> {
-    pub fn bisection() -> Self {
-        RfConfig {iteration: IterationConfig::default(), method: BConfig::default()}
-    }
-    pub fn upper(&mut self, upper: f64) -> &mut Self {
-        self.method.upper = upper;
-        self
-    }
-    pub fn lower(&mut self, lower: f64) -> &mut Self {
-        self.method.lower = lower;
-        self
-    }
-    pub fn midpoint(&mut self, midpoint: Midpoint) -> &mut Self {
-        self.method.midpoint = midpoint;
-        self
-    }
-}
+// pub struct RfConfig<G> {
+//     iteration: IterationConfig,
+//     method: G
+// }
+//
+// pub struct NConfig {
+//     initial: f64,
+//     dx: f64
+// }
+//
+// impl Default for NConfig {
+//     fn default() -> Self {
+//         Self { initial: 0.0, dx: 1e-6}
+//     }
+// }
+//
+// pub struct BConfig {
+//     upper: f64,
+//     lower: f64,
+//     midpoint: Midpoint
+// }
+//
+// impl Default for BConfig {
+//     fn default() -> Self {
+//         Self { upper: 2.0, lower: 1e-6, midpoint: Midpoint::Geometric}
+//     }
+// }
+//
+// impl<G> RfConfig<G> {
+//     pub fn max_iters(&mut self, max: usize) -> &mut Self {
+//         self.iteration.max = max;
+//         self
+//     }
+//     pub fn tolerance(&mut self, tol: f64) -> &mut Self {
+//         self.iteration.tol = tol;
+//         self
+//     }
+// }
+//
+// impl RfConfig<NConfig> {
+//     pub fn newton() -> Self {
+//         RfConfig {iteration: IterationConfig::default(), method: NConfig::default()}
+//     }
+//     pub fn initial(&mut self, initial: f64) -> &mut Self {
+//         self.method.initial = initial;
+//         self
+//     }
+//     pub fn dx(&mut self, dx: f64) -> &mut Self {
+//         self.method.dx = dx;
+//         self
+//     }
+// }
+//
+// impl RfConfig<BConfig> {
+//     pub fn bisection() -> Self {
+//         RfConfig {iteration: IterationConfig::default(), method: BConfig::default()}
+//     }
+//     pub fn upper(&mut self, upper: f64) -> &mut Self {
+//         self.method.upper = upper;
+//         self
+//     }
+//     pub fn lower(&mut self, lower: f64) -> &mut Self {
+//         self.method.lower = lower;
+//         self
+//     }
+//     pub fn midpoint(&mut self, midpoint: Midpoint) -> &mut Self {
+//         self.method.midpoint = midpoint;
+//         self
+//     }
+// }
 
 
 
