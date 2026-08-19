@@ -2,13 +2,13 @@ use eframe::egui;
 use eframe::egui::Ui;
 use egui_plot::{Legend, Line, Plot};
 use laser_solver::dfb::{dfb_pump_scan, dfb_solve};
+use laser_solver::error::SolverError;
 use laser_solver::lase::{FibreParams, FieldProfile, GratingProfile, GridPoints, Pump};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindError};
 use laser_solver::utils::{IterationConfig, linspace};
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::thread;
-use laser_solver::error::SolverError;
 
 // pub fn f64_slider(
 //     handle: &mut f64,
@@ -217,14 +217,26 @@ impl LaserApp {
             .x_axis_label("z")
             .y_axis_label("fields")
             .show(ui, |plot_ui| {
-                plot_ui.line(Line::new("profile sf", sgnl_f).name("Forward Signal").width(3.0));
+                plot_ui.line(
+                    Line::new("profile sf", sgnl_f)
+                        .name("Forward Signal")
+                        .width(3.0),
+                );
                 plot_ui.line(
                     Line::new("profile sb", sgnl_b)
                         .name("Backward Signal")
                         .width(3.0),
                 );
-                plot_ui.line(Line::new("profile pf", pump_f).name("Forward Pump").width(3.0));
-                plot_ui.line(Line::new("profile pb", pump_b).name("Backward Pump").width(3.0));
+                plot_ui.line(
+                    Line::new("profile pf", pump_f)
+                        .name("Forward Pump")
+                        .width(3.0),
+                );
+                plot_ui.line(
+                    Line::new("profile pb", pump_b)
+                        .name("Backward Pump")
+                        .width(3.0),
+                );
             });
         Ok(())
     }
