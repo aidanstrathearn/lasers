@@ -3,12 +3,12 @@ mod plots;
 
 use laser_solver::dfb::{dfb_pump_scan, dfb_solve_shooting, solve_profile, transfer};
 use laser_solver::lase::{
-    FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_convergence_error,
-    profile_max_diff,
+    FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, 
+    profile_max_diff, 
 };
 use laser_solver::picard::{
     PicardConfig, dfb_solve_picard, dfb_solve_picard_buffers, initial_profile,
-     solve_profile_picard,
+     solve_profile_picard, profile_convergence_error,
 };
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::{IterationConfig, geomspace};

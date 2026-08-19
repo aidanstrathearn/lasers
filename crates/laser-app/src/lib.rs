@@ -5,7 +5,7 @@ use laser_solver::dfb::{dfb_pump_scan, dfb_solve, dfb_solve_shooting};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{FibreParams, FieldProfile, GratingProfile, GridPoints, Pump};
 use laser_solver::picard::PicardConfig;
-use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindError};
+use laser_solver::rootfind::{BisectionConfig, Newton1dConfig};
 use laser_solver::utils::{IterationConfig, linspace};
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;

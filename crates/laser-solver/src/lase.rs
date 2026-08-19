@@ -1,4 +1,3 @@
-use crate::picard::PicardConfig;
 use crate::utils::{linspace, relative_diff};
 
 #[derive(Copy, Clone)]
@@ -93,7 +92,7 @@ pub struct FieldState {
 }
 
 impl FieldState {
-    fn field_powers(self) -> [f64; 2] {
+    pub(crate) fn field_powers(self) -> [f64; 2] {
         [
             self.sgnl_f * self.sgnl_f + self.sgnl_b * self.sgnl_b,
             self.pump_f * self.pump_f + self.pump_b * self.pump_b,
@@ -135,35 +134,7 @@ pub fn profile_avg_diff(p1: &Vec<FieldState>, p2: &Vec<FieldState>) -> f64 {
         / p1.len() as f64
 }
 
-pub fn profile_convergence_error(
-    current: &[FieldState],
-    new: &[FieldState],
-    config: PicardConfig,
-) -> f64 {
-    let tol = config.relative_tolerance;
-    assert_eq!(current.len(), new.len());
-    let mut max_dif_s = 0.0_f64;
-    let mut max_dif_p = 0.0_f64;
-    let mut max_mag_s = 0.0_f64;
-    let mut max_mag_p = 0.0_f64;
 
-    for (&current, &new) in current.iter().zip(new) {
-        let current_powers = current.field_powers();
-        let new_powers = new.field_powers();
-        if !current_powers[0].is_finite()
-            || !new_powers[0].is_finite()
-            || !current_powers[1].is_finite()
-            || !new_powers[1].is_finite()
-        {
-            return f64::INFINITY;
-        }
-        max_dif_s = max_dif_s.max((current_powers[0] - new_powers[0]).abs().sqrt());
-        max_dif_p = max_dif_p.max((current_powers[1] - new_powers[1]).abs().sqrt());
-        max_mag_s = max_mag_s.max(current_powers[0].max(new_powers[0]).sqrt());
-        max_mag_p = max_mag_p.max(current_powers[1].max(new_powers[1]).sqrt());
-    }
-    (max_dif_p / (tol * max_mag_p)).max(max_dif_s / (tol * max_mag_s))
-}
 
 #[derive(Clone)]
 pub struct FieldProfile {

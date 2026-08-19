@@ -1,7 +1,6 @@
-use crate::dfb::{out_field, solve_profile};
 use crate::error::SolverError;
-use crate::lase::{gain, profile_convergence_error, FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump};
-use crate::rootfind::{RootFindConfig, rootfind_1d, try_rootfind_1d};
+use crate::lase::{gain, FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump};
+use crate::rootfind::{RootFindConfig, try_rootfind_1d};
 use std::fmt;
 
 pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProfile {
@@ -69,6 +68,36 @@ impl Default for PicardConfig {
             absolute_tolerance: 1e-12,
         }
     }
+}
+
+pub fn profile_convergence_error(
+    current: &[FieldState],
+    new: &[FieldState],
+    config: PicardConfig,
+) -> f64 {
+    assert_eq!(current.len(), new.len());
+    let mut max_dif_s = 0.0_f64;
+    let mut max_dif_p = 0.0_f64;
+    let mut max_mag_s = 0.0_f64;
+    let mut max_mag_p = 0.0_f64;
+
+    for (&current, &new) in current.iter().zip(new) {
+        let current_powers = current.field_powers();
+        let new_powers = new.field_powers();
+        if !current_powers[0].is_finite()
+            || !new_powers[0].is_finite()
+            || !current_powers[1].is_finite()
+            || !new_powers[1].is_finite()
+        {
+            return f64::INFINITY;
+        }
+        max_dif_s = max_dif_s.max((current_powers[0] - new_powers[0]).abs().sqrt());
+        max_dif_p = max_dif_p.max((current_powers[1] - new_powers[1]).abs().sqrt());
+        max_mag_s = max_mag_s.max(current_powers[0].max(new_powers[0]).sqrt());
+        max_mag_p = max_mag_p.max(current_powers[1].max(new_powers[1]).sqrt());
+    }
+    (max_dif_p / (config.absolute_tolerance + config.relative_tolerance * max_mag_p))
+        .max(max_dif_s / (config.absolute_tolerance + config.relative_tolerance * max_mag_s))
 }
 
 pub struct PicardDfbSolver {
