@@ -55,7 +55,7 @@ pub fn out_field(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> Fi
     current
 }
 
-pub fn dfb_solve(
+pub fn dfb_solve_shooting(
     pu: Pump,
     fp: FibreParams,
     gp: GridPoints,
@@ -102,7 +102,7 @@ pub fn dfb_pump_scan(
                 backward: 0.0,
             };
 
-            dfb_solve(pu, fp, gp, kp, full_profile, config).map_or((0.0, 0.0, false), |result| {
+            dfb_solve_shooting(pu, fp, gp, kp, full_profile, config).map_or((0.0, 0.0, false), |result| {
                 (
                     result.sgnl_f().last().unwrap(),
                     result.sgnl_b().next().unwrap(),

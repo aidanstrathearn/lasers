@@ -1,7 +1,7 @@
 use eframe::egui;
 use eframe::egui::Ui;
 use egui_plot::{Legend, Line, Plot};
-use laser_solver::dfb::{dfb_pump_scan, dfb_solve};
+use laser_solver::dfb::{dfb_pump_scan, dfb_solve_shooting};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{FibreParams, FieldProfile, GratingProfile, GridPoints, Pump};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindError};
@@ -91,7 +91,7 @@ impl ProfilePlot {
         let grid_points = self.grid_points;
         let grating = self.grating;
         let compute_fn = move || {
-            let result = dfb_solve(pump, fibre_params, grid_points, grating, full_profile, nc)?;
+            let result = dfb_solve_shooting(pump, fibre_params, grid_points, grating, full_profile, nc)?;
             Ok([
                 result.plotpoints("sgnl_f"),
                 result.plotpoints("sgnl_b"),
@@ -200,7 +200,7 @@ impl LaserApp {
             upper: self.pump.forward,
             ..self.config
         };
-        let result = dfb_solve(
+        let result = dfb_solve_shooting(
             self.pump,
             self.fibre_params,
             self.grid_points,

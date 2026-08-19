@@ -1,7 +1,7 @@
 mod myplotlib;
 mod plots;
 
-use laser_solver::dfb::{dfb_pump_scan, dfb_solve, solve_profile, transfer};
+use laser_solver::dfb::{dfb_pump_scan, dfb_solve_shooting, solve_profile, transfer};
 use laser_solver::lase::{
     FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
 };
@@ -76,7 +76,7 @@ fn main() -> eframe::Result {
 fn benchmark_dfb_solver() {
     let start = Instant::now();
     for _ in 0..BENCHMARK_RUNS {
-        let result = dfb_solve(PUMP, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON).unwrap();
+        let result = dfb_solve_shooting(PUMP, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON).unwrap();
         black_box(result);
     }
     let elapsed = start.elapsed();
@@ -123,7 +123,7 @@ fn benchmark_picard_solvers() {
 }
 
 fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
-    let result = dfb_solve(PUMP, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON).unwrap();
+    let result = dfb_solve_shooting(PUMP, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON).unwrap();
     show_field_profile(&result, show_plots)?;
 
     let profile = initial_profile(PUMP, FIBRE, GRID);
@@ -256,7 +256,7 @@ fn compare_dfb_solvers(show_plots: bool) -> eframe::Result {
     };
 
     let start = Instant::now();
-    let shooting_profile = dfb_solve(comparison_pump, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON)
+    let shooting_profile = dfb_solve_shooting(comparison_pump, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON)
         .expect("shooting DFB solve failed");
     let shooting_elapsed = start.elapsed();
 
