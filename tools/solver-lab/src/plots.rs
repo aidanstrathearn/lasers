@@ -1,7 +1,11 @@
 use crate::myplotlib::Plotter;
 use laser_solver::lase::FieldProfile;
 
-pub fn show_field_profile(profile: &FieldProfile) -> eframe::Result {
+pub fn show_field_profile(profile: &FieldProfile, show_plot: bool) -> eframe::Result {
+    if !show_plot {
+        return Ok(());
+    }
+
     let x: Vec<f64> = profile.z().collect();
     let clipped_log = |x: f64| x.powi(2).max(1e-6).log10();
     let pump_f: Vec<f64> = profile.pump_f().map(clipped_log).collect();
