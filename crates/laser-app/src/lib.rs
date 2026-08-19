@@ -1,7 +1,7 @@
 use eframe::egui;
 use eframe::egui::Ui;
 use egui_plot::{Legend, Line, Plot};
-use laser_solver::dfb::{dfb_pump_scan, dfb_solve_shooting};
+use laser_solver::dfb::{dfb_pump_scan, dfb_solve, dfb_solve_shooting};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{FibreParams, FieldProfile, GratingProfile, GridPoints, Pump};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindError};
@@ -197,16 +197,22 @@ impl LaserApp {
         //     dx: 1e-6,
         // };
         let bc = BisectionConfig {
-            upper: self.pump.forward,
+            upper: (self.pump.forward.powi(2) + self.pump.backward.powi(2)).sqrt(),
             ..self.config
         };
-        let result = dfb_solve_shooting(
+
+        let ic = IterationConfig {
+            max: 5000,
+            tol: 1e-6,
+        };
+        let result = dfb_solve(
             self.pump,
             self.fibre_params,
             self.grid_points,
             self.grating,
             full_profile,
             bc,
+            ic
         )?;
         let sgnl_f = result.plotpoints("sgnl_f");
         let sgnl_b = result.plotpoints("sgnl_b");
@@ -277,6 +283,18 @@ fn grating_slider_grid(grating: &mut GratingProfile, ui: &mut Ui) {
     });
 }
 
+fn pump_slider_grid(pump: &mut Pump, ui: &mut Ui) {
+    egui::Grid::new("grating").show(ui, |ui| {
+        ui.label("pump f");
+        ui.add(egui::Slider::new(&mut pump.forward, 0.0..=100.0).step_by(0.01));
+        ui.end_row();
+
+        ui.label("pump b");
+        ui.add(egui::Slider::new(&mut pump.backward, 0.0..=100.0).step_by(0.01));
+        ui.end_row();
+
+    });
+}
 fn fibre_params_slider_grid(params: &mut FibreParams, ui: &mut Ui) {
     egui::Grid::new("params").show(ui, |ui| {
         egui::Grid::new("params1").show(ui, |ui| {
@@ -326,6 +344,7 @@ impl eframe::App for LaserApp {
                 fibre_params_slider_grid(&mut self.fibre_params, ui);
                 grating_slider_grid(&mut self.grating, ui);
                 bisection_slider_grid(&mut self.config, ui);
+                pump_slider_grid(&mut self.pump, ui);
                 ui.end_row();
             });
 

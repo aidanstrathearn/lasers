@@ -1,6 +1,8 @@
 use crate::error::SolverError;
 use crate::lase::{FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, gain};
+use crate::picard::dfb_solve_picard;
 use crate::rootfind::{RootFindConfig, rootfind_1d};
+use crate::utils::IterationConfig;
 
 impl FieldState {
     pub fn propagate(self, fp: FibreParams, kappa: f64, dz: f64) -> Self {
@@ -69,7 +71,7 @@ pub fn dfb_solve_shooting(
         sgnl_f: 0.0,
         sgnl_b: sgnl_b,
         pump_f: pu.forward,
-        pump_b: 0.0, // bidirectional pump not implemented yet
+        pump_b: 0.0, // shooting method requires pump.backward = 0
     };
     let f = |sgnl_b| out_field(trial(sgnl_b), fp, dz, &kappas).sgnl_b;
     let sgnl_b = rootfind_1d(f, config)?;
@@ -111,4 +113,23 @@ pub fn dfb_pump_scan(
             })
         })
         .collect()
+}
+
+pub fn dfb_solve(
+    pu: Pump,
+    fp: FibreParams,
+    gp: GridPoints,
+    kp: GratingProfile,
+    full_profile: bool,
+    config: impl Into<RootFindConfig>,
+    ic: IterationConfig,
+) -> Result<FieldProfile, SolverError> {
+    let use_picard = pu.backward.abs() > 0.0;
+    if use_picard {
+        dfb_solve_picard(pu, fp, gp, kp, full_profile, config, ic)
+    }
+    else {
+        dfb_solve_shooting(pu, fp, gp, kp, full_profile, config)
+    }
+
 }
