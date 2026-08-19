@@ -5,7 +5,9 @@ use laser_solver::dfb::{dfb_pump_scan, dfb_solve, solve_profile, transfer};
 use laser_solver::lase::{
     FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
 };
-use laser_solver::picard::{dfb_solve_picard, initial_profile, solve_profile_picard};
+use laser_solver::picard::{
+    dfb_solve_picard, dfb_solve_picard_buffers, initial_profile, solve_profile_picard,
+};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::{IterationConfig, geomspace};
 use myplotlib::Plotter;
@@ -38,7 +40,7 @@ const GRATING: GratingProfile = GratingProfile {
 };
 
 const ITERATION: IterationConfig = IterationConfig {
-    max: 100,
+    max: 500,
     tol: 1e-10,
 };
 
@@ -60,6 +62,7 @@ const SHOW_PLOTS: bool = true;
 
 fn main() -> eframe::Result {
     benchmark_dfb_solver();
+    benchmark_picard_solvers();
     inspect_field_profiles(SHOW_PLOTS)?;
     run_pump_scan(SHOW_PLOTS)?;
     inspect_grating(SHOW_PLOTS)?;
@@ -81,6 +84,41 @@ fn benchmark_dfb_solver() {
     println!(
         "average: {:.3} µs",
         elapsed.as_secs_f64() * 1_000_000.0 / BENCHMARK_RUNS as f64
+    );
+}
+
+fn benchmark_picard_solvers() {
+    let pump = Pump {
+        backward: 20.0,
+        ..PUMP
+    };
+
+    let start = Instant::now();
+    for _ in 0..BENCHMARK_RUNS {
+        let result = dfb_solve_picard(pump, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON, ITERATION)
+            .expect("non-buffered Picard DFB solve failed");
+        black_box(result);
+    }
+    let non_buffered_elapsed = start.elapsed();
+
+    let start = Instant::now();
+    for _ in 0..BENCHMARK_RUNS {
+        let result =
+            dfb_solve_picard_buffers(pump, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON, ITERATION)
+                .expect("buffered Picard DFB solve failed");
+        black_box(result);
+    }
+    let buffered_elapsed = start.elapsed();
+
+    let non_buffered_average = non_buffered_elapsed.as_secs_f64() * 1_000.0 / BENCHMARK_RUNS as f64;
+    let buffered_average = buffered_elapsed.as_secs_f64() * 1_000.0 / BENCHMARK_RUNS as f64;
+
+    println!("Picard DFB average over {BENCHMARK_RUNS} runs:");
+    println!("  non-buffered: {non_buffered_average:.3} ms");
+    println!("  buffered:     {buffered_average:.3} ms");
+    println!(
+        "  speedup:      {:.3}x",
+        non_buffered_average / buffered_average
     );
 }
 

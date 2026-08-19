@@ -144,9 +144,9 @@ pub fn newton1d(f: impl Fn(f64) -> f64, config: Newton1dConfig) -> Result<f64, R
     Err(RootFindError::DidNotConverge)
 }
 
-pub fn try_newton1d<F, E>(f: F, config: Newton1dConfig) -> Result<f64, E>
+pub fn try_newton1d<F, E>(mut f: F, config: Newton1dConfig) -> Result<f64, E>
 where
-    F: Fn(f64) -> Result<f64, E>,
+    F: FnMut(f64) -> Result<f64, E>,
     E: From<RootFindError>,
 {
     let mut x = config.initial;
@@ -220,9 +220,10 @@ pub fn bisection(
     Err(RootFindError::DidNotConverge)
 }
 
-pub fn try_bisection<F, E, M>(f: F, mid: M, config: BisectionConfig) -> Result<f64, E>
+pub fn try_bisection<F, E, M>(mut f: F, mid: M, config: BisectionConfig) -> Result<f64, E>
+// foo(mut f: F) {} roughly similar to foo(f: F) { let mut f = f ... }
 where
-    F: Fn(f64) -> Result<f64, E>,
+    F: FnMut(f64) -> Result<f64, E>,
     E: From<RootFindError>,
     M: Fn(f64, f64) -> f64,
 {
@@ -274,7 +275,7 @@ pub fn bracket_bisection(
 
 pub fn try_bracket_bisection<F, E>(f: F, config: BisectionConfig) -> Result<f64, E>
 where
-    F: Fn(f64) -> Result<f64, E>,
+    F: FnMut(f64) -> Result<f64, E>,
     E: From<RootFindError>,
 {
     match config.midpoint {
@@ -296,7 +297,7 @@ pub fn rootfind_1d(
 
 pub fn try_rootfind_1d<F, E>(f: F, config: impl Into<RootFindConfig>) -> Result<f64, E>
 where
-    F: Fn(f64) -> Result<f64, E>,
+    F: FnMut(f64) -> Result<f64, E>,
     E: From<RootFindError>,
 {
     match config.into() {
