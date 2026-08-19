@@ -108,6 +108,22 @@ pub fn profile_max_diff(p1: &Vec<FieldState>, p2: &Vec<FieldState>) -> f64 {
         .unwrap_or(f64::NAN)
 }
 
+pub fn field_avg_diff(f1: FieldState, f2: FieldState) -> f64 {
+    let diffs = [
+        relative_diff(f1.pump_f, f2.pump_f),
+        relative_diff(f1.pump_b, f2.pump_b),
+        relative_diff(f1.sgnl_f, f2.sgnl_f),
+        relative_diff(f1.sgnl_b, f2.sgnl_b),
+    ];
+    diffs.into_iter().sum::<f64>() / 4.0
+}
+pub fn profile_avg_diff(p1: &Vec<FieldState>, p2: &Vec<FieldState>) -> f64 {
+    p1.iter()
+        .zip(p2.iter())
+        .map(|(&f1, &f2)| field_max_diff(f1, f2))
+        .sum::<f64>() / p1.len() as f64
+}
+
 #[derive(Clone)]
 pub struct FieldProfile {
     pub z: Vec<f64>,

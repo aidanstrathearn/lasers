@@ -1,8 +1,6 @@
 use crate::dfb::{out_field, solve_profile};
 use crate::error::SolverError;
-use crate::lase::{
-    FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, gain, profile_max_diff,
-};
+use crate::lase::{gain, profile_avg_diff, profile_max_diff, FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump};
 use crate::rootfind::{RootFindConfig, rootfind_1d, try_rootfind_1d};
 use crate::utils::IterationConfig;
 use std::fmt;
@@ -104,6 +102,7 @@ impl PicardDfbSolver {
             //current = new.clone();
             std::mem::swap(&mut self.current, &mut self.new);
             if diff < ic.tol {
+                self.initial.copy_from_slice(&self.current);
                 return Ok(&self.current);
             }
         }
@@ -138,7 +137,7 @@ pub fn solve_profile_picard(
         for j in 1..new.len() {
             new[j] = new[j - 1].general_step(current[j - 1], fp, kappas[j - 1], dz);
         }
-        let diff = profile_max_diff(&current, &new);
+        let diff = profile_avg_diff(&current, &new);
         //current = new.clone();
         std::mem::swap(&mut current, &mut new);
         if diff < ic.tol {
