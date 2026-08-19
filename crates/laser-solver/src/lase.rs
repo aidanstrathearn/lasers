@@ -108,6 +108,7 @@ pub fn profile_max_diff(p1: &Vec<FieldState>, p2: &Vec<FieldState>) -> f64 {
         .unwrap_or(f64::NAN)
 }
 
+#[derive(Clone)]
 pub struct FieldProfile {
     pub z: Vec<f64>,
     pub fields: Vec<FieldState>,
@@ -175,4 +176,3 @@ impl Default for Pump {
         }
     }
 }
-

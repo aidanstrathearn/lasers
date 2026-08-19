@@ -1,8 +1,11 @@
+use crate::error::SolverError;
 use crate::lase::{
-    FibreParams, FieldProfile, FieldState, GridPoints, Pump, gain, profile_max_diff,
+    FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, gain, profile_max_diff,
 };
+use crate::rootfind::{rootfind_1d, RootFindConfig, try_rootfind_1d};
 use crate::utils::IterationConfig;
 use std::fmt;
+use crate::dfb::{out_field, solve_profile};
 
 pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProfile {
     let g = -fp.pump_ab * fp.density;
@@ -56,15 +59,16 @@ impl std::error::Error for PicardError {}
 
 pub fn solve_profile_picard(
     sgnl_b: f64,
+    initial: FieldProfile,
     pump: Pump,
     fp: FibreParams,
-    gp: GridPoints,
     ic: IterationConfig,
     kappas: &[f64],
+    dz: f64,
 ) -> Result<FieldProfile, PicardError> {
-    let dz = gp.dz(fp.length);
-    let mut current = initial_profile(pump, fp, gp);
-    assert_eq!(kappas.len() + 1, current.fields.len());
+    assert_eq!(kappas.len() + 1, initial.fields.len());
+
+    let mut current = initial;
     let mut new_fields = current.fields.clone();
     let boundary = FieldState {
         sgnl_f: 0.0,
@@ -88,4 +92,32 @@ pub fn solve_profile_picard(
         }
     }
     Err(PicardError::DidNotConverge)
+}
+
+pub fn dfb_solve_picard(
+    pu: Pump,
+    fp: FibreParams,
+    gp: GridPoints,
+    kp: GratingProfile,
+    full_profile: bool,
+    config: impl Into<RootFindConfig>,
+    ic: IterationConfig,
+) -> Result<FieldProfile, SolverError> {
+    let kappas = kp.grid(gp.0);
+    let dz = gp.dz(fp.length);
+    let initial = initial_profile(pu, fp, gp);
+
+    let f = |sgnl_b| -> Result<f64, SolverError> {
+        let profile = solve_profile_picard(sgnl_b, initial.clone(), pu, fp, ic, &kappas, dz)?;
+        Ok(profile.fields.last().unwrap().sgnl_b)
+    };
+    let sgnl_b = try_rootfind_1d(f, config)?;
+    let profile = solve_profile_picard(sgnl_b, initial.clone(), pu, fp, ic, &kappas, dz)?;
+    if full_profile {
+        Ok(profile)
+    } else {
+        let z = vec![0.0_f64, fp.length];
+        let fields = vec![profile.fields[0], profile.fields.last().copied().unwrap()];
+        Ok(FieldProfile::new(z, fields))
+    }
 }

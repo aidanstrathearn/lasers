@@ -133,13 +133,16 @@ fn main() -> eframe::Result {
             &comparison_kappas,
         ),
     );
+    let current = initial_profile(comparison_pump, fp, gp);
+    let dz = gp.dz(fp.length);
     let picard_profile = solve_profile_picard(
         comparison_sgnl_b,
+        current.clone(),
         comparison_pump,
         fp,
-        gp,
         ic,
         &comparison_kappas,
+        dz,
     )
     .expect("Picard profile comparison did not converge");
 
