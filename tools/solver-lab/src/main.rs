@@ -133,11 +133,13 @@ fn main() -> eframe::Result {
             &comparison_kappas,
         ),
     );
+    let z: Vec<f64> = direct_profile.z().collect();
+
     let current = initial_profile(comparison_pump, fp, gp);
     let dz = gp.dz(fp.length);
-    let picard_profile = solve_profile_picard(
+    let picard_fields = solve_profile_picard(
         comparison_sgnl_b,
-        current.clone(),
+        current.fields.clone(),
         comparison_pump,
         fp,
         ic,
@@ -145,11 +147,11 @@ fn main() -> eframe::Result {
         dz,
     )
     .expect("Picard profile comparison did not converge");
+    let picard_profile = FieldProfile::new(z.clone(), picard_fields);
 
     let max_diff = profile_max_diff(&direct_profile.fields, &picard_profile.fields);
     println!("Picard/direct profile max diff: {max_diff:e}");
 
-    let z: Vec<f64> = direct_profile.z().collect();
     let direct_sgnl_f: Vec<f64> = direct_profile.sgnl_f().collect();
     let picard_sgnl_f: Vec<f64> = picard_profile.sgnl_f().collect();
     let direct_sgnl_b: Vec<f64> = direct_profile.sgnl_b().collect();

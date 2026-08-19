@@ -144,10 +144,7 @@ pub fn newton1d(f: impl Fn(f64) -> f64, config: Newton1dConfig) -> Result<f64, R
     Err(RootFindError::DidNotConverge)
 }
 
-pub fn try_newton1d<F, E>(
-    f: F,
-    config: Newton1dConfig,
-) -> Result<f64, E>
+pub fn try_newton1d<F, E>(f: F, config: Newton1dConfig) -> Result<f64, E>
 where
     F: Fn(f64) -> Result<f64, E>,
     E: From<RootFindError>,
@@ -223,15 +220,12 @@ pub fn bisection(
     Err(RootFindError::DidNotConverge)
 }
 
-pub fn try_bisection<F, E, M>(
-    f: F,
-    mid: M,
-    config: BisectionConfig,
-) -> Result<f64, E>
+pub fn try_bisection<F, E, M>(f: F, mid: M, config: BisectionConfig) -> Result<f64, E>
 where
     F: Fn(f64) -> Result<f64, E>,
     E: From<RootFindError>,
-    M: Fn(f64, f64) -> f64{
+    M: Fn(f64, f64) -> f64,
+{
     let mut lower = config.lower;
     let mut upper = config.upper;
     let mut f_lower = f(lower)?;
@@ -278,13 +272,11 @@ pub fn bracket_bisection(
     }
 }
 
-pub fn try_bracket_bisection<F, E>(
-    f: F,
-    config: BisectionConfig,
-) -> Result<f64, E>
+pub fn try_bracket_bisection<F, E>(f: F, config: BisectionConfig) -> Result<f64, E>
 where
     F: Fn(f64) -> Result<f64, E>,
-    E: From<RootFindError> {
+    E: From<RootFindError>,
+{
     match config.midpoint {
         Midpoint::Arithmetic => try_bisection(f, arithmetic_mid, config),
         Midpoint::Geometric => try_bisection(f, geometric_mid, config),
@@ -302,20 +294,13 @@ pub fn rootfind_1d(
     }
 }
 
-pub fn try_rootfind_1d<F, E>(
-    f: F,
-    config: impl Into<RootFindConfig>,
-) -> Result<f64, E>
+pub fn try_rootfind_1d<F, E>(f: F, config: impl Into<RootFindConfig>) -> Result<f64, E>
 where
     F: Fn(f64) -> Result<f64, E>,
     E: From<RootFindError>,
 {
     match config.into() {
-        RootFindConfig::Newton1d(config) => {
-            try_newton1d(f, config)
-        }
-        RootFindConfig::Bisection(config) => {
-            try_bracket_bisection(f, config)
-        }
+        RootFindConfig::Newton1d(config) => try_newton1d(f, config),
+        RootFindConfig::Bisection(config) => try_bracket_bisection(f, config),
     }
 }

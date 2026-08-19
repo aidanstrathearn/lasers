@@ -1,11 +1,11 @@
+use crate::dfb::{out_field, solve_profile};
 use crate::error::SolverError;
 use crate::lase::{
     FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, gain, profile_max_diff,
 };
-use crate::rootfind::{rootfind_1d, RootFindConfig, try_rootfind_1d};
+use crate::rootfind::{RootFindConfig, rootfind_1d, try_rootfind_1d};
 use crate::utils::IterationConfig;
 use std::fmt;
-use crate::dfb::{out_field, solve_profile};
 
 pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProfile {
     let g = -fp.pump_ab * fp.density;
@@ -28,8 +28,8 @@ pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProf
         .collect();
     FieldProfile::new(zs, fields)
 }
-pub fn find_pump_b(pump: Pump, profile: &FieldProfile, fp: FibreParams, dz: f64) -> f64 {
-    let expg: f64 = profile.fields[..profile.fields.len() - 1]
+pub fn find_pump_b(pump: Pump, profile: &Vec<FieldState>, fp: FibreParams, dz: f64) -> f64 {
+    let expg: f64 = profile[..profile.len() - 1]
         .iter()
         .map(|&field| {
             let (g, _) = gain(field, fp);
@@ -59,17 +59,17 @@ impl std::error::Error for PicardError {}
 
 pub fn solve_profile_picard(
     sgnl_b: f64,
-    initial: FieldProfile,
+    initial: Vec<FieldState>,
     pump: Pump,
     fp: FibreParams,
     ic: IterationConfig,
     kappas: &[f64],
     dz: f64,
-) -> Result<FieldProfile, PicardError> {
-    assert_eq!(kappas.len() + 1, initial.fields.len());
+) -> Result<Vec<FieldState>, PicardError> {
+    assert_eq!(kappas.len() + 1, initial.len());
 
     let mut current = initial;
-    let mut new_fields = current.fields.clone();
+    let mut new = current.clone();
     let boundary = FieldState {
         sgnl_f: 0.0,
         sgnl_b: sgnl_b,
@@ -77,16 +77,16 @@ pub fn solve_profile_picard(
         pump_b: 0.0,
     };
     for _ in 0..ic.max {
-        new_fields[0] = FieldState {
+        new[0] = FieldState {
             pump_b: find_pump_b(pump, &current, fp, dz),
             ..boundary
         };
-        for j in 1..new_fields.len() {
-            new_fields[j] =
-                new_fields[j - 1].general_step(current.fields[j - 1], fp, kappas[j - 1], dz);
+        for j in 1..new.len() {
+            new[j] = new[j - 1].general_step(current[j - 1], fp, kappas[j - 1], dz);
         }
-        let diff = profile_max_diff(&current.fields, &new_fields);
-        current.fields = new_fields.clone();
+        let diff = profile_max_diff(&current, &new);
+        //current = new.clone();
+        std::mem::swap(&mut current, &mut new);
         if diff < ic.tol {
             return Ok(current);
         }
@@ -106,18 +106,20 @@ pub fn dfb_solve_picard(
     let kappas = kp.grid(gp.0);
     let dz = gp.dz(fp.length);
     let initial = initial_profile(pu, fp, gp);
+    let z = initial.z().collect();
+    let initial_fields = initial.fields;
 
     let f = |sgnl_b| -> Result<f64, SolverError> {
-        let profile = solve_profile_picard(sgnl_b, initial.clone(), pu, fp, ic, &kappas, dz)?;
-        Ok(profile.fields.last().unwrap().sgnl_b)
+        let fields = solve_profile_picard(sgnl_b, initial_fields.clone(), pu, fp, ic, &kappas, dz)?;
+        Ok(fields.last().unwrap().sgnl_b)
     };
     let sgnl_b = try_rootfind_1d(f, config)?;
-    let profile = solve_profile_picard(sgnl_b, initial.clone(), pu, fp, ic, &kappas, dz)?;
+    let fields = solve_profile_picard(sgnl_b, initial_fields, pu, fp, ic, &kappas, dz)?;
     if full_profile {
-        Ok(profile)
+        Ok(FieldProfile::new(z, fields))
     } else {
         let z = vec![0.0_f64, fp.length];
-        let fields = vec![profile.fields[0], profile.fields.last().copied().unwrap()];
+        let fields = vec![fields[0], fields.last().copied().unwrap()];
         Ok(FieldProfile::new(z, fields))
     }
 }
