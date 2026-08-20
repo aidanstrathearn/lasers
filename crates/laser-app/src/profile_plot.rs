@@ -11,6 +11,7 @@ use laser_solver::utils::IterationConfig;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::thread;
+use crate::plotter::Plotter;
 
 trait FieldProfileExt {
     fn plotpoints(&self, field: &str) -> Vec<[f64; 2]>;
@@ -77,36 +78,14 @@ impl LaserApp {
         let pump_f = result.plotpoints("pump_f");
         let pump_b = result.plotpoints("pump_b");
 
-        ui.style_mut().text_styles.insert(
-            egui::TextStyle::Body,
-            egui::FontId::proportional(24.0), // this is for ticks + legend text
-        );
-        Plot::new("field-profile")
-            .legend(Legend::default())
-            .x_axis_label(egui::RichText::new("z").size(24.0))
-            .y_axis_label(egui::RichText::new("fields").size(24.0))
-            .show(ui, |plot_ui| {
-                plot_ui.line(
-                    Line::new("profile sf", sgnl_f)
-                        .name("Forward Signal")
-                        .width(3.0),
-                );
-                plot_ui.line(
-                    Line::new("profile sb", sgnl_b)
-                        .name("Backward Signal")
-                        .width(3.0),
-                );
-                plot_ui.line(
-                    Line::new("profile pf", pump_f)
-                        .name("Forward Pump")
-                        .width(3.0),
-                );
-                plot_ui.line(
-                    Line::new("profile pb", pump_b)
-                        .name("Backward Pump")
-                        .width(3.0),
-                );
-            });
+        let mut plt = Plotter::new();
+        plt.add_points(sgnl_f).label("Forward signal");
+        plt.add_points(sgnl_b).label("Backward signal");
+        plt.add_points(pump_f).label("Forward pump");
+        plt.add_points(pump_b).label("Backward pump");
+        plt.xlabel("z");
+        plt.ylabel("Fields");
+        plt.show(ui, "profile-plot");
         Ok(())
     }
 }

@@ -1,0 +1,106 @@
+use std::hash::Hash;
+use eframe::egui;
+use eframe::egui::Ui;
+use egui_plot::{Legend, Line, Plot, PlotPoints};
+use crate::Points;
+
+const MATPLOTLIB_COLORS: [egui::Color32; 10] = [
+    egui::Color32::from_rgb(31, 119, 180),
+    egui::Color32::from_rgb(255, 127, 14),
+    egui::Color32::from_rgb(44, 160, 44),
+    egui::Color32::from_rgb(214, 39, 40),
+    egui::Color32::from_rgb(148, 103, 189),
+    egui::Color32::from_rgb(140, 86, 75),
+    egui::Color32::from_rgb(227, 119, 194),
+    egui::Color32::from_rgb(127, 127, 127),
+    egui::Color32::from_rgb(188, 189, 34),
+    egui::Color32::from_rgb(23, 190, 207),
+];
+
+pub struct PlotLine {
+    points: Points,
+    label: Option<String>,
+}
+
+impl PlotLine {
+    pub fn label(&mut self, label: impl Into<String>) -> &mut Self {
+        self.label = Some(label.into());
+        self
+    }
+}
+
+#[derive(Default)]
+pub struct Plotter {
+    series: Vec<PlotLine>,
+    x_label: String,
+    y_label: String,
+    title: String,
+}
+
+impl Plotter {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn plot(&mut self, x: &[f64], y: &[f64]) -> &mut PlotLine {
+        assert_eq!(
+            x.len(),
+            y.len(),
+            "x and y must contain the same number of values"
+        );
+
+        let points = x.iter().zip(y.iter()).map(|(&x, &y)| [x, y]).collect();
+
+        self.series.push(PlotLine {
+            points,
+            label: None,
+        });
+
+        self.series.last_mut().unwrap()
+    }
+
+    pub fn add_points(&mut self, points: Points) -> &mut PlotLine{
+        self.series.push(PlotLine {
+            points,
+            label: None,
+        });
+
+        self.series.last_mut().unwrap()
+    }
+
+    pub fn xlabel(&mut self, label: impl Into<String>) {
+        self.x_label = label.into();
+    }
+
+    pub fn ylabel(&mut self, label: impl Into<String>) {
+        self.y_label = label.into();
+    }
+
+    pub fn title(&mut self, title: impl Into<String>) {
+        self.title = title.into();
+    }
+
+    pub fn show(self, ui: &mut Ui, id: impl Hash) {
+        let plot_id = egui::Id::new(id);
+        ui.style_mut().text_styles.insert(
+            egui::TextStyle::Body,
+            egui::FontId::proportional(24.0), // this is for ticks + legend text
+        );
+        Plot::new(plot_id)
+            .legend(Legend::default())
+            .x_axis_label(egui::RichText::new(&self.x_label).size(24.0))
+            .y_axis_label(egui::RichText::new(&self.y_label).size(24.0))
+            .show(ui, |plot_ui| {
+            for (index, line) in self.series.into_iter().enumerate() {
+                let colour = MATPLOTLIB_COLORS[index % MATPLOTLIB_COLORS.len()];
+                let legend_name = line.label.as_deref().unwrap_or_default();
+                let plot_line = Line::new(legend_name, line.points)
+                    .color(colour)
+                    .id(plot_id.with(index))
+                    .width(3.0);
+
+                plot_ui.line(plot_line);
+            }
+        });
+    }
+}

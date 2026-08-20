@@ -1,5 +1,6 @@
 mod profile_plot;
 mod threshold_plot;
+mod plotter;
 
 use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;

@@ -5,7 +5,7 @@ use laser_solver::dfb::dfb_pump_scan;
 use laser_solver::rootfind::BisectionConfig;
 use laser_solver::utils::linspace;
 use crate::{LaserApp, Points};
-
+use crate::plotter::Plotter;
 
 #[derive(Copy, Clone)]
 pub struct ThresholdRange {
@@ -36,6 +36,7 @@ impl LaserApp {
         );
         let sgnl_f = threshold.iter().map(|x| x.0);
         let sgnl_b = threshold.iter().map(|x| x.1);
+
         let sgnl_f_points: Points = pumps
             .iter()
             .zip(sgnl_f)
@@ -46,22 +47,30 @@ impl LaserApp {
             .zip(sgnl_b)
             .map(|(&x, y)| [x, y.abs()])
             .collect();
-        Plot::new("threshold")
-            .legend(Legend::default())
-            .x_axis_label("pump")
-            .y_axis_label("signal")
-            .show(ui, |plot_ui| {
-                plot_ui.line(
-                    Line::new("threshold f", sgnl_f_points)
-                        .name("Forward Signal")
-                        .width(3.0),
-                );
-                plot_ui.line(
-                    Line::new("threshold b", sgnl_b_points)
-                        .name("Backward Signal")
-                        .width(3.0),
-                );
-            });
+
+        let mut plt = Plotter::new();
+        plt.xlabel("Pump");
+        plt.ylabel("Signal");
+        plt.add_points(sgnl_f_points).label("Forward");
+        plt.add_points(sgnl_b_points).label("Backward");
+        plt.show(ui, "threshold-plot");
+
+        // Plot::new("threshold")
+        //     .legend(Legend::default())
+        //     .x_axis_label("pump")
+        //     .y_axis_label("signal")
+        //     .show(ui, |plot_ui| {
+        //         plot_ui.line(
+        //             Line::new("threshold f", sgnl_f_points)
+        //                 .name("Forward Signal")
+        //                 .width(3.0),
+        //         );
+        //         plot_ui.line(
+        //             Line::new("threshold b", sgnl_b_points)
+        //                 .name("Backward Signal")
+        //                 .width(3.0),
+        //         );
+        //     });
 
     }
 }
