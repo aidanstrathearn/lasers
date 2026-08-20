@@ -213,3 +213,15 @@ impl Pump {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::dfb::transfer;
+    use super::*;
+    #[test]
+    fn check_transfer() {
+        let (a, b, c, d) = transfer(1.0, 0.0, 1.0);
+        println!("Transfer {:?}", (a, b, c, d));
+        assert_eq!(a ,(0.5_f64).exp());
+    }
+}

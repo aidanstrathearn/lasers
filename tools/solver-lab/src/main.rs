@@ -11,6 +11,7 @@ use laser_solver::utils::{IterationConfig, geomspace};
 use myplotlib::Plotter;
 use plots::show_field_profile;
 use std::time::Instant;
+use crate::plots::plot_profile_diff;
 
 const PUMP: Pump = Pump {
     forward: 100.0,
@@ -66,7 +67,6 @@ fn main() -> eframe::Result {
     inspect_field_profiles(SHOW_PLOTS)?;
     run_pump_scan(SHOW_PLOTS)?;
     inspect_grating(SHOW_PLOTS)?;
-    check_transfer();
     compare_profile_solvers(SHOW_PLOTS)?;
     compare_dfb_solvers(SHOW_PLOTS)?;
 
@@ -120,11 +120,7 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
     plot.show()
 }
 
-fn check_transfer() {
-    let (a, b, c, d) = transfer(1.0, 0.0, 1.0);
-    println!("Transfer {:?}", (a, b, c, d));
-    println!("{}", a == (0.5_f64).exp());
-}
+
 
 fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
     let comparison_pump = Pump {
@@ -167,37 +163,10 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
     println!("Picard/direct profile max diff: {max_diff:e}");
 
     if show_plots {
-        plot_profile_comparison(&direct_profile, &picard_profile)?;
+        plot_profile_diff(&direct_profile, &picard_profile, "shooting vs picard profile")?;
     }
 
     Ok(())
-}
-
-fn plot_profile_comparison(
-    direct_profile: &FieldProfile,
-    picard_profile: &FieldProfile,
-) -> eframe::Result {
-    let z: Vec<f64> = direct_profile.z().collect();
-    let direct_sgnl_f: Vec<f64> = direct_profile.sgnl_f().collect();
-    let picard_sgnl_f: Vec<f64> = picard_profile.sgnl_f().collect();
-    let direct_sgnl_b: Vec<f64> = direct_profile.sgnl_b().collect();
-    let picard_sgnl_b: Vec<f64> = picard_profile.sgnl_b().collect();
-    let diff_f = difference(&direct_sgnl_f, &picard_sgnl_f);
-    let diff_b = difference(&direct_sgnl_b, &picard_sgnl_b);
-
-    let mut plot = Plotter::new();
-    plot.plot(&z, &direct_sgnl_f).label("Direct forward signal");
-    plot.plot(&z, &picard_sgnl_f).label("Picard forward signal");
-    plot.plot(&z, &direct_sgnl_b)
-        .label("Direct backward signal");
-    plot.plot(&z, &picard_sgnl_b)
-        .label("Picard backward signal");
-    plot.plot(&z, &diff_b).label("backward diff");
-    plot.plot(&z, &diff_f).label("forward diff");
-    plot.xlabel("z");
-    plot.ylabel("Field amplitude");
-    plot.title("Direct vs Picard profile (zero backward pump)");
-    plot.show()
 }
 
 fn compare_dfb_solvers(show_plots: bool) -> eframe::Result {
@@ -237,32 +206,12 @@ fn compare_dfb_solvers(show_plots: bool) -> eframe::Result {
     println!("shooting/Picard profile max diff: {max_diff:e}");
 
     if show_plots {
-        plot_dfb_comparison(&shooting_profile, &picard_profile)?;
+        plot_profile_diff(&shooting_profile, &picard_profile, "shooting vs picard DFB solution")?;
     }
 
     Ok(())
 }
 
-fn plot_dfb_comparison(
-    shooting_profile: &FieldProfile,
-    picard_profile: &FieldProfile,
-) -> eframe::Result {
-    let z: Vec<f64> = shooting_profile.z().collect();
-    let shooting_sgnl_f: Vec<f64> = shooting_profile.sgnl_f().collect();
-    let shooting_sgnl_b: Vec<f64> = shooting_profile.sgnl_b().collect();
-    let picard_sgnl_f: Vec<f64> = picard_profile.sgnl_f().collect();
-    let picard_sgnl_b: Vec<f64> = picard_profile.sgnl_b().collect();
-    let diff_f = difference(&shooting_sgnl_f, &picard_sgnl_f);
-    let diff_b = difference(&shooting_sgnl_b, &picard_sgnl_b);
-
-    let mut plot = Plotter::new();
-    plot.plot(&z, &diff_b).label("backward diff");
-    plot.plot(&z, &diff_f).label("forward diff");
-    plot.xlabel("z");
-    plot.ylabel("Field amplitude");
-    plot.title("Shooting vs Picard DFB signals");
-    plot.show()
-}
 
 fn difference(left: &[f64], right: &[f64]) -> Vec<f64> {
     left.iter()
