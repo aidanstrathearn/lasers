@@ -3,12 +3,10 @@ mod plots;
 
 use laser_solver::dfb::{dfb_pump_scan, dfb_solve_shooting, solve_profile, transfer};
 use laser_solver::lase::{
-    FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, 
-    profile_max_diff, 
+    FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
 };
 use laser_solver::picard::{
-    PicardConfig, dfb_solve_picard, dfb_solve_picard_buffers, initial_profile,
-     solve_profile_picard, profile_convergence_error,
+    PicardConfig, dfb_solve_picard, dfb_solve_picard_buffers, initial_profile, solve_profile_picard,
 };
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::{IterationConfig, geomspace};
@@ -69,7 +67,6 @@ const BENCHMARK_RUNS: usize = 1_000;
 const SHOW_PLOTS: bool = true;
 
 fn main() -> eframe::Result {
-    check_picard_convergence_error();
     benchmark_dfb_solver();
     benchmark_picard_solvers();
     inspect_field_profiles(SHOW_PLOTS)?;
@@ -320,91 +317,6 @@ fn plot_dfb_comparison(
     plot.ylabel("Field amplitude");
     plot.title("Shooting vs Picard DFB signals");
     plot.show()
-}
-
-fn check_picard_convergence_error() {
-    check_identical_profiles_have_zero_error();
-    check_tiny_zero_crossing_converges();
-    check_localized_error_is_not_hidden();
-    check_fields_are_scaled_independently();
-    check_non_finite_values_fail_convergence();
-    println!("Picard convergence error checks passed");
-}
-
-fn convergence_check_config() -> PicardConfig {
-    PicardConfig {
-        max_iterations: 1,
-        relative_tolerance: 1e-6,
-        absolute_tolerance: 1e-10,
-    }
-}
-
-fn check_identical_profiles_have_zero_error() {
-    let profile = vec![FieldState {
-        pump_f: 100.0,
-        pump_b: 10.0,
-        sgnl_f: 1.0,
-        sgnl_b: -1.0,
-    }];
-
-    let error = profile_convergence_error(&profile, &profile, convergence_check_config());
-    assert_eq!(error, 0.0);
-}
-
-fn check_tiny_zero_crossing_converges() {
-    let current = vec![FieldState {
-        sgnl_b: 1e-12,
-        ..FieldState::default()
-    }];
-    let new = vec![FieldState {
-        sgnl_b: -1e-12,
-        ..FieldState::default()
-    }];
-
-    let error = profile_convergence_error(&current, &new, convergence_check_config());
-    assert!(error <= 1.0, "tiny zero crossing error was {error:e}");
-}
-
-fn check_localized_error_is_not_hidden() {
-    let current = vec![
-        FieldState {
-            pump_f: 1.0,
-            ..FieldState::default()
-        };
-        100
-    ];
-    let mut new = current.clone();
-    new[50].pump_f = 1.01;
-
-    let error = profile_convergence_error(&current, &new, convergence_check_config());
-    assert!(error > 1.0, "localized profile error was {error:e}");
-}
-
-fn check_fields_are_scaled_independently() {
-    let current = vec![FieldState {
-        pump_f: 1e6,
-        sgnl_b: 1e-6,
-        ..FieldState::default()
-    }];
-    let new = vec![FieldState {
-        pump_f: 1e6,
-        sgnl_b: 2e-6,
-        ..FieldState::default()
-    }];
-
-    let error = profile_convergence_error(&current, &new, convergence_check_config());
-    assert!(error > 1.0, "signal error was hidden by pump scale");
-}
-
-fn check_non_finite_values_fail_convergence() {
-    let current = vec![FieldState::default()];
-    let new = vec![FieldState {
-        pump_b: f64::NAN,
-        ..FieldState::default()
-    }];
-
-    let error = profile_convergence_error(&current, &new, convergence_check_config());
-    assert!(error.is_infinite());
 }
 
 fn difference(left: &[f64], right: &[f64]) -> Vec<f64> {
