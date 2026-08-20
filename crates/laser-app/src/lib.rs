@@ -1,6 +1,7 @@
 mod profile_plot;
 mod threshold_plot;
 mod plotter;
+mod pop_plot;
 
 use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
@@ -12,6 +13,7 @@ use laser_solver::rootfind::BisectionConfig;
 pub enum View {
     #[default]
     Profile,
+    Populations,
     Threshold,
 }
 
@@ -89,6 +91,9 @@ impl eframe::App for LaserApp {
                 View::Profile => self.profile_plot(ui).unwrap_or_else(|error| {
                     ui.colored_label(ui.visuals().error_fg_color, error.to_string());
                 }),
+                View::Populations => self.pops_plot(ui).unwrap_or_else(|error| {
+                    ui.colored_label(ui.visuals().error_fg_color, error.to_string());
+                }),
             };
         });
     }
@@ -97,6 +102,7 @@ impl eframe::App for LaserApp {
 fn view_selectors(view: &mut View, ui: &mut Ui) {
     ui.horizontal(|ui| {
         ui.selectable_value(view, View::Profile, "Profile");
+        ui.selectable_value(view, View::Populations, "Populations");
         ui.selectable_value(view, View::Threshold, "Threshold");
     });
 }
