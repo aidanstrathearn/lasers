@@ -1,132 +1,20 @@
+mod profile_plot;
+mod threshold_plot;
+
+use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
 use eframe::egui::Ui;
-use egui_plot::{Legend, Line, Plot};
-use laser_solver::dfb::{dfb_pump_scan, dfb_solve, dfb_solve_shooting};
-use laser_solver::error::SolverError;
-use laser_solver::lase::{FibreParams, FieldProfile, GratingProfile, GridPoints, Pump};
-use laser_solver::picard::PicardConfig;
-use laser_solver::rootfind::{BisectionConfig, Newton1dConfig};
-use laser_solver::utils::{IterationConfig, linspace};
-use std::sync::mpsc;
-use std::sync::mpsc::Receiver;
-use std::thread;
-
-// pub fn f64_slider(
-//     handle: &mut f64,
-//     name: &str,
-//     min: f64,
-//     max: f64,
-//     step: f64,
-//     ui: &mut Ui,
-// ) -> Response {
-//     ui.horizontal(|ui| {
-//         ui.label(name);
-//         ui.add(egui::Slider::new(handle, min..=max).step_by(step))
-//     })
-//     .inner
-// }
-trait FieldProfileExt {
-    fn plotpoints(&self, field: &str) -> Vec<[f64; 2]>;
-}
-
-impl FieldProfileExt for FieldProfile {
-    fn plotpoints(&self, field: &str) -> Vec<[f64; 2]> {
-        let z = self.z();
-        match field {
-            "sgnl_b" => {
-                let field = self.sgnl_b();
-                z.zip(field).map(|(x, y)| [x, y]).collect()
-            }
-
-            "sgnl_f" => {
-                let field = self.sgnl_f();
-                z.zip(field).map(|(x, y)| [x, y]).collect()
-            }
-
-            "pump_f" => {
-                let field = self.pump_f();
-                z.zip(field).map(|(x, y)| [x, y]).collect()
-            }
-
-            "pump_b" => {
-                let field = self.pump_b();
-                z.zip(field).map(|(x, y)| [x, y]).collect()
-            }
-            _ => panic!(),
-        }
-    }
-}
+use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump};
+use laser_solver::rootfind::BisectionConfig;
 
 #[derive(PartialEq, Default)]
 pub enum View {
-    Profile,
     #[default]
+    Profile,
     Threshold,
 }
 
 type Points = Vec<[f64; 2]>;
-
-#[allow(dead_code)]
-#[derive(Default)]
-pub struct ProfilePlot {
-    pump: Pump,
-    fibre_params: FibreParams,
-    grid_points: GridPoints,
-    grating: GratingProfile,
-    pending: Option<Receiver<[Points; 4]>>,
-    result: Option<[Points; 4]>,
-}
-
-impl ProfilePlot {
-    #[allow(dead_code)]
-    #[cfg(not(target_arch = "wasm32"))]
-    fn start_compute(&mut self, ctx: egui::Context) {
-        let full_profile = true;
-        let nc = Newton1dConfig {
-            iteration: IterationConfig::default(),
-            initial: self.pump.forward,
-            dx: 1e-6,
-        };
-        let pump = self.pump;
-        let fibre_params = self.fibre_params;
-        let grid_points = self.grid_points;
-        let grating = self.grating;
-        let compute_fn = move || {
-            let result =
-                dfb_solve_shooting(pump, fibre_params, grid_points, grating, full_profile, nc)?;
-            Ok([
-                result.plotpoints("sgnl_f"),
-                result.plotpoints("sgnl_b"),
-                result.plotpoints("pump_f"),
-                result.plotpoints("pump_f"),
-            ])
-        };
-
-        let (tx, rx) = mpsc::channel();
-
-        self.pending = Some(rx);
-
-        thread::spawn(move || {
-            //thread::sleep(Duration::from_millis(100));
-            let points: Result<[Points; 4], SolverError> = compute_fn();
-            let _ = tx.send(points.unwrap());
-            ctx.request_repaint();
-        });
-    }
-    #[allow(dead_code)]
-    #[cfg(not(target_arch = "wasm32"))]
-    fn fetch_result(&mut self) {
-        // &self.pending: &Option<..>, and rust treats LHS as &Some(ref rx) -- generally derefs through pattern matching
-        // e.g. (a, b) = &my_tuple derefs the outer tuple and makes a,b: &...
-        // using self.pending.as_ref(): Option<&..> would mean nothing implicit happens
-        if let Some(rx) = &self.pending {
-            if let Ok(points) = rx.try_recv() {
-                self.result = Some(points);
-                self.pending = None;
-            }
-        }
-    }
-}
 
 #[derive(Default)]
 pub struct LaserApp {
@@ -136,6 +24,7 @@ pub struct LaserApp {
     grid_points: GridPoints,
     grating: GratingProfile,
     config: BisectionConfig,
+    threshold_range: ThresholdRange,
 }
 
 impl LaserApp {
@@ -145,117 +34,59 @@ impl LaserApp {
             .set_visuals(egui::Visuals::light());
         Self::default()
     }
+}
 
-    pub fn threshold_plot(&mut self, ui: &mut Ui) {
-        let bc = BisectionConfig {
-            upper: self.pump.forward,
-            ..self.config
-        };
-
-        let pumps = linspace(0.1, 20.0, 20);
-        let threshold = dfb_pump_scan(
-            &pumps,
-            self.fibre_params,
-            self.grid_points,
-            self.grating,
-            bc,
-        );
-        let sgnl_f = threshold.iter().map(|x| x.0);
-        let sgnl_b = threshold.iter().map(|x| x.1);
-        let sgnl_f_points: Points = pumps
-            .iter()
-            .zip(sgnl_f)
-            .map(|(&x, y)| [x, y.abs()])
-            .collect();
-        let sgnl_b_points: Points = pumps
-            .iter()
-            .zip(sgnl_b)
-            .map(|(&x, y)| [x, y.abs()])
-            .collect();
-        Plot::new("threshold")
-            .legend(Legend::default())
-            .x_axis_label("pump")
-            .y_axis_label("signal")
-            .show(ui, |plot_ui| {
-                plot_ui.line(
-                    Line::new("threshold f", sgnl_f_points)
-                        .name("Forward Signal")
-                        .width(3.0),
-                );
-                plot_ui.line(
-                    Line::new("threshold b", sgnl_b_points)
-                        .name("Backward Signal")
-                        .width(3.0),
-                );
+impl eframe::App for LaserApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.heading("View: ");
+                view_selectors(&mut self.view, ui);
             });
-    }
 
-    pub fn profile_plot(&mut self, ui: &mut Ui) -> Result<(), SolverError> {
-        let full_profile = true;
-        // let nc = Newton1dConfig {
-        //     tolerance: 1e-8f64,
-        //     max_iters: 200usize,
-        //     initial: self.pump.forward,
-        //     dx: 1e-6,
-        // };
-        let bc = BisectionConfig {
-            upper: (self.pump.forward.powi(2) + self.pump.backward.powi(2)).sqrt(),
-            ..self.config
-        };
+            ui.separator();
 
-        let picard_config = PicardConfig {
-            max_iterations: 5_000,
-            relative_tolerance: 1e-6,
-            absolute_tolerance: 1e-10,
-        };
-        let result = dfb_solve(
-            self.pump,
-            self.fibre_params,
-            self.grid_points,
-            self.grating,
-            full_profile,
-            bc,
-            picard_config,
-        )?;
-        let sgnl_f = result.plotpoints("sgnl_f");
-        let sgnl_b = result.plotpoints("sgnl_b");
-        let pump_f = result.plotpoints("pump_f");
-        let pump_b = result.plotpoints("pump_b");
-        Plot::new("field-profile")
-            .legend(Legend::default())
-            .x_axis_label("z")
-            .y_axis_label("fields")
-            .show(ui, |plot_ui| {
-                plot_ui.line(
-                    Line::new("profile sf", sgnl_f)
-                        .name("Forward Signal")
-                        .width(3.0),
-                );
-                plot_ui.line(
-                    Line::new("profile sb", sgnl_b)
-                        .name("Backward Signal")
-                        .width(3.0),
-                );
-                plot_ui.line(
-                    Line::new("profile pf", pump_f)
-                        .name("Forward Pump")
-                        .width(3.0),
-                );
-                plot_ui.line(
-                    Line::new("profile pb", pump_b)
-                        .name("Backward Pump")
-                        .width(3.0),
-                );
+            egui::Grid::new("global-params").show(ui, |ui| {
+                ui.vertical(|ui| {
+                    ui.heading("Fibre");
+                    fibre_params_slider_grid(&mut self.fibre_params, ui);
+                });
+                ui.vertical(|ui| {
+                    ui.heading("Bragg");
+                    grating_slider_grid(&mut self.grating, ui);
+                });
+                ui.vertical(|ui| {
+                    ui.heading("Solver");
+                    bisection_slider_grid(&mut self.config, ui);
+                });
+                ui.vertical(|ui| {
+                    ui.heading("Pump");
+                    pump_slider_grid(&mut self.pump, ui);
+                });
+                ui.vertical(|ui| {
+                    ui.heading("Threshold");
+                    threshold_slider_grid(&mut self.threshold_range, ui);
+                });
+                ui.end_row();
             });
-        Ok(())
-    }
 
-    pub fn view_selectors(&mut self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.view, View::Threshold, "Threshold");
-            ui.selectable_value(&mut self.view, View::Profile, "Profile");
+            ui.separator();
+
+            match self.view {
+                View::Threshold => self.threshold_plot(ui),
+                View::Profile => self.profile_plot(ui).unwrap_or_else(|error| {
+                    ui.colored_label(ui.visuals().error_fg_color, error.to_string());
+                }),
+            };
         });
     }
+}
+
+fn view_selectors(view: &mut View, ui: &mut Ui) {
+    ui.horizontal(|ui| {
+        ui.selectable_value(view, View::Profile, "Profile");
+        ui.selectable_value(view, View::Threshold, "Threshold");
+    });
 }
 
 fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) {
@@ -297,6 +128,7 @@ fn pump_slider_grid(pump: &mut Pump, ui: &mut Ui) {
         ui.end_row();
     });
 }
+
 fn fibre_params_slider_grid(params: &mut FibreParams, ui: &mut Ui) {
     egui::Grid::new("params").show(ui, |ui| {
         egui::Grid::new("params1").show(ui, |ui| {
@@ -331,31 +163,4 @@ fn fibre_params_slider_grid(params: &mut FibreParams, ui: &mut Ui) {
             ui.end_row();
         });
     });
-}
-
-impl eframe::App for LaserApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.heading("Lasers");
-                ui.separator();
-                self.view_selectors(ui);
-            });
-
-            egui::Grid::new("all-params").show(ui, |ui| {
-                fibre_params_slider_grid(&mut self.fibre_params, ui);
-                grating_slider_grid(&mut self.grating, ui);
-                bisection_slider_grid(&mut self.config, ui);
-                pump_slider_grid(&mut self.pump, ui);
-                ui.end_row();
-            });
-
-            match self.view {
-                View::Threshold => self.threshold_plot(ui),
-                View::Profile => self.profile_plot(ui).unwrap_or_else(|error| {
-                    ui.colored_label(ui.visuals().error_fg_color, error.to_string());
-                }),
-            };
-        });
-    }
 }
