@@ -1,6 +1,6 @@
 use crate::error::SolverError;
 use crate::lase::{FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, gain};
-use crate::picard::{dfb_solve_picard_buffers, PicardConfig};
+use crate::picard::{PicardConfig, dfb_solve_picard_buffers};
 use crate::rootfind::{RootFindConfig, rootfind_1d};
 
 impl FieldState {

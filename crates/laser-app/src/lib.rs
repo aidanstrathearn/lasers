@@ -1,8 +1,8 @@
 mod kappa_plot;
-mod profile_plot;
-mod threshold_plot;
 mod plotter;
 mod pop_plot;
+mod profile_plot;
+mod threshold_plot;
 
 use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
@@ -34,12 +34,15 @@ pub struct LaserApp {
 
 struct PumpParam {
     total: f64,
-    balance: f64
+    balance: f64,
 }
 
 impl Default for PumpParam {
     fn default() -> Self {
-        Self {total: 100.0,  balance: 1.0}
+        Self {
+            total: 100.0,
+            balance: 1.0,
+        }
     }
 }
 
@@ -139,6 +142,7 @@ fn grating_slider_grid(grating: &mut GratingProfile, ui: &mut Ui) {
     });
 }
 
+#[allow(dead_code)]
 fn pump_slider_grid(pump: &mut Pump, ui: &mut Ui) {
     egui::Grid::new("pump").show(ui, |ui| {
         ui.label("pump f");

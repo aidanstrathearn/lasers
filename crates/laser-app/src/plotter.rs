@@ -1,8 +1,8 @@
-use std::hash::Hash;
+use crate::Points;
 use eframe::egui;
 use eframe::egui::Ui;
-use egui_plot::{Legend, Line, Plot, PlotPoints};
-use crate::Points;
+use egui_plot::{Legend, Line, Plot};
+use std::hash::Hash;
 
 const MATPLOTLIB_COLORS: [egui::Color32; 10] = [
     egui::Color32::from_rgb(31, 119, 180),
@@ -29,6 +29,7 @@ impl PlotLine {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Default)]
 pub struct Plotter {
     series: Vec<PlotLine>,
@@ -37,6 +38,7 @@ pub struct Plotter {
     title: String,
 }
 
+#[allow(dead_code)]
 impl Plotter {
     pub fn new() -> Self {
         Self::default()
@@ -59,7 +61,7 @@ impl Plotter {
         self.series.last_mut().unwrap()
     }
 
-    pub fn add_points(&mut self, points: Points) -> &mut PlotLine{
+    pub fn add_points(&mut self, points: Points) -> &mut PlotLine {
         self.series.push(PlotLine {
             points,
             label: None,
@@ -91,16 +93,16 @@ impl Plotter {
             .x_axis_label(egui::RichText::new(&self.x_label).size(24.0))
             .y_axis_label(egui::RichText::new(&self.y_label).size(24.0))
             .show(ui, |plot_ui| {
-            for (index, line) in self.series.into_iter().enumerate() {
-                let colour = MATPLOTLIB_COLORS[index % MATPLOTLIB_COLORS.len()];
-                let legend_name = line.label.as_deref().unwrap_or_default();
-                let plot_line = Line::new(legend_name, line.points)
-                    .color(colour)
-                    .id(plot_id.with(index))
-                    .width(3.0);
+                for (index, line) in self.series.into_iter().enumerate() {
+                    let colour = MATPLOTLIB_COLORS[index % MATPLOTLIB_COLORS.len()];
+                    let legend_name = line.label.as_deref().unwrap_or_default();
+                    let plot_line = Line::new(legend_name, line.points)
+                        .color(colour)
+                        .id(plot_id.with(index))
+                        .width(3.0);
 
-                plot_ui.line(plot_line);
-            }
-        });
+                    plot_ui.line(plot_line);
+                }
+            });
     }
 }

@@ -134,8 +134,6 @@ pub fn profile_avg_diff(p1: &Vec<FieldState>, p2: &Vec<FieldState>) -> f64 {
         / p1.len() as f64
 }
 
-
-
 #[derive(Clone)]
 pub struct FieldProfile {
     pub z: Vec<f64>,
@@ -209,6 +207,9 @@ impl Pump {
     pub fn from_total_and_balance(total: f64, balance: f64) -> Self {
         assert!(balance >= -1.0 && balance <= 1.0 && total >= 0.0);
         let p = (balance + 1.0) * 0.5;
-        Self { forward: (p * total).sqrt(), backward: ((1.0 - p) * total).sqrt()}
+        Self {
+            forward: (p * total).sqrt(),
+            backward: ((1.0 - p) * total).sqrt(),
+        }
     }
 }

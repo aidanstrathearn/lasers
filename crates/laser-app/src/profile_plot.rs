@@ -1,7 +1,7 @@
+use crate::plotter::Plotter;
 use crate::{LaserApp, Points};
 use eframe::egui;
 use eframe::egui::Ui;
-use egui_plot::{Legend, Line, Plot};
 use laser_solver::dfb::{dfb_solve, dfb_solve_shooting};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{FibreParams, FieldProfile, GratingProfile, GridPoints, Pump};
@@ -11,7 +11,6 @@ use laser_solver::utils::IterationConfig;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::thread;
-use crate::plotter::Plotter;
 
 trait FieldProfileExt {
     fn plotpoints(&self, field: &str) -> Vec<[f64; 2]>;

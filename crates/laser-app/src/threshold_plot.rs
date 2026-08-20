@@ -1,12 +1,11 @@
+use crate::plotter::Plotter;
+use crate::{LaserApp, Points};
 use eframe::egui;
 use eframe::egui::Ui;
-use egui_plot::{Legend, Line, Plot};
 use laser_solver::dfb::dfb_pump_scan;
 use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::BisectionConfig;
 use laser_solver::utils::linspace;
-use crate::{LaserApp, Points};
-use crate::plotter::Plotter;
 
 #[derive(Copy, Clone)]
 pub struct ThresholdRange {
@@ -17,7 +16,11 @@ pub struct ThresholdRange {
 
 impl Default for ThresholdRange {
     fn default() -> Self {
-        Self{ lower: 1e-6, upper: 100.0, num: 20}
+        Self {
+            lower: 1e-6,
+            upper: 100.0,
+            num: 20,
+        }
     }
 }
 
@@ -34,7 +37,11 @@ impl LaserApp {
             absolute_tolerance: 1e-10,
         };
 
-        let pumps = linspace(self.threshold_range.lower, self.threshold_range.upper, self.threshold_range.num);
+        let pumps = linspace(
+            self.threshold_range.lower,
+            self.threshold_range.upper,
+            self.threshold_range.num,
+        );
         let threshold = dfb_pump_scan(
             &pumps,
             self.pump.balance,
@@ -42,7 +49,7 @@ impl LaserApp {
             self.grid_points,
             self.grating,
             bc,
-            picard_config
+            picard_config,
         );
         let sgnl_f = threshold.iter().map(|x| x.0.powi(2));
         let sgnl_b = threshold.iter().map(|x| x.1.powi(2));
@@ -64,7 +71,6 @@ impl LaserApp {
         plt.add_points(sgnl_f_points).label("Forward");
         plt.add_points(sgnl_b_points).label("Backward");
         plt.show(ui, "threshold-plot");
-
     }
 }
 
