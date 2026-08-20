@@ -89,21 +89,25 @@ pub fn dfb_solve_shooting(
 
 pub fn dfb_pump_scan(
     pumps: &[f64],
+    balance: f64,
     fp: FibreParams,
     gp: GridPoints,
     kp: GratingProfile,
     config: impl Into<RootFindConfig> + Copy,
+    picard_config: PicardConfig,
 ) -> Vec<(f64, f64, bool)> {
     let full_profile = false;
     pumps
         .iter()
         .map(|&pmp| {
-            let pu = Pump {
-                forward: pmp,
-                backward: 0.0,
-            };
+            // let pu = Pump {
+            //     forward: pmp,
+            //     backward: 0.0,
+            // };
 
-            dfb_solve_shooting(pu, fp, gp, kp, full_profile, config).map_or(
+            let pu = Pump::from_total_and_balance(pmp * pmp, balance);
+
+            dfb_solve(pu, fp, gp, kp, full_profile, config, picard_config).map_or(
                 (0.0, 0.0, false),
                 |result| {
                     (

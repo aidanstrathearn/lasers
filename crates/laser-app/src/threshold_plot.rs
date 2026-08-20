@@ -2,6 +2,7 @@ use eframe::egui;
 use eframe::egui::Ui;
 use egui_plot::{Legend, Line, Plot};
 use laser_solver::dfb::dfb_pump_scan;
+use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::BisectionConfig;
 use laser_solver::utils::linspace;
 use crate::{LaserApp, Points};
@@ -27,13 +28,22 @@ impl LaserApp {
             ..self.config
         };
 
+        let picard_config = PicardConfig {
+            max_iterations: 5_000,
+            relative_tolerance: 1e-6,
+            absolute_tolerance: 1e-10,
+        };
+        let balance = 1.0;
+
         let pumps = linspace(self.threshold_range.lower, self.threshold_range.upper, self.threshold_range.num);
         let threshold = dfb_pump_scan(
             &pumps,
+            balance,
             self.fibre_params,
             self.grid_points,
             self.grating,
             bc,
+            picard_config
         );
         let sgnl_f = threshold.iter().map(|x| x.0);
         let sgnl_b = threshold.iter().map(|x| x.1);

@@ -144,7 +144,7 @@ fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
 fn run_pump_scan(show_plots: bool) -> eframe::Result {
     let pumps = geomspace(-1.0, 1.0, 200);
     let start = Instant::now();
-    let threshold = dfb_pump_scan(&pumps, FIBRE, GRID, GRATING, BISECTION);
+    let threshold = dfb_pump_scan(&pumps, 1.0, FIBRE, GRID, GRATING, BISECTION, PICARD);
     let elapsed = start.elapsed();
 
     println!("pump sweep {:.3}", elapsed.as_secs_f64());
