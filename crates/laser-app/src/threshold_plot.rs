@@ -33,12 +33,11 @@ impl LaserApp {
             relative_tolerance: 1e-6,
             absolute_tolerance: 1e-10,
         };
-        let balance = 1.0;
 
         let pumps = linspace(self.threshold_range.lower, self.threshold_range.upper, self.threshold_range.num);
         let threshold = dfb_pump_scan(
             &pumps,
-            balance,
+            self.pump.balance,
             self.fibre_params,
             self.grid_points,
             self.grating,

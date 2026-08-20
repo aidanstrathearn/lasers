@@ -23,22 +23,22 @@ impl FieldProfileExt for FieldProfile {
         match field {
             "sgnl_b" => {
                 let field = self.sgnl_b();
-                z.zip(field).map(|(x, y)| [x, y]).collect()
+                z.zip(field).map(|(x, y)| [x, y.powi(2)]).collect()
             }
 
             "sgnl_f" => {
                 let field = self.sgnl_f();
-                z.zip(field).map(|(x, y)| [x, y]).collect()
+                z.zip(field).map(|(x, y)| [x, y.powi(2)]).collect()
             }
 
             "pump_f" => {
                 let field = self.pump_f();
-                z.zip(field).map(|(x, y)| [x, y]).collect()
+                z.zip(field).map(|(x, y)| [x, y.powi(2)]).collect()
             }
 
             "pump_b" => {
                 let field = self.pump_b();
-                z.zip(field).map(|(x, y)| [x, y]).collect()
+                z.zip(field).map(|(x, y)| [x, y.powi(2)]).collect()
             }
             _ => panic!(),
         }
@@ -55,7 +55,7 @@ impl LaserApp {
         //     dx: 1e-6,
         // };
         let bc = BisectionConfig {
-            upper: 2.0 * (self.pump.forward.powi(2) + self.pump.backward.powi(2)).sqrt(),
+            upper: 2.0 * self.pump.total.sqrt(),
             ..self.config
         };
 
@@ -64,8 +64,9 @@ impl LaserApp {
             relative_tolerance: 1e-6,
             absolute_tolerance: 1e-10,
         };
+        let pu = Pump::from_total_and_balance(self.pump.total, self.pump.balance);
         let result = dfb_solve(
-            self.pump,
+            pu,
             self.fibre_params,
             self.grid_points,
             self.grating,

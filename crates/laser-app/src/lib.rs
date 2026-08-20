@@ -20,12 +20,23 @@ type Points = Vec<[f64; 2]>;
 #[derive(Default)]
 pub struct LaserApp {
     view: View,
-    pump: Pump,
+    pump: PumpParam,
     fibre_params: FibreParams,
     grid_points: GridPoints,
     grating: GratingProfile,
     config: BisectionConfig,
     threshold_range: ThresholdRange,
+}
+
+struct PumpParam {
+    total: f64,
+    balance: f64
+}
+
+impl Default for PumpParam {
+    fn default() -> Self {
+        Self {total: 100.0,  balance: 1.0}
+    }
 }
 
 impl LaserApp {
@@ -62,7 +73,7 @@ impl eframe::App for LaserApp {
                 });
                 ui.vertical(|ui| {
                     ui.heading("Pump");
-                    pump_slider_grid(&mut self.pump, ui);
+                    pump_param_slider_grid(&mut self.pump, ui);
                 });
                 ui.vertical(|ui| {
                     ui.heading("Threshold");
@@ -126,6 +137,18 @@ fn pump_slider_grid(pump: &mut Pump, ui: &mut Ui) {
 
         ui.label("pump b");
         ui.add(egui::Slider::new(&mut pump.backward, 0.0..=100.0).step_by(0.01));
+        ui.end_row();
+    });
+}
+
+fn pump_param_slider_grid(pump: &mut PumpParam, ui: &mut Ui) {
+    egui::Grid::new("pumpp").show(ui, |ui| {
+        ui.label("pump-total");
+        ui.add(egui::Slider::new(&mut pump.total, 0.0..=1000.0).step_by(0.01));
+        ui.end_row();
+
+        ui.label("pump-balance");
+        ui.add(egui::Slider::new(&mut pump.balance, -1.0..=1.0).step_by(0.01));
         ui.end_row();
     });
 }
