@@ -48,12 +48,6 @@ impl FieldProfileExt for FieldProfile {
 impl LaserApp {
     pub fn profile_plot(&mut self, ui: &mut Ui) -> Result<(), SolverError> {
         let full_profile = true;
-        // let nc = Newton1dConfig {
-        //     tolerance: 1e-8f64,
-        //     max_iters: 200usize,
-        //     initial: self.pump.forward,
-        //     dx: 1e-6,
-        // };
         let bc = BisectionConfig {
             upper: 2.0 * self.pump.total.sqrt(),
             ..self.config
