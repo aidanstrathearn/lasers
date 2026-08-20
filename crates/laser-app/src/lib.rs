@@ -1,3 +1,4 @@
+mod kappa_plot;
 mod profile_plot;
 mod threshold_plot;
 mod plotter;
@@ -14,6 +15,7 @@ pub enum View {
     #[default]
     Profile,
     Populations,
+    Kappa,
     Threshold,
 }
 
@@ -94,6 +96,7 @@ impl eframe::App for LaserApp {
                 View::Populations => self.pops_plot(ui).unwrap_or_else(|error| {
                     ui.colored_label(ui.visuals().error_fg_color, error.to_string());
                 }),
+                View::Kappa => self.kappa_plot(ui),
             };
         });
     }
@@ -103,6 +106,7 @@ fn view_selectors(view: &mut View, ui: &mut Ui) {
     ui.horizontal(|ui| {
         ui.selectable_value(view, View::Profile, "Profile");
         ui.selectable_value(view, View::Populations, "Populations");
+        ui.selectable_value(view, View::Kappa, "Kappa");
         ui.selectable_value(view, View::Threshold, "Threshold");
     });
 }
