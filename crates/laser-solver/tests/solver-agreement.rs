@@ -24,11 +24,20 @@ const FIBRE: FibreParams = FibreParams {
 };
 
 const GRID: GridPoints = GridPoints(500);
+// Gain is sampled at the left edge of each step, so reversal symmetry converges
+// with grid refinement rather than holding bit-for-bit on a coarse grid.
+const SYMMETRY_GRID: GridPoints = GridPoints(5_000);
 
 const GRATING: GratingProfile = GratingProfile {
     kappa_left: 1.0,
     kappa_right: 1.0,
     pi_shift_position: 0.45,
+};
+
+const SYMMETRIC_GRATING: GratingProfile = GratingProfile {
+    kappa_left: 1.0,
+    kappa_right: 1.0,
+    pi_shift_position: 0.5,
 };
 
 const ITERATION: IterationConfig = IterationConfig {
@@ -40,6 +49,14 @@ const PICARD: PicardConfig = PicardConfig {
     max_iterations: 500,
     relative_tolerance: 1e-10,
     absolute_tolerance: 1e-12,
+};
+
+// A nonzero backward pump converges asymptotically rather than reaching a
+// bitwise fixed point, so use tolerances appropriate for the convergence metric.
+const SYMMETRY_PICARD: PicardConfig = PicardConfig {
+    max_iterations: 500,
+    relative_tolerance: 1e-6,
+    absolute_tolerance: 1e-10,
 };
 
 const NEWTON: Newton1dConfig = Newton1dConfig {
@@ -56,6 +73,9 @@ const BISECTION: BisectionConfig = BisectionConfig {
 };
 
 const MAX_RELATIVE_DIFFERENCE: f64 = 1e-16;
+const MIRRORED_PUMP: f64 = PUMP.forward;
+const SYMMETRY_ABSOLUTE_TOLERANCE: f64 = 1e-8;
+const SYMMETRY_RELATIVE_TOLERANCE: f64 = 5e-3;
 
 #[test]
 fn direct_and_picard_profile_solvers_agree() {
@@ -164,7 +184,10 @@ fn assert_profiles_agree(label: &str, left: &FieldProfile, right: &FieldProfile)
         "{label} differ by {max_diff:e}, exceeding {MAX_RELATIVE_DIFFERENCE:e}"
     );
 
-    assert_eq!(max_diff, 0.0, "{label} differ by {max_diff:e}, not bitwise equal");
+    assert_eq!(
+        max_diff, 0.0,
+        "{label} differ by {max_diff:e}, not bitwise equal"
+    );
 }
 
 #[test]
@@ -186,3 +209,113 @@ fn shooting_and_picard_dfb_solvers_agree_bisection() {
     );
 }
 
+#[test]
+fn backward_pumped_picard_is_reverse_of_forward_pumped_shooting() {
+    let shooting_pump = Pump {
+        forward: MIRRORED_PUMP,
+        backward: 0.0,
+    };
+    let picard_pump = Pump {
+        forward: 0.0,
+        backward: MIRRORED_PUMP,
+    };
+
+    let shooting_profile = dfb_solve_shooting(
+        shooting_pump,
+        FIBRE,
+        SYMMETRY_GRID,
+        SYMMETRIC_GRATING,
+        true,
+        BISECTION,
+    )
+    .expect("forward-pumped shooting DFB solve failed");
+    let picard_profile = dfb_solve_picard(
+        picard_pump,
+        FIBRE,
+        SYMMETRY_GRID,
+        SYMMETRIC_GRATING,
+        true,
+        BISECTION,
+        SYMMETRY_PICARD,
+    )
+    .expect("backward-pumped Picard DFB solve failed");
+
+    assert_nontrivial_signal("shooting", &shooting_profile);
+    assert_nontrivial_signal("Picard", &picard_profile);
+    assert_mirrored_profiles_agree(&picard_profile, &shooting_profile);
+}
+
+fn assert_nontrivial_signal(label: &str, profile: &FieldProfile) {
+    let max_signal = profile
+        .fields
+        .iter()
+        .flat_map(|field| [field.sgnl_f.abs(), field.sgnl_b.abs()])
+        .fold(0.0_f64, f64::max);
+    assert!(
+        max_signal > BISECTION.lower,
+        "{label} solver converged to the trivial zero-signal solution"
+    );
+}
+
+fn assert_mirrored_profiles_agree(picard: &FieldProfile, shooting: &FieldProfile) {
+    assert_eq!(picard.fields.len(), shooting.fields.len());
+
+    for (index, ((&picard_z, picard_field), (&shooting_z, shooting_field))) in picard
+        .z
+        .iter()
+        .zip(&picard.fields)
+        .zip(shooting.z.iter().rev().zip(shooting.fields.iter().rev()))
+        .enumerate()
+    {
+        assert_close(index, "z", picard_z, FIBRE.length - shooting_z, 1e-12, 0.0);
+        assert_close(
+            index,
+            "sgnl_f",
+            picard_field.sgnl_f,
+            shooting_field.sgnl_b,
+            SYMMETRY_ABSOLUTE_TOLERANCE,
+            SYMMETRY_RELATIVE_TOLERANCE,
+        );
+        assert_close(
+            index,
+            "sgnl_b",
+            picard_field.sgnl_b,
+            shooting_field.sgnl_f,
+            SYMMETRY_ABSOLUTE_TOLERANCE,
+            SYMMETRY_RELATIVE_TOLERANCE,
+        );
+        assert_close(
+            index,
+            "pump_f",
+            picard_field.pump_f,
+            shooting_field.pump_b,
+            SYMMETRY_ABSOLUTE_TOLERANCE,
+            SYMMETRY_RELATIVE_TOLERANCE,
+        );
+        assert_close(
+            index,
+            "pump_b",
+            picard_field.pump_b,
+            shooting_field.pump_f,
+            SYMMETRY_ABSOLUTE_TOLERANCE,
+            SYMMETRY_RELATIVE_TOLERANCE,
+        );
+    }
+}
+
+fn assert_close(
+    index: usize,
+    component: &str,
+    actual: f64,
+    expected: f64,
+    absolute_tolerance: f64,
+    relative_tolerance: f64,
+) {
+    let difference = (actual - expected).abs();
+    let scale = actual.abs().max(expected.abs());
+    let tolerance = absolute_tolerance + relative_tolerance * scale;
+    assert!(
+        difference <= tolerance,
+        "field {index} {component} was {actual:e}, expected {expected:e}; difference {difference:e} exceeds {tolerance:e}"
+    );
+}
