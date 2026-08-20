@@ -10,12 +10,13 @@ use crate::plotter::Plotter;
 #[derive(Copy, Clone)]
 pub struct ThresholdRange {
     lower: f64,
-    upper: f64
+    upper: f64,
+    num: usize,
 }
 
 impl Default for ThresholdRange {
     fn default() -> Self {
-        Self{ lower: 1e-6, upper: 10.0}
+        Self{ lower: 1e-6, upper: 10.0, num: 20}
     }
 }
 
@@ -26,7 +27,7 @@ impl LaserApp {
             ..self.config
         };
 
-        let pumps = linspace(self.threshold_range.lower, self.threshold_range.upper, 20);
+        let pumps = linspace(self.threshold_range.lower, self.threshold_range.upper, self.threshold_range.num);
         let threshold = dfb_pump_scan(
             &pumps,
             self.fibre_params,
@@ -55,23 +56,6 @@ impl LaserApp {
         plt.add_points(sgnl_b_points).label("Backward");
         plt.show(ui, "threshold-plot");
 
-        // Plot::new("threshold")
-        //     .legend(Legend::default())
-        //     .x_axis_label("pump")
-        //     .y_axis_label("signal")
-        //     .show(ui, |plot_ui| {
-        //         plot_ui.line(
-        //             Line::new("threshold f", sgnl_f_points)
-        //                 .name("Forward Signal")
-        //                 .width(3.0),
-        //         );
-        //         plot_ui.line(
-        //             Line::new("threshold b", sgnl_b_points)
-        //                 .name("Backward Signal")
-        //                 .width(3.0),
-        //         );
-        //     });
-
     }
 }
 
@@ -83,6 +67,10 @@ pub fn threshold_slider_grid(tr: &mut ThresholdRange, ui: &mut Ui) {
 
         ui.label("thresh low");
         ui.add(egui::Slider::new(&mut tr.lower, 1e-6..=tr.upper).step_by(0.01));
+        ui.end_row();
+
+        ui.label("thresh num");
+        ui.add(egui::Slider::new(&mut tr.num, 5..=100).step_by(0.01));
         ui.end_row();
     });
 }
