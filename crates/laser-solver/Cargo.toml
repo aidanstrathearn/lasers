@@ -3,3 +3,10 @@ name = "laser-solver"
 version.workspace = true
 edition.workspace = true
 publish = false
+
+[dev-dependencies]
+criterion = "0.7"
+
+[[bench]]
+name = "dfb-solvers"
+harness = false
