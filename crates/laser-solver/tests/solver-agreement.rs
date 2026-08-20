@@ -5,7 +5,7 @@ use laser_solver::lase::{
 use laser_solver::picard::{
     PicardConfig, PicardDfbSolver, dfb_solve_picard, initial_profile, solve_profile_picard,
 };
-use laser_solver::rootfind::Newton1dConfig;
+use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::IterationConfig;
 
 const PUMP: Pump = Pump {
@@ -46,6 +46,13 @@ const NEWTON: Newton1dConfig = Newton1dConfig {
     iteration: ITERATION,
     initial: PUMP.forward,
     dx: 1e-6,
+};
+
+const BISECTION: BisectionConfig = BisectionConfig {
+    iteration: ITERATION,
+    upper: PUMP.forward,
+    lower: 1e-8,
+    midpoint: Midpoint::Geometric,
 };
 
 const MAX_RELATIVE_DIFFERENCE: f64 = 1e-16;
@@ -122,7 +129,7 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
 }
 
 #[test]
-fn shooting_and_picard_dfb_solvers_agree() {
+fn shooting_and_picard_dfb_solvers_agree_newton() {
     let pump = Pump {
         backward: 0.0,
         ..PUMP
@@ -159,3 +166,23 @@ fn assert_profiles_agree(label: &str, left: &FieldProfile, right: &FieldProfile)
 
     assert_eq!(max_diff, 0.0, "{label} differ by {max_diff:e}, not bitwise equal");
 }
+
+#[test]
+fn shooting_and_picard_dfb_solvers_agree_bisection() {
+    let pump = Pump {
+        backward: 0.0,
+        ..PUMP
+    };
+
+    let shooting_profile = dfb_solve_shooting(pump, FIBRE, GRID, GRATING, true, BISECTION)
+        .expect("shooting DFB solve failed");
+    let picard_profile = dfb_solve_picard(pump, FIBRE, GRID, GRATING, true, BISECTION, PICARD)
+        .expect("Picard DFB solve failed");
+
+    assert_profiles_agree(
+        "shooting and Picard DFB solvers",
+        &shooting_profile,
+        &picard_profile,
+    );
+}
+

@@ -176,13 +176,16 @@ pub fn dfb_solve_picard_buffers(
         Ok(fields.last().unwrap().sgnl_b)
     };
     let sgnl_b = try_rootfind_1d(f, config)?;
-    let fields = solver.solve_profile_picard(sgnl_b, pu, fp, picard_config, &kappas, dz)?;
+    //let fields = solver.solve_profile_picard(sgnl_b, pu, fp, picard_config, &kappas, dz)?;
     if full_profile {
-        Ok(FieldProfile::new(z, fields.to_vec()))
+        Ok(FieldProfile::new(z, solver.current))
     } else {
-        let z = vec![0.0_f64, fp.length];
-        let fields = vec![fields[0], fields.last().copied().unwrap()];
-        Ok(FieldProfile::new(z, fields))
+        // let z = vec![0.0_f64, fp.length];
+        // let fields = vec![solver.current[0], solver.current.last().copied().unwrap()];
+        Ok(FieldProfile::new(
+            vec![0.0_f64, fp.length],
+            vec![solver.current[0], solver.current.last().copied().unwrap()]
+        ))
     }
 }
 
