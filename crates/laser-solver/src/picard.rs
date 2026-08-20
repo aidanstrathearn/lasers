@@ -3,38 +3,7 @@ use crate::lase::{gain, FibreParams, FieldProfile, FieldState, GratingProfile, G
 use crate::rootfind::{RootFindConfig, try_rootfind_1d};
 use std::fmt;
 
-pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProfile {
-    let g = -fp.pump_ab * fp.density;
-    let zs = gp.grid(fp.length);
-    let end_factor = (0.5 * g * fp.length).exp();
 
-    let fields = zs
-        .iter()
-        .map(|z| {
-            let f = (0.5 * g * z).exp(); // &f64 * f64 -> f64 apparently, so no need to deref
-            let b = end_factor / f;
-
-            FieldState {
-                sgnl_f: 0.0,
-                sgnl_b: 0.0,
-                pump_f: f * pump.forward,
-                pump_b: b * pump.backward,
-            }
-        })
-        .collect();
-    FieldProfile::new(zs, fields)
-}
-pub fn find_pump_b(pump: Pump, profile: &Vec<FieldState>, fp: FibreParams, dz: f64) -> f64 {
-    let expg: f64 = profile[..profile.len() - 1]
-        .iter()
-        .map(|&field| {
-            let (g, _) = gain(field, fp);
-            0.5 * g * dz
-        })
-        .sum::<f64>() // dont know why it couldnt infer f64 here
-        .exp();
-    pump.backward * expg
-}
 
 #[derive(Debug)]
 pub enum PicardError {
@@ -70,35 +39,7 @@ impl Default for PicardConfig {
     }
 }
 
-pub fn profile_convergence_error(
-    current: &[FieldState],
-    new: &[FieldState],
-    config: PicardConfig,
-) -> f64 {
-    assert_eq!(current.len(), new.len());
-    let mut max_dif_s = 0.0_f64;
-    let mut max_dif_p = 0.0_f64;
-    let mut max_mag_s = 0.0_f64;
-    let mut max_mag_p = 0.0_f64;
 
-    for (&current, &new) in current.iter().zip(new) {
-        let current_powers = current.field_powers();
-        let new_powers = new.field_powers();
-        if !current_powers[0].is_finite()
-            || !new_powers[0].is_finite()
-            || !current_powers[1].is_finite()
-            || !new_powers[1].is_finite()
-        {
-            return f64::INFINITY;
-        }
-        max_dif_s = max_dif_s.max((current_powers[0] - new_powers[0]).abs().sqrt());
-        max_dif_p = max_dif_p.max((current_powers[1] - new_powers[1]).abs().sqrt());
-        max_mag_s = max_mag_s.max(current_powers[0].max(new_powers[0]).sqrt());
-        max_mag_p = max_mag_p.max(current_powers[1].max(new_powers[1]).sqrt());
-    }
-    (max_dif_p / (config.absolute_tolerance + config.relative_tolerance * max_mag_p))
-        .max(max_dif_s / (config.absolute_tolerance + config.relative_tolerance * max_mag_s))
-}
 
 pub struct PicardDfbSolver {
     initial: Vec<FieldState>,
@@ -153,6 +94,69 @@ impl PicardDfbSolver {
         }
         Err(PicardError::DidNotConverge)
     }
+}
+
+pub fn profile_convergence_error(
+    current: &[FieldState],
+    new: &[FieldState],
+    config: PicardConfig,
+) -> f64 {
+    assert_eq!(current.len(), new.len());
+    let mut max_dif_s = 0.0_f64;
+    let mut max_dif_p = 0.0_f64;
+    let mut max_mag_s = 0.0_f64;
+    let mut max_mag_p = 0.0_f64;
+
+    for (&current, &new) in current.iter().zip(new) {
+        let current_powers = current.field_powers();
+        let new_powers = new.field_powers();
+        if !current_powers[0].is_finite()
+            || !new_powers[0].is_finite()
+            || !current_powers[1].is_finite()
+            || !new_powers[1].is_finite()
+        {
+            return f64::INFINITY;
+        }
+        max_dif_s = max_dif_s.max((current_powers[0] - new_powers[0]).abs().sqrt());
+        max_dif_p = max_dif_p.max((current_powers[1] - new_powers[1]).abs().sqrt());
+        max_mag_s = max_mag_s.max(current_powers[0].max(new_powers[0]).sqrt());
+        max_mag_p = max_mag_p.max(current_powers[1].max(new_powers[1]).sqrt());
+    }
+    (max_dif_p / (config.absolute_tolerance + config.relative_tolerance * max_mag_p))
+        .max(max_dif_s / (config.absolute_tolerance + config.relative_tolerance * max_mag_s))
+}
+
+pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProfile {
+    let g = -fp.pump_ab * fp.density;
+    let zs = gp.grid(fp.length);
+    let end_factor = (0.5 * g * fp.length).exp();
+
+    let fields = zs
+        .iter()
+        .map(|z| {
+            let f = (0.5 * g * z).exp(); // &f64 * f64 -> f64 apparently, so no need to deref
+            let b = end_factor / f;
+
+            FieldState {
+                sgnl_f: 0.0,
+                sgnl_b: 0.0,
+                pump_f: f * pump.forward,
+                pump_b: b * pump.backward,
+            }
+        })
+        .collect();
+    FieldProfile::new(zs, fields)
+}
+pub fn find_pump_b(pump: Pump, profile: &Vec<FieldState>, fp: FibreParams, dz: f64) -> f64 {
+    let expg: f64 = profile[..profile.len() - 1]
+        .iter()
+        .map(|&field| {
+            let (g, _) = gain(field, fp);
+            0.5 * g * dz
+        })
+        .sum::<f64>() // dont know why it couldnt infer f64 here
+        .exp();
+    pump.backward * expg
 }
 
 pub fn solve_profile_picard(
@@ -244,16 +248,16 @@ pub fn dfb_solve_picard_buffers(
     let initial = initial_profile(pu, fp, gp);
     let z = initial.z().collect();
     let initial_fields = initial.fields;
-    let mut solver = PicardDfbSolver::init(initial_fields.clone());
+    let mut solver = PicardDfbSolver::init(initial_fields);
 
     let f = |sgnl_b| -> Result<f64, SolverError> {
         let fields = solver.solve_profile_picard(sgnl_b, pu, fp, picard_config, &kappas, dz)?;
         Ok(fields.last().unwrap().sgnl_b)
     };
     let sgnl_b = try_rootfind_1d(f, config)?;
-    let fields = solve_profile_picard(sgnl_b, initial_fields, pu, fp, picard_config, &kappas, dz)?;
+    let fields = solver.solve_profile_picard(sgnl_b, pu, fp, picard_config, &kappas, dz)?;
     if full_profile {
-        Ok(FieldProfile::new(z, fields))
+        Ok(FieldProfile::new(z, fields.to_vec()))
     } else {
         let z = vec![0.0_f64, fp.length];
         let fields = vec![fields[0], fields.last().copied().unwrap()];
