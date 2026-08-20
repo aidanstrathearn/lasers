@@ -54,7 +54,7 @@ impl LaserApp {
         //     dx: 1e-6,
         // };
         let bc = BisectionConfig {
-            upper: (self.pump.forward.powi(2) + self.pump.backward.powi(2)).sqrt(),
+            upper: 2.0 * (self.pump.forward.powi(2) + self.pump.backward.powi(2)).sqrt(),
             ..self.config
         };
 
@@ -76,6 +76,11 @@ impl LaserApp {
         let sgnl_b = result.plotpoints("sgnl_b");
         let pump_f = result.plotpoints("pump_f");
         let pump_b = result.plotpoints("pump_b");
+
+        ui.style_mut().text_styles.insert(
+            egui::TextStyle::Body,
+            egui::FontId::proportional(24.0), // this is for ticks + legend text
+        );
         Plot::new("field-profile")
             .legend(Legend::default())
             .x_axis_label(egui::RichText::new("z").size(24.0))
