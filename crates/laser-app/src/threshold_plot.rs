@@ -67,7 +67,7 @@ impl LaserApp {
 }
 
 pub fn threshold_slider_grid(tr: &mut ThresholdRange, ui: &mut Ui) {
-    egui::Grid::new("grating").show(ui, |ui| {
+    egui::Grid::new("threshold").show(ui, |ui| {
         ui.label("thresh up");
         ui.add(egui::Slider::new(&mut tr.upper, 1e-5..=15.0).step_by(0.01));
         ui.end_row();

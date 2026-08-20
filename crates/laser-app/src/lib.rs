@@ -92,7 +92,7 @@ fn view_selectors(view: &mut View, ui: &mut Ui) {
 fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) {
     egui::Grid::new("bisection").show(ui, |ui| {
         ui.label("iters");
-        ui.add(egui::Slider::new(&mut config.iteration.max, 10..=500).step_by(10.0));
+        ui.add(egui::Slider::new(&mut config.iteration.max, 10..=2000).step_by(10.0));
         ui.end_row();
 
         // uh oh - how to do log slider?
@@ -118,7 +118,7 @@ fn grating_slider_grid(grating: &mut GratingProfile, ui: &mut Ui) {
 }
 
 fn pump_slider_grid(pump: &mut Pump, ui: &mut Ui) {
-    egui::Grid::new("grating").show(ui, |ui| {
+    egui::Grid::new("pump").show(ui, |ui| {
         ui.label("pump f");
         ui.add(egui::Slider::new(&mut pump.forward, 0.0..=100.0).step_by(0.01));
         ui.end_row();
