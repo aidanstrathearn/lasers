@@ -17,14 +17,14 @@ pub struct ThresholdRange {
 
 impl Default for ThresholdRange {
     fn default() -> Self {
-        Self{ lower: 1e-6, upper: 10.0, num: 20}
+        Self{ lower: 1e-6, upper: 100.0, num: 20}
     }
 }
 
 impl LaserApp {
     pub fn threshold_plot(&mut self, ui: &mut Ui) {
         let bc = BisectionConfig {
-            upper: self.threshold_range.upper,
+            upper: self.threshold_range.upper.sqrt(),
             ..self.config
         };
 
@@ -44,8 +44,8 @@ impl LaserApp {
             bc,
             picard_config
         );
-        let sgnl_f = threshold.iter().map(|x| x.0);
-        let sgnl_b = threshold.iter().map(|x| x.1);
+        let sgnl_f = threshold.iter().map(|x| x.0.powi(2));
+        let sgnl_b = threshold.iter().map(|x| x.1.powi(2));
 
         let sgnl_f_points: Points = pumps
             .iter()
@@ -71,7 +71,7 @@ impl LaserApp {
 pub fn threshold_slider_grid(tr: &mut ThresholdRange, ui: &mut Ui) {
     egui::Grid::new("threshold").show(ui, |ui| {
         ui.label("thresh up");
-        ui.add(egui::Slider::new(&mut tr.upper, 1e-5..=15.0).step_by(0.01));
+        ui.add(egui::Slider::new(&mut tr.upper, 1e-5..=100.0).step_by(0.01));
         ui.end_row();
 
         ui.label("thresh low");

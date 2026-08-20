@@ -105,7 +105,7 @@ pub fn dfb_pump_scan(
             //     backward: 0.0,
             // };
 
-            let pu = Pump::from_total_and_balance(pmp * pmp, balance);
+            let pu = Pump::from_total_and_balance(pmp, balance);
 
             dfb_solve(pu, fp, gp, kp, full_profile, config, picard_config).map_or(
                 (0.0, 0.0, false),
