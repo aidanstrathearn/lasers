@@ -184,37 +184,6 @@ pub fn find_pump_b(pump: Pump, profile: &Vec<FieldState>, fp: FibreParams, dz: f
     pump.backward * expg
 }
 
-pub fn dfb_solve_picard_buffers(
-    pu: Pump,
-    fp: FibreParams,
-    gp: GridPoints,
-    kp: GratingProfile,
-    full_profile: bool,
-    config: impl Into<RootFindConfig>,
-    picard_config: PicardConfig,
-) -> Result<FieldProfile, SolverError> {
-
-    let mut solver = PicardDfbSolver::new(pu, fp, gp);
-
-    let kappas = kp.grid(gp.0);
-    let dz = gp.dz(fp.length);
-    let f = |sgnl_b| -> Result<f64, SolverError> {
-        let fields = solver.solve_profile_picard(sgnl_b, pu, fp, picard_config, &kappas, dz)?;
-        Ok(fields.last().unwrap().sgnl_b)
-    };
-    // try_rootfind_1d muts the solver which leaves the lasing solution in the 'current' buffer
-    let _sgnl_b = try_rootfind_1d(f, config)?;
-    if full_profile {
-        Ok(FieldProfile::new(gp.grid(fp.length), solver.current))
-    } else {
-
-        Ok(FieldProfile::new(
-            vec![0.0_f64, fp.length],
-            vec![solver.current[0], solver.current.last().copied().unwrap()]
-        ))
-    }
-}
-
 pub fn dfb_solve_from_picard_solver(
     pu: Pump,
     fp: FibreParams,
@@ -225,8 +194,6 @@ pub fn dfb_solve_from_picard_solver(
     solver: &mut PicardDfbSolver,
     picard_config: PicardConfig,
 ) -> Result<FieldProfile, SolverError> {
-
-
     let kappas = kp.grid(gp.0);
     let dz = gp.dz(fp.length);
     let f = |sgnl_b| -> Result<f64, SolverError> {
@@ -246,6 +213,22 @@ pub fn dfb_solve_from_picard_solver(
     }
 }
 
+pub fn dfb_solve_picard_buffers(
+    pu: Pump,
+    fp: FibreParams,
+    gp: GridPoints,
+    kp: GratingProfile,
+    full_profile: bool,
+    config: impl Into<RootFindConfig>,
+    picard_config: PicardConfig,
+) -> Result<FieldProfile, SolverError> {
+
+    let mut solver = PicardDfbSolver::new(pu, fp, gp);
+    dfb_solve_from_picard_solver(pu, fp, gp, kp, full_profile, config, &mut solver, picard_config)
+}
+
+
+
 
 
 pub fn dfb_pump_scan_picard(
@@ -258,17 +241,13 @@ pub fn dfb_pump_scan_picard(
     picard_config: PicardConfig,
 ) -> Vec<(f64, f64, bool)> {
     let full_profile = false;
+    let mut solver = PicardDfbSolver::new(Pump::from_total_and_balance(pumps[0], balance), fp, gp);
     pumps
         .iter()
         .map(|&pmp| {
-            // let pu = Pump {
-            //     forward: pmp,
-            //     backward: 0.0,
-            // };
-
             let pu = Pump::from_total_and_balance(pmp, balance);
 
-            dfb_solve(pu, fp, gp, kp, full_profile, config, picard_config).map_or(
+            dfb_solve_from_picard_solver(pu, fp, gp, kp, full_profile, config, &mut solver, picard_config).map_or(
                 (0.0, 0.0, false),
                 |result| {
                     (
