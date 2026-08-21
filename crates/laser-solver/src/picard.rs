@@ -44,7 +44,7 @@ pub struct PicardDfbSolver {
 }
 
 impl PicardDfbSolver {
-    pub fn init(initial: Vec<FieldState>) -> Self {
+    pub fn from_initial(initial: Vec<FieldState>) -> Self {
         let n = initial.len();
         Self {
             initial,
@@ -54,31 +54,7 @@ impl PicardDfbSolver {
     }
 
     pub fn new(pump: Pump, fp: FibreParams, gp: GridPoints) -> Self {
-        let g = -fp.pump_ab * fp.density;
-        let zs = gp.grid(fp.length);
-        let end_factor = (0.5 * g * fp.length).exp();
-
-        let initial: Vec<FieldState> = zs
-            .iter()
-            .map(|z| {
-                let f = (0.5 * g * z).exp(); // &f64 * f64 -> f64 apparently, so no need to deref
-                let b = end_factor / f;
-
-                FieldState {
-                    sgnl_f: 0.0,
-                    sgnl_b: 0.0,
-                    pump_f: f * pump.forward,
-                    pump_b: b * pump.backward,
-                }
-            })
-            .collect();
-
-        let n = initial.len();
-        Self {
-            initial,
-            current: vec![FieldState::default(); n],
-            new: vec![FieldState::default(); n],
-        }
+        Self::from_initial(initial_profile(pump, fp, gp).fields)
     }
 
     pub fn solve_profile_picard(
@@ -214,7 +190,7 @@ pub fn dfb_solve_from_picard_solver(
     }
 }
 
-pub fn dfb_solve_picard_buffers(
+pub fn dfb_solve_picard(
     pu: Pump,
     fp: FibreParams,
     gp: GridPoints,

@@ -2,9 +2,7 @@ use laser_solver::dfb::{dfb_solve_shooting, solve_profile};
 use laser_solver::lase::{
     FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
 };
-use laser_solver::picard::{
-    PicardConfig, PicardDfbSolver, dfb_solve_picard_buffers, initial_profile,
-};
+use laser_solver::picard::{PicardConfig, PicardDfbSolver, dfb_solve_picard};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::IterationConfig;
 
@@ -96,7 +94,7 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
         GRID.grid(FIBRE.length),
         solve_profile(boundary, FIBRE, GRID.dz(FIBRE.length), &kappas),
     );
-    let mut picard_solver = PicardDfbSolver::init(initial_profile(pump, FIBRE, GRID).fields);
+    let mut picard_solver = PicardDfbSolver::new(pump, FIBRE, GRID);
     let picard_fields = picard_solver
         .solve_profile_picard(sgnl_b, pump, FIBRE, PICARD, &kappas, GRID.dz(FIBRE.length))
         .expect("buffered Picard profile solve failed")
@@ -119,7 +117,7 @@ fn shooting_and_picard_dfb_solvers_agree_newton() {
 
     let shooting_profile = dfb_solve_shooting(pump, FIBRE, GRID, GRATING, true, NEWTON)
         .expect("shooting DFB solve failed");
-    let picard_profile = dfb_solve_picard_buffers(pump, FIBRE, GRID, GRATING, true, NEWTON, PICARD)
+    let picard_profile = dfb_solve_picard(pump, FIBRE, GRID, GRATING, true, NEWTON, PICARD)
         .expect("Picard DFB solve failed");
 
     assert_profiles_agree(
@@ -162,7 +160,7 @@ fn shooting_and_picard_dfb_solvers_agree_bisection() {
     let shooting_profile = dfb_solve_shooting(pump, FIBRE, GRID, GRATING, true, BISECTION)
         .expect("shooting DFB solve failed");
     let picard_profile =
-        dfb_solve_picard_buffers(pump, FIBRE, GRID, GRATING, true, BISECTION, PICARD)
+        dfb_solve_picard(pump, FIBRE, GRID, GRATING, true, BISECTION, PICARD)
             .expect("Picard DFB solve failed");
 
     assert_profiles_agree(
@@ -192,7 +190,7 @@ fn backward_pumped_picard_is_reverse_of_forward_pumped_shooting() {
         BISECTION,
     )
     .expect("forward-pumped shooting DFB solve failed");
-    let picard_profile = dfb_solve_picard_buffers(
+    let picard_profile = dfb_solve_picard(
         picard_pump,
         FIBRE,
         SYMMETRY_GRID,

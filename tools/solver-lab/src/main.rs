@@ -7,7 +7,7 @@ use laser_solver::lase::{
     FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
 };
 use laser_solver::picard::{
-    PicardConfig, PicardDfbSolver, dfb_solve_picard_buffers, initial_profile,
+    PicardConfig, PicardDfbSolver, dfb_solve_picard, initial_profile,
 };
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::{IterationConfig, geomspace};
@@ -146,8 +146,7 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
         ),
     );
 
-    let current = initial_profile(comparison_pump, FIBRE, GRID);
-    let mut picard_solver = PicardDfbSolver::init(current.fields);
+    let mut picard_solver = PicardDfbSolver::new(comparison_pump, FIBRE, GRID);
     let picard_fields = picard_solver
         .solve_profile_picard(
             comparison_sgnl_b,
@@ -188,7 +187,7 @@ fn compare_dfb_solvers(show_plots: bool) -> eframe::Result {
     let shooting_elapsed = start.elapsed();
 
     let start = Instant::now();
-    let picard_profile = dfb_solve_picard_buffers(
+    let picard_profile = dfb_solve_picard(
         comparison_pump,
         FIBRE,
         GRID,

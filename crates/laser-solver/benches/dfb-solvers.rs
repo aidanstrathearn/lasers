@@ -1,7 +1,7 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use laser_solver::dfb::dfb_solve_shooting;
 use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump};
-use laser_solver::picard::{PicardConfig, dfb_solve_picard_buffers};
+use laser_solver::picard::{PicardConfig, dfb_solve_picard};
 use laser_solver::rootfind::Newton1dConfig;
 use laser_solver::utils::IterationConfig;
 use std::hint::black_box;
@@ -67,7 +67,7 @@ fn benchmark_picard_solvers(c: &mut Criterion) {
     group.bench_function("buffered", |b| {
         b.iter(|| {
             let result =
-                dfb_solve_picard_buffers(pump, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON, PICARD)
+                dfb_solve_picard(pump, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON, PICARD)
                     .expect("buffered Picard DFB solve failed");
             black_box(result);
         });
