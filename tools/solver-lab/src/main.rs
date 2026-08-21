@@ -10,7 +10,7 @@ use laser_solver::picard::{
     PicardConfig, PicardDfbSolver, dfb_solve_picard, initial_profile,
 };
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
-use laser_solver::utils::{IterationConfig, geomspace};
+use laser_solver::utils::{geomspace, linspace, IterationConfig};
 use myplotlib::Plotter;
 use plots::show_field_profile;
 use std::time::Instant;
@@ -86,21 +86,22 @@ fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
 }
 
 fn run_pump_scan(show_plots: bool) -> eframe::Result {
-    let pumps = geomspace(-1.0, 1.0, 200);
+    let pumps = linspace(0.0, 100.0, 200);
     let start = Instant::now();
-    let threshold = dfb_pump_scan_shooting(&pumps, 1.0, FIBRE, GRID, GRATING, BISECTION, PICARD);
+    let threshold = dfb_pump_scan_shooting(&pumps, 1.0, FIBRE, GRID, GRATING, BISECTION);
     let elapsed = start.elapsed();
 
     println!("pump sweep {:.3}", elapsed.as_secs_f64());
 
     if show_plots {
-        let pump_log10: Vec<f64> = pumps.iter().map(|x| x.log10()).collect();
-        let sgnl_f: Vec<f64> = threshold.iter().map(|x| x.0).collect();
-        let sgnl_b: Vec<f64> = threshold.iter().map(|x| x.1).collect();
+        //let pump: Vec<f64> = pumps.iter().map(|x| x).collect();
+        let sgnl_f: Vec<f64> = threshold.iter().map(|x| x.0.powi(2)).collect();
+        let sgnl_b: Vec<f64> = threshold.iter().map(|x| x.1.powi(2)).collect();
 
         let mut plot = Plotter::new();
-        plot.plot(&pump_log10, &sgnl_f).label("Forward");
-        plot.plot(&pump_log10, &sgnl_b).label("Back");
+        plot.plot(&pumps, &sgnl_f).label("Forward");
+        plot.plot(&pumps, &sgnl_b).label("Back");
+        plot.title("threshold shooting");
         plot.show()?;
     }
 

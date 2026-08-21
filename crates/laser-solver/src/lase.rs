@@ -37,7 +37,7 @@ pub struct GridPoints(pub usize);
 
 impl Default for GridPoints {
     fn default() -> Self {
-        Self(500)
+        Self(100)
     }
 }
 

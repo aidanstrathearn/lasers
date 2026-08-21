@@ -121,7 +121,7 @@ fn bisection_slider_grid(config: &mut BisectionConfig, gp: &mut GridPoints, ui: 
         ui.end_row();
 
         ui.label("grid points");
-        ui.add(egui::Slider::new(&mut gp.0, 10..=2000).step_by(10.0));
+        ui.add(egui::Slider::new(&mut gp.0, 10..=1000).step_by(2.0));
         ui.end_row();
 
         // uh oh - how to do log slider?

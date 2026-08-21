@@ -94,7 +94,6 @@ pub fn dfb_pump_scan_shooting(
     gp: GridPoints,
     kp: GratingProfile,
     config: impl Into<RootFindConfig> + Copy,
-    picard_config: PicardConfig,
 ) -> Vec<(f64, f64, bool)> {
     let full_profile = false;
     pumps
@@ -102,7 +101,7 @@ pub fn dfb_pump_scan_shooting(
         .map(|&pmp| {
             let pu = Pump::from_total_and_balance(pmp, balance);
 
-            dfb_solve(pu, fp, gp, kp, full_profile, config, picard_config).map_or(
+            dfb_solve_shooting(pu, fp, gp, kp, full_profile, config).map_or(
                 (0.0, 0.0, false),
                 |result| {
                     (
@@ -129,7 +128,7 @@ pub fn dfb_pump_scan(
     if use_picard {
         dfb_pump_scan_picard(pumps, balance, fp, gp, kp, config, picard_config)
     } else {
-        dfb_pump_scan_shooting(pumps, balance, fp, gp, kp, config, picard_config)
+        dfb_pump_scan_shooting(pumps, balance, fp, gp, kp, config)
     }
 }
 
