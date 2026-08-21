@@ -2,7 +2,7 @@ use crate::plotter::Plotter;
 use crate::{LaserApp, Points};
 use eframe::egui;
 use eframe::egui::Ui;
-use laser_solver::dfb::dfb_pump_scan;
+use laser_solver::dfb::{dfb_pump_scan, dfb_pump_scan_shooting};
 use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::BisectionConfig;
 use laser_solver::utils::linspace;

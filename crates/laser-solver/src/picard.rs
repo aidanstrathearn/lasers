@@ -247,7 +247,7 @@ pub fn dfb_pump_scan_picard(
         .map(|&pmp| {
             let pu = Pump::from_total_and_balance(pmp, balance);
 
-            dfb_solve_from_picard_solver(pu, fp, gp, kp, full_profile, config, &mut solver, picard_config).map_or(
+            let result = dfb_solve_from_picard_solver(pu, fp, gp, kp, full_profile, config, &mut solver, picard_config).map_or(
                 (0.0, 0.0, false),
                 |result| {
                     (
@@ -256,7 +256,8 @@ pub fn dfb_pump_scan_picard(
                         true,
                     )
                 },
-            )
+            );
+            result
         })
         .collect()
 }

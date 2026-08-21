@@ -1,6 +1,6 @@
 use crate::error::SolverError;
 use crate::lase::{FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, gain};
-use crate::picard::{PicardConfig, dfb_solve_picard_buffers};
+use crate::picard::{dfb_pump_scan_picard, dfb_solve_picard_buffers, PicardConfig};
 use crate::rootfind::{RootFindConfig, rootfind_1d};
 
 impl FieldState {
@@ -87,7 +87,7 @@ pub fn dfb_solve_shooting(
     }
 }
 
-pub fn dfb_pump_scan(
+pub fn dfb_pump_scan_shooting(
     pumps: &[f64],
     balance: f64,
     fp: FibreParams,
@@ -100,11 +100,6 @@ pub fn dfb_pump_scan(
     pumps
         .iter()
         .map(|&pmp| {
-            // let pu = Pump {
-            //     forward: pmp,
-            //     backward: 0.0,
-            // };
-
             let pu = Pump::from_total_and_balance(pmp, balance);
 
             dfb_solve(pu, fp, gp, kp, full_profile, config, picard_config).map_or(
@@ -120,6 +115,24 @@ pub fn dfb_pump_scan(
         })
         .collect()
 }
+
+pub fn dfb_pump_scan(
+    pumps: &[f64],
+    balance: f64,
+    fp: FibreParams,
+    gp: GridPoints,
+    kp: GratingProfile,
+    config: impl Into<RootFindConfig> + Copy,
+    picard_config: PicardConfig,
+) -> Vec<(f64, f64, bool)> {
+    let use_picard = balance != 1.0;
+    if use_picard {
+        dfb_pump_scan_picard(pumps, balance, fp, gp, kp, config, picard_config)
+    } else {
+        dfb_pump_scan_shooting(pumps, balance, fp, gp, kp, config, picard_config)
+    }
+}
+
 
 pub fn dfb_solve(
     pu: Pump,
