@@ -2,7 +2,6 @@ use crate::error::SolverError;
 use crate::lase::{FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, gain};
 use crate::rootfind::{RootFindConfig, try_rootfind_1d};
 use std::fmt;
-use crate::dfb::dfb_solve;
 
 #[derive(Debug)]
 pub enum PicardError {
@@ -203,12 +202,14 @@ pub fn dfb_solve_from_picard_solver(
     // try_rootfind_1d muts the solver which leaves the lasing solution in the 'current' buffer
     let _sgnl_b = try_rootfind_1d(f, config)?;
     if full_profile {
-        Ok(FieldProfile::new(gp.grid(fp.length), solver.current.clone()))
+        Ok(FieldProfile::new(
+            gp.grid(fp.length),
+            solver.current.clone(),
+        ))
     } else {
-
         Ok(FieldProfile::new(
             vec![0.0_f64, fp.length],
-            vec![solver.current[0], solver.current.last().copied().unwrap()]
+            vec![solver.current[0], solver.current.last().copied().unwrap()],
         ))
     }
 }
@@ -222,14 +223,18 @@ pub fn dfb_solve_picard_buffers(
     config: impl Into<RootFindConfig>,
     picard_config: PicardConfig,
 ) -> Result<FieldProfile, SolverError> {
-
     let mut solver = PicardDfbSolver::new(pu, fp, gp);
-    dfb_solve_from_picard_solver(pu, fp, gp, kp, full_profile, config, &mut solver, picard_config)
+    dfb_solve_from_picard_solver(
+        pu,
+        fp,
+        gp,
+        kp,
+        full_profile,
+        config,
+        &mut solver,
+        picard_config,
+    )
 }
-
-
-
-
 
 pub fn dfb_pump_scan_picard(
     pumps: &[f64],
@@ -247,94 +252,26 @@ pub fn dfb_pump_scan_picard(
         .map(|&pmp| {
             let pu = Pump::from_total_and_balance(pmp, balance);
 
-            let result = dfb_solve_from_picard_solver(pu, fp, gp, kp, full_profile, config, &mut solver, picard_config).map_or(
-                (0.0, 0.0, false),
-                |result| {
-                    (
-                        result.sgnl_f().last().unwrap(),
-                        result.sgnl_b().next().unwrap(),
-                        true,
-                    )
-                },
-            );
+            let result = dfb_solve_from_picard_solver(
+                pu,
+                fp,
+                gp,
+                kp,
+                full_profile,
+                config,
+                &mut solver,
+                picard_config,
+            )
+            .map_or((0.0, 0.0, false), |result| {
+                (
+                    result.sgnl_f().last().unwrap(),
+                    result.sgnl_b().next().unwrap(),
+                    true,
+                )
+            });
             result
         })
         .collect()
-}
-
-pub fn solve_profile_picard(
-    sgnl_b: f64,
-    initial: Vec<FieldState>,
-    pump: Pump,
-    fp: FibreParams,
-    config: PicardConfig,
-    kappas: &[f64],
-    dz: f64,
-) -> Result<Vec<FieldState>, PicardError> {
-    assert_eq!(kappas.len() + 1, initial.len());
-
-    let mut current = initial;
-    let mut new = current.clone();
-    let boundary = FieldState {
-        sgnl_f: 0.0,
-        sgnl_b: sgnl_b,
-        pump_f: pump.forward,
-        pump_b: 0.0,
-    };
-    for _ in 0..config.max_iterations {
-        new[0] = FieldState {
-            pump_b: find_pump_b(pump, &current, fp, dz),
-            ..boundary
-        };
-        for j in 1..new.len() {
-            new[j] = new[j - 1].general_step(current[j - 1], fp, kappas[j - 1], dz);
-        }
-        let error = profile_convergence_error(&current, &new, config);
-        //current = new.clone();
-        std::mem::swap(&mut current, &mut new);
-        if error <= 1.0 {
-            return Ok(current);
-        }
-    }
-    Err(PicardError::DidNotConverge)
-}
-
-pub fn dfb_solve_picard(
-    pu: Pump,
-    fp: FibreParams,
-    gp: GridPoints,
-    kp: GratingProfile,
-    full_profile: bool,
-    config: impl Into<RootFindConfig>,
-    picard_config: PicardConfig,
-) -> Result<FieldProfile, SolverError> {
-    let kappas = kp.grid(gp.0);
-    let dz = gp.dz(fp.length);
-    let initial = initial_profile(pu, fp, gp);
-    let z = initial.z().collect();
-    let initial_fields = initial.fields;
-
-    let mut f = |sgnl_b| -> Result<f64, SolverError> {
-        let fields = solve_profile_picard(
-            sgnl_b,
-            initial_fields.clone(),
-            pu,
-            fp,
-            picard_config,
-            &kappas,
-            dz,
-        )?;
-        Ok(fields.last().unwrap().sgnl_b)
-    };
-    let sgnl_b = try_rootfind_1d(&mut f, config)?;
-    let fields = solve_profile_picard(sgnl_b, initial_fields, pu, fp, picard_config, &kappas, dz)?;
-    if full_profile {
-        Ok(FieldProfile::new(z, fields))
-    } else {
-        let z = vec![0.0_f64, fp.length];
-        let fields = vec![fields[0], fields.last().copied().unwrap()];
-        Ok(FieldProfile::new(z, fields))
-    }
 }
 
 #[cfg(test)]

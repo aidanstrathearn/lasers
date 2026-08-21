@@ -1,17 +1,19 @@
 mod myplotlib;
 mod plots;
 
+use crate::plots::plot_profile_diff;
 use laser_solver::dfb::{dfb_pump_scan_shooting, dfb_solve_shooting, solve_profile, transfer};
 use laser_solver::lase::{
     FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
 };
-use laser_solver::picard::{PicardConfig, dfb_solve_picard, initial_profile, solve_profile_picard};
+use laser_solver::picard::{
+    PicardConfig, PicardDfbSolver, dfb_solve_picard_buffers, initial_profile,
+};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::{IterationConfig, geomspace};
 use myplotlib::Plotter;
 use plots::show_field_profile;
 use std::time::Instant;
-use crate::plots::plot_profile_diff;
 
 const PUMP: Pump = Pump {
     forward: 100.0,
@@ -120,8 +122,6 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
     plot.show()
 }
 
-
-
 fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
     let comparison_pump = Pump {
         backward: 0.0,
@@ -147,23 +147,29 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
     );
 
     let current = initial_profile(comparison_pump, FIBRE, GRID);
-    let picard_fields = solve_profile_picard(
-        comparison_sgnl_b,
-        current.fields.clone(),
-        comparison_pump,
-        FIBRE,
-        PICARD,
-        &comparison_kappas,
-        GRID.dz(FIBRE.length),
-    )
-    .expect("Picard profile comparison did not converge");
+    let mut picard_solver = PicardDfbSolver::init(current.fields);
+    let picard_fields = picard_solver
+        .solve_profile_picard(
+            comparison_sgnl_b,
+            comparison_pump,
+            FIBRE,
+            PICARD,
+            &comparison_kappas,
+            GRID.dz(FIBRE.length),
+        )
+        .expect("Picard profile comparison did not converge")
+        .to_vec();
     let picard_profile = FieldProfile::new(direct_profile.z.clone(), picard_fields);
 
     let max_diff = profile_max_diff(&direct_profile.fields, &picard_profile.fields);
     println!("Picard/direct profile max diff: {max_diff:e}");
 
     if show_plots {
-        plot_profile_diff(&direct_profile, &picard_profile, "shooting vs picard profile")?;
+        plot_profile_diff(
+            &direct_profile,
+            &picard_profile,
+            "shooting vs picard profile",
+        )?;
     }
 
     Ok(())
@@ -182,7 +188,7 @@ fn compare_dfb_solvers(show_plots: bool) -> eframe::Result {
     let shooting_elapsed = start.elapsed();
 
     let start = Instant::now();
-    let picard_profile = dfb_solve_picard(
+    let picard_profile = dfb_solve_picard_buffers(
         comparison_pump,
         FIBRE,
         GRID,
@@ -206,12 +212,15 @@ fn compare_dfb_solvers(show_plots: bool) -> eframe::Result {
     println!("shooting/Picard profile max diff: {max_diff:e}");
 
     if show_plots {
-        plot_profile_diff(&shooting_profile, &picard_profile, "shooting vs picard DFB solution")?;
+        plot_profile_diff(
+            &shooting_profile,
+            &picard_profile,
+            "shooting vs picard DFB solution",
+        )?;
     }
 
     Ok(())
 }
-
 
 fn difference(left: &[f64], right: &[f64]) -> Vec<f64> {
     left.iter()
