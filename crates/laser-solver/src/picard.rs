@@ -38,7 +38,6 @@ impl Default for PicardConfig {
 }
 
 pub struct PicardDfbSolver {
-    initial: Vec<FieldState>,
     current: Vec<FieldState>,
     new: Vec<FieldState>,
 }
@@ -47,8 +46,7 @@ impl PicardDfbSolver {
     pub fn from_initial(initial: Vec<FieldState>) -> Self {
         let n = initial.len();
         Self {
-            initial,
-            current: vec![FieldState::default(); n],
+            current: initial,
             new: vec![FieldState::default(); n],
         }
     }
@@ -66,9 +64,7 @@ impl PicardDfbSolver {
         kappas: &[f64],
         dz: f64,
     ) -> Result<&[FieldState], PicardError> {
-        assert_eq!(kappas.len() + 1, self.initial.len());
-
-        self.current.copy_from_slice(&self.initial);
+        assert_eq!(kappas.len() + 1, self.current.len());
         let boundary = FieldState {
             sgnl_f: 0.0,
             sgnl_b: sgnl_b,
@@ -84,11 +80,10 @@ impl PicardDfbSolver {
                 self.new[j] =
                     self.new[j - 1].general_step(self.current[j - 1], fp, kappas[j - 1], dz);
             }
-            let error = profile_convergence_error(&self.current, &self.new, config);
-            //current = new.clone();
+
             std::mem::swap(&mut self.current, &mut self.new);
+            let error = profile_convergence_error(&self.current, &self.new, config);
             if error <= 1.0 {
-                self.initial.copy_from_slice(&self.current);
                 return Ok(&self.current);
             }
         }
@@ -127,7 +122,7 @@ pub fn profile_convergence_error(
 }
 
 pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProfile {
-    let g = -fp.pump_ab * fp.density;
+    let g = 0.5 *(-fp.pump_ab + fp.pump_em)* fp.density; // ground and excited populations are equal
     let zs = gp.grid(fp.length);
     let end_factor = (0.5 * g * fp.length).exp();
 
