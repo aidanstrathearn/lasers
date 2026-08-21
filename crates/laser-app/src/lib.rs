@@ -76,7 +76,7 @@ impl eframe::App for LaserApp {
                 });
                 ui.vertical(|ui| {
                     ui.heading("Solver");
-                    bisection_slider_grid(&mut self.config, ui);
+                    bisection_slider_grid(&mut self.config, &mut self.grid_points, ui);
                 });
                 ui.vertical(|ui| {
                     ui.heading("Pump");
@@ -114,10 +114,14 @@ fn view_selectors(view: &mut View, ui: &mut Ui) {
     });
 }
 
-fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) {
+fn bisection_slider_grid(config: &mut BisectionConfig, gp: &mut GridPoints, ui: &mut Ui) {
     egui::Grid::new("bisection").show(ui, |ui| {
         ui.label("iters");
         ui.add(egui::Slider::new(&mut config.iteration.max, 10..=2000).step_by(10.0));
+        ui.end_row();
+
+        ui.label("grid points");
+        ui.add(egui::Slider::new(&mut gp.0, 10..=2000).step_by(10.0));
         ui.end_row();
 
         // uh oh - how to do log slider?
