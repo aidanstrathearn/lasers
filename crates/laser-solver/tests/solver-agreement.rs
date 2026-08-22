@@ -159,9 +159,8 @@ fn shooting_and_picard_dfb_solvers_agree_bisection() {
 
     let shooting_profile = dfb_solve_shooting(pump, FIBRE, GRID, GRATING, true, BISECTION)
         .expect("shooting DFB solve failed");
-    let picard_profile =
-        dfb_solve_picard(pump, FIBRE, GRID, GRATING, true, BISECTION, PICARD)
-            .expect("Picard DFB solve failed");
+    let picard_profile = dfb_solve_picard(pump, FIBRE, GRID, GRATING, true, BISECTION, PICARD)
+        .expect("Picard DFB solve failed");
 
     assert_profiles_agree(
         "shooting and Picard DFB solvers",

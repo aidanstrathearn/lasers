@@ -66,9 +66,8 @@ fn benchmark_picard_solvers(c: &mut Criterion) {
 
     group.bench_function("buffered", |b| {
         b.iter(|| {
-            let result =
-                dfb_solve_picard(pump, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON, PICARD)
-                    .expect("buffered Picard DFB solve failed");
+            let result = dfb_solve_picard(pump, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON, PICARD)
+                .expect("buffered Picard DFB solve failed");
             black_box(result);
         });
     });

@@ -6,9 +6,8 @@ use std::fmt;
 pub enum SolverError {
     RootFind(RootFindError),
     Picard(PicardError),
-    ThresholdNotFound
+    ThresholdNotFound,
 }
-
 
 impl From<RootFindError> for SolverError {
     fn from(error: RootFindError) -> Self {
@@ -27,7 +26,7 @@ impl fmt::Display for SolverError {
         match self {
             Self::RootFind(error) => write!(formatter, "{error}"),
             Self::Picard(error) => write!(formatter, "{error}"),
-            Self::ThresholdNotFound => write!(formatter, "threshold not found")
+            Self::ThresholdNotFound => write!(formatter, "threshold not found"),
         }
     }
 }
@@ -37,7 +36,7 @@ impl std::error::Error for SolverError {
         match self {
             Self::RootFind(error) => Some(error),
             Self::Picard(error) => Some(error),
-            Self::ThresholdNotFound => None
+            Self::ThresholdNotFound => None,
         }
     }
 }

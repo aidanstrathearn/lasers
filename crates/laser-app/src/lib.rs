@@ -1,4 +1,5 @@
 mod kappa_plot;
+mod pi_pos_plot;
 mod plotter;
 mod pop_plot;
 mod profile_plot;
@@ -17,6 +18,7 @@ pub enum View {
     Populations,
     Kappa,
     Threshold,
+    PiPosition,
 }
 
 type Points = Vec<[f64; 2]>;
@@ -47,11 +49,36 @@ impl Default for PumpParam {
 }
 
 impl LaserApp {
+    fn strong_coupling() -> Self {
+        Self {
+            pump: PumpParam {
+                total: 400.0,
+                balance: 1.0,
+            },
+            fibre_params: FibreParams {
+                density: 0.20,
+                lifetime: 1.0,
+                pump_ab: 0.1,
+                pump_em: 0.0,
+                sgnl_ab: 0.1,
+                sgnl_em: 0.1,
+                length: 5.0,
+            },
+            grid_points: GridPoints::default(),
+            grating: GratingProfile {
+                kappa_left: 3.0,
+                kappa_right: 3.0,
+                pi_shift_position: 0.5,
+            },
+            ..Self::default()
+        }
+    }
+
     pub fn new(creation_context: &eframe::CreationContext<'_>) -> Self {
         creation_context
             .egui_ctx
             .set_visuals(egui::Visuals::light());
-        Self::default()
+        Self::strong_coupling()
     }
 }
 
@@ -100,6 +127,7 @@ impl eframe::App for LaserApp {
                     ui.colored_label(ui.visuals().error_fg_color, error.to_string());
                 }),
                 View::Kappa => self.kappa_plot(ui),
+                View::PiPosition => self.pi_pos_plot(ui),
             };
         });
     }
@@ -111,6 +139,7 @@ fn view_selectors(view: &mut View, ui: &mut Ui) {
         ui.selectable_value(view, View::Populations, "Populations");
         ui.selectable_value(view, View::Kappa, "Kappa");
         ui.selectable_value(view, View::Threshold, "Threshold");
+        ui.selectable_value(view, View::PiPosition, "Pi position");
     });
 }
 
@@ -201,7 +230,7 @@ fn fibre_params_slider_grid(params: &mut FibreParams, ui: &mut Ui) {
             ui.end_row();
 
             ui.label("length");
-            ui.add(egui::Slider::new(&mut params.length, 0.1..=50.0).step_by(0.01));
+            ui.add(egui::Slider::new(&mut params.length, 0.1..=15.0).step_by(0.01));
             ui.end_row();
         });
     });
