@@ -122,23 +122,18 @@ pub fn dfb_pump_scan_shooting(
         .collect()
 }
 
-pub fn dfb_find_threshold_and_slope_shooting(
+pub fn find_threshold_and_slope(
     pump_start: f64,
     pump_step: f64,
     ip: IterationConfig,
-    fp: FibreParams,
-    gp: GridPoints,
-    kp: GratingProfile,
-    config: impl Into<RootFindConfig> + Copy,
+    mut output_power: impl FnMut(f64) -> (f64, f64, bool),
 ) -> Result<(f64, f64, f64), SolverError> {
     let mut current_pump = pump_start;
     let mut total_diff = -1.0;
     let mut sf = 0.0;
     let mut sb = 0.0;
-
     for _ in 0..ip.max {
-        let (new_sf, new_sb, success) =
-            dfb_output_power_shooting(current_pump, fp, gp, kp, config);
+        let (new_sf, new_sb, success) = output_power(current_pump);
         if !success {
             current_pump += pump_step;
             continue;
@@ -159,6 +154,21 @@ pub fn dfb_find_threshold_and_slope_shooting(
         }
     }
     Err(SolverError::ThresholdNotFound)
+}
+
+pub fn dfb_find_threshold_and_slope_shooting(
+    pump_start: f64,
+    pump_step: f64,
+    ip: IterationConfig,
+    fp: FibreParams,
+    gp: GridPoints,
+    kp: GratingProfile,
+    config: impl Into<RootFindConfig> + Copy,
+) -> Result<(f64, f64, f64), SolverError> {
+
+    let f  = |p| dfb_output_power_shooting(p, fp, gp, kp, config);
+
+    find_threshold_and_slope(pump_start, pump_step, ip, f)
 }
 
 pub fn dfb_pump_scan(
