@@ -1,7 +1,8 @@
 use crate::error::SolverError;
 use crate::lase::{FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, gain};
-use crate::picard::{dfb_pump_scan_picard, dfb_solve_picard, PicardConfig};
+use crate::picard::{PicardConfig, dfb_pump_scan_picard, dfb_solve_picard};
 use crate::rootfind::{RootFindConfig, rootfind_1d};
+use crate::utils::IterationConfig;
 
 impl FieldState {
     pub fn propagate(self, fp: FibreParams, kappa: f64, dz: f64) -> Self {
@@ -87,32 +88,73 @@ pub fn dfb_solve_shooting(
     }
 }
 
+pub fn dfb_output_power_shooting(
+    pump_power: f64,
+    fp: FibreParams,
+    gp: GridPoints,
+    kp: GratingProfile,
+    config: impl Into<RootFindConfig> + Copy,
+) -> (f64, f64, bool) {
+    let pu = Pump { forward: pump_power.sqrt(), backward: 0.0};
+
+    dfb_solve_shooting(pu, fp, gp, kp, false, config).map_or((0.0, 0.0, false), |result| {
+        (
+            result.sgnl_f().last().unwrap().powi(2),
+            result.sgnl_b().next().unwrap().powi(2),
+            true,
+        )
+    })
+}
+
 pub fn dfb_pump_scan_shooting(
     pumps: &[f64],
-    balance: f64,
     fp: FibreParams,
     gp: GridPoints,
     kp: GratingProfile,
     config: impl Into<RootFindConfig> + Copy,
 ) -> Vec<(f64, f64, bool)> {
-    let full_profile = false;
     pumps
         .iter()
-        .map(|&pmp| {
-            let pu = Pump::from_total_and_balance(pmp, balance);
-
-            dfb_solve_shooting(pu, fp, gp, kp, full_profile, config).map_or(
-                (0.0, 0.0, false),
-                |result| {
-                    (
-                        result.sgnl_f().last().unwrap(),
-                        result.sgnl_b().next().unwrap(),
-                        true,
-                    )
-                },
-            )
-        })
+        .map(|&pmp| dfb_output_power_shooting(pmp, fp, gp, kp, config))
         .collect()
+}
+
+pub fn dfb_find_threshold_and_slope_shooting(
+    pump_start: f64,
+    pump_step: f64,
+    ip: IterationConfig,
+    fp: FibreParams,
+    gp: GridPoints,
+    kp: GratingProfile,
+    config: impl Into<RootFindConfig> + Copy,
+) -> Result<(f64, f64, f64), SolverError> {
+    let mut current_pump = pump_start;
+    let mut diff = (-1.0, -1.0);
+    let mut outs = (0.0, 0.0);
+    for _ in 0..ip.max {
+        let (sf, sp, success) =
+            dfb_output_power_shooting(current_pump, fp, gp, kp, config);
+        if !success {
+            current_pump += pump_step;
+            continue;
+        }
+        let new_diff = (sf - outs.0, sp - outs.1);
+        outs = (sf, sp);
+        if (new_diff.0 - diff.0).abs() < ip.tol
+            && (new_diff.1 - diff.1).abs() < ip.tol
+            && new_diff.0 > 0.0
+            && new_diff.1 > 0.0
+        {
+            let grad_f = new_diff.0 / pump_step;
+            let grad_b = new_diff.1 / pump_step;
+            let threshold = current_pump - sf / grad_f;
+            return Ok((grad_f, grad_b, threshold));
+        } else {
+            current_pump += pump_step;
+            diff = new_diff;
+        }
+    }
+    Err(SolverError::ThresholdNotFound)
 }
 
 pub fn dfb_pump_scan(
@@ -128,10 +170,9 @@ pub fn dfb_pump_scan(
     if use_picard {
         dfb_pump_scan_picard(pumps, balance, fp, gp, kp, config, picard_config)
     } else {
-        dfb_pump_scan_shooting(pumps, balance, fp, gp, kp, config)
+        dfb_pump_scan_shooting(pumps, fp, gp, kp, config)
     }
 }
-
 
 pub fn dfb_solve(
     pu: Pump,

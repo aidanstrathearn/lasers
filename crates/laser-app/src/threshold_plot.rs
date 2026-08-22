@@ -51,8 +51,8 @@ impl LaserApp {
             bc,
             picard_config,
         );
-        let sgnl_f = threshold.iter().map(|x| x.0.powi(2));
-        let sgnl_b = threshold.iter().map(|x| x.1.powi(2));
+        let sgnl_f = threshold.iter().map(|x| x.0);
+        let sgnl_b = threshold.iter().map(|x| x.1);
 
         let sgnl_f_points: Points = pumps
             .iter()

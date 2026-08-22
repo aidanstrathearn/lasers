@@ -235,8 +235,8 @@ pub fn dfb_pump_scan_picard(
             )
             .map_or((0.0, 0.0, false), |result| {
                 (
-                    result.sgnl_f().last().unwrap(),
-                    result.sgnl_b().next().unwrap(),
+                    result.sgnl_f().last().unwrap().powi(2),
+                    result.sgnl_b().next().unwrap().powi(2),
                     true,
                 )
             });

@@ -2,7 +2,7 @@ mod myplotlib;
 mod plots;
 
 use crate::plots::plot_profile_diff;
-use laser_solver::dfb::{dfb_pump_scan_shooting, dfb_solve_shooting, solve_profile, transfer};
+use laser_solver::dfb::{dfb_find_threshold_and_slope_shooting, dfb_pump_scan_shooting, dfb_solve_shooting, solve_profile, transfer};
 use laser_solver::lase::{
     FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
 };
@@ -86,17 +86,22 @@ fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
 }
 
 fn run_pump_scan(show_plots: bool) -> eframe::Result {
-    let pumps = linspace(0.0, 100.0, 200);
+    let pumps = linspace(0.0, 10.0, 200);
     let start = Instant::now();
-    let threshold = dfb_pump_scan_shooting(&pumps, 1.0, FIBRE, GRID, GRATING, BISECTION);
+    let threshold = dfb_pump_scan_shooting(&pumps, FIBRE, GRID, GRATING, BISECTION);
     let elapsed = start.elapsed();
-
+    let ip = IterationConfig {tol: 1e-6, max: 50};
+    let threshold_result =
+        dfb_find_threshold_and_slope_shooting(0.0, 0.1, ip, FIBRE, GRID, GRATING, BISECTION)
+            .expect("threshold not found");
+    println!("slopef {}, slopeb {}, thresh {}", threshold_result.0, threshold_result.1, threshold_result.2);
     println!("pump sweep {:.3}", elapsed.as_secs_f64());
+
 
     if show_plots {
         //let pump: Vec<f64> = pumps.iter().map(|x| x).collect();
-        let sgnl_f: Vec<f64> = threshold.iter().map(|x| x.0.powi(2)).collect();
-        let sgnl_b: Vec<f64> = threshold.iter().map(|x| x.1.powi(2)).collect();
+        let sgnl_f: Vec<f64> = threshold.iter().map(|x| x.0).collect();
+        let sgnl_b: Vec<f64> = threshold.iter().map(|x| x.1).collect();
 
         let mut plot = Plotter::new();
         plot.plot(&pumps, &sgnl_f).label("Forward");
