@@ -1,3 +1,4 @@
+use crate::dfb::dfb_solve_shooting;
 use crate::error::SolverError;
 use crate::lase::{FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, gain};
 use crate::rootfind::{RootFindConfig, try_rootfind_1d};
@@ -122,7 +123,7 @@ pub fn profile_convergence_error(
 }
 
 pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProfile {
-    let g = 0.5 *(-fp.pump_ab + fp.pump_em)* fp.density; // ground and excited populations are equal
+    let g = 0.5 * (-fp.pump_ab + fp.pump_em) * fp.density; // ground and excited populations are equal
     let zs = gp.grid(fp.length);
     let end_factor = (0.5 * g * fp.length).exp();
 
@@ -207,6 +208,30 @@ pub fn dfb_solve_picard(
     )
 }
 
+pub fn dfb_output_power_picard(
+    pump_power: f64,
+    balance: f64,
+    fp: FibreParams,
+    gp: GridPoints,
+    kp: GratingProfile,
+    config: impl Into<RootFindConfig> + Copy,
+    solver: &mut PicardDfbSolver,
+    picard_config: PicardConfig,
+) -> (f64, f64, bool) {
+    let pu = Pump::from_total_and_balance(pump_power, balance);
+
+    dfb_solve_from_picard_solver(pu, fp, gp, kp, false, config, solver, picard_config).map_or(
+        (0.0, 0.0, false),
+        |result| {
+            (
+                result.sgnl_f().last().unwrap().powi(2),
+                result.sgnl_b().next().unwrap().powi(2),
+                true,
+            )
+        },
+    )
+}
+
 pub fn dfb_pump_scan_picard(
     pumps: &[f64],
     balance: f64,
@@ -216,31 +241,11 @@ pub fn dfb_pump_scan_picard(
     config: impl Into<RootFindConfig> + Copy,
     picard_config: PicardConfig,
 ) -> Vec<(f64, f64, bool)> {
-    let full_profile = false;
     let mut solver = PicardDfbSolver::new(Pump::from_total_and_balance(pumps[0], balance), fp, gp);
     pumps
         .iter()
         .map(|&pmp| {
-            let pu = Pump::from_total_and_balance(pmp, balance);
-
-            let result = dfb_solve_from_picard_solver(
-                pu,
-                fp,
-                gp,
-                kp,
-                full_profile,
-                config,
-                &mut solver,
-                picard_config,
-            )
-            .map_or((0.0, 0.0, false), |result| {
-                (
-                    result.sgnl_f().last().unwrap().powi(2),
-                    result.sgnl_b().next().unwrap().powi(2),
-                    true,
-                )
-            });
-            result
+            dfb_output_power_picard(pmp, balance, fp, gp, kp, config, &mut solver, picard_config)
         })
         .collect()
 }

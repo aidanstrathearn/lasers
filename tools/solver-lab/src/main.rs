@@ -2,10 +2,7 @@ mod myplotlib;
 mod plots;
 
 use crate::plots::plot_profile_diff;
-use laser_solver::dfb::{
-    dfb_find_threshold_and_slope_shooting, dfb_pump_scan_shooting, dfb_solve_shooting,
-    solve_profile, transfer,
-};
+use laser_solver::dfb::{dfb_find_threshold_and_slope, dfb_pump_scan, dfb_pump_scan_shooting, dfb_solve_shooting, solve_profile, transfer};
 use laser_solver::lase::{
     FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
 };
@@ -113,9 +110,10 @@ fn plot_pump_scan_derivatives(show_plot: bool) -> eframe::Result {
     if !show_plot {
         return Ok(());
     }
-
+    let pc = PicardConfig { max_iterations: 500, relative_tolerance: 1e-6, absolute_tolerance: 1e-6};
     let pumps = linspace(0.0, 10.0, 200);
-    let outputs = dfb_pump_scan_shooting(&pumps, FIBRE, GRID, GRATING, BISECTION);
+    let balance = 0.95;
+    let outputs = dfb_pump_scan(&pumps, balance, FIBRE, GRID, GRATING, BISECTION, pc);
 
     let derivative_pumps: Vec<f64> = pumps
         .windows(2)
@@ -132,15 +130,17 @@ fn plot_pump_scan_derivatives(show_plot: bool) -> eframe::Result {
         .map(|(pump, output)| (output[1].1 - output[0].1) / (pump[1] - pump[0]))
         .collect();
 
-    let threshold_config = IterationConfig { tol: 1e-3, max: 5 };
-    let (forward_slope, backward_slope, threshold) = dfb_find_threshold_and_slope_shooting(
-        5.0,
+    let threshold_config = IterationConfig { tol: 1e-3, max: 20 };
+    let (forward_slope, backward_slope, threshold) = dfb_find_threshold_and_slope(
+        2.0,
         1.0,
+        balance,
         threshold_config,
         FIBRE,
         GRID,
         GRATING,
         BISECTION,
+        pc
     )
     .expect("threshold not found");
 

@@ -1,4 +1,5 @@
-use crate::utils::{linspace, relative_diff};
+use crate::error::SolverError;
+use crate::utils::{linspace, relative_diff, IterationConfig};
 
 #[derive(Copy, Clone)]
 pub struct FibreParams {
@@ -212,6 +213,40 @@ impl Pump {
             backward: ((1.0 - p) * total).sqrt(),
         }
     }
+}
+
+pub fn find_threshold_and_slope(
+    pump_start: f64,
+    pump_step: f64,
+    ip: IterationConfig,
+    mut output_power: impl FnMut(f64) -> (f64, f64, bool),
+) -> Result<(f64, f64, f64), SolverError> {
+    let mut current_pump = pump_start;
+    let mut total_diff = -1.0;
+    let mut sf = 0.0;
+    let mut sb = 0.0;
+    for _ in 0..ip.max {
+        let (new_sf, new_sb, success) = output_power(current_pump);
+        if !success {
+            current_pump += pump_step;
+            continue;
+        }
+
+        let new_total_diff = (new_sf + new_sb) - (sb + sf);
+
+        if relative_diff(new_total_diff, total_diff) < ip.tol && new_total_diff > 0.0 {
+            let slope_f = (new_sf - sf) / pump_step;
+            let slope_b = (new_sb - sb) / pump_step;
+            let threshold = current_pump - (new_sf + new_sb) / (slope_b + slope_f);
+            return Ok((slope_f, slope_b, threshold));
+        } else {
+            current_pump += pump_step;
+            total_diff = new_total_diff;
+            sb = new_sb;
+            sf = new_sf;
+        }
+    }
+    Err(SolverError::ThresholdNotFound)
 }
 
 #[cfg(test)]

@@ -1,7 +1,9 @@
+use std::any::type_name_of_val;
 use crate::error::SolverError;
-use crate::lase::{FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, gain};
-use crate::picard::{PicardConfig, dfb_pump_scan_picard, dfb_solve_picard};
-use crate::rootfind::{RootFindConfig, rootfind_1d};
+use crate::lase::{find_threshold_and_slope, gain, FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump};
+use crate::picard::{dfb_pump_scan_picard, dfb_solve_picard, PicardConfig, PicardDfbSolver, dfb_output_power_picard};
+use crate::rootfind::{rootfind_1d, BisectionConfig, RootFindConfig};
+use crate::rootfind::RootFindConfig::Bisection;
 use crate::utils::{IterationConfig, relative_diff};
 
 impl FieldState {
@@ -122,53 +124,31 @@ pub fn dfb_pump_scan_shooting(
         .collect()
 }
 
-pub fn find_threshold_and_slope(
+
+
+pub fn dfb_find_threshold_and_slope(
     pump_start: f64,
     pump_step: f64,
-    ip: IterationConfig,
-    mut output_power: impl FnMut(f64) -> (f64, f64, bool),
-) -> Result<(f64, f64, f64), SolverError> {
-    let mut current_pump = pump_start;
-    let mut total_diff = -1.0;
-    let mut sf = 0.0;
-    let mut sb = 0.0;
-    for _ in 0..ip.max {
-        let (new_sf, new_sb, success) = output_power(current_pump);
-        if !success {
-            current_pump += pump_step;
-            continue;
-        }
-
-        let new_total_diff = (new_sf + new_sb) - (sb + sf);
-
-        if relative_diff(new_total_diff, total_diff) < ip.tol && new_total_diff > 0.0 {
-            let slope_f = (new_sf - sf) / pump_step;
-            let slope_b = (new_sb - sb) / pump_step;
-            let threshold = current_pump - (new_sf + new_sb) / (slope_b + slope_f);
-            return Ok((slope_f, slope_b, threshold));
-        } else {
-            current_pump += pump_step;
-            total_diff = new_total_diff;
-            sb = new_sb;
-            sf = new_sf;
-        }
-    }
-    Err(SolverError::ThresholdNotFound)
-}
-
-pub fn dfb_find_threshold_and_slope_shooting(
-    pump_start: f64,
-    pump_step: f64,
+    balance: f64,
     ip: IterationConfig,
     fp: FibreParams,
     gp: GridPoints,
     kp: GratingProfile,
     config: impl Into<RootFindConfig> + Copy,
+    picard_config: PicardConfig,
 ) -> Result<(f64, f64, f64), SolverError> {
 
-    let f  = |p| dfb_output_power_shooting(p, fp, gp, kp, config);
+    let use_picard = balance != 1.0;
+    if use_picard {
+        let mut solver = PicardDfbSolver::new(Pump::from_total_and_balance(pump_start, balance), fp, gp);
+        let f = |p|dfb_output_power_picard(p, balance, fp, gp, kp, config, &mut solver, picard_config);
+        find_threshold_and_slope(pump_start, pump_step, ip, f)
 
-    find_threshold_and_slope(pump_start, pump_step, ip, f)
+    } else {
+        let f = |p| dfb_output_power_shooting(p, fp, gp, kp, config);
+        find_threshold_and_slope(pump_start, pump_step, ip, f)
+    }
+
 }
 
 pub fn dfb_pump_scan(
