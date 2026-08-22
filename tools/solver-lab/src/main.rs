@@ -90,9 +90,9 @@ fn run_pump_scan(show_plots: bool) -> eframe::Result {
     let start = Instant::now();
     let threshold = dfb_pump_scan_shooting(&pumps, FIBRE, GRID, GRATING, BISECTION);
     let elapsed = start.elapsed();
-    let ip = IterationConfig {tol: 1e-6, max: 50};
+    let ip = IterationConfig {tol: 1e-2, max: 50};
     let threshold_result =
-        dfb_find_threshold_and_slope_shooting(0.0, 0.1, ip, FIBRE, GRID, GRATING, BISECTION)
+        dfb_find_threshold_and_slope_shooting(0.0, 0.2, ip, FIBRE, GRID, GRATING, BISECTION)
             .expect("threshold not found");
     println!("slopef {}, slopeb {}, thresh {}", threshold_result.0, threshold_result.1, threshold_result.2);
     println!("pump sweep {:.3}", elapsed.as_secs_f64());

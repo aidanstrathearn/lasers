@@ -2,7 +2,7 @@ use crate::error::SolverError;
 use crate::lase::{FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, gain};
 use crate::picard::{PicardConfig, dfb_pump_scan_picard, dfb_solve_picard};
 use crate::rootfind::{RootFindConfig, rootfind_1d};
-use crate::utils::IterationConfig;
+use crate::utils::{IterationConfig, relative_diff};
 
 impl FieldState {
     pub fn propagate(self, fp: FibreParams, kappa: f64, dz: f64) -> Self {
@@ -95,7 +95,10 @@ pub fn dfb_output_power_shooting(
     kp: GratingProfile,
     config: impl Into<RootFindConfig> + Copy,
 ) -> (f64, f64, bool) {
-    let pu = Pump { forward: pump_power.sqrt(), backward: 0.0};
+    let pu = Pump {
+        forward: pump_power.sqrt(),
+        backward: 0.0,
+    };
 
     dfb_solve_shooting(pu, fp, gp, kp, false, config).map_or((0.0, 0.0, false), |result| {
         (
@@ -129,29 +132,30 @@ pub fn dfb_find_threshold_and_slope_shooting(
     config: impl Into<RootFindConfig> + Copy,
 ) -> Result<(f64, f64, f64), SolverError> {
     let mut current_pump = pump_start;
-    let mut diff = (-1.0, -1.0);
-    let mut outs = (0.0, 0.0);
+    let mut total_diff = -1.0;
+    let mut sf = 0.0;
+    let mut sb = 0.0;
+
     for _ in 0..ip.max {
-        let (sf, sp, success) =
+        let (new_sf, new_sb, success) =
             dfb_output_power_shooting(current_pump, fp, gp, kp, config);
         if !success {
             current_pump += pump_step;
             continue;
         }
-        let new_diff = (sf - outs.0, sp - outs.1);
-        outs = (sf, sp);
-        if (new_diff.0 - diff.0).abs() < ip.tol
-            && (new_diff.1 - diff.1).abs() < ip.tol
-            && new_diff.0 > 0.0
-            && new_diff.1 > 0.0
-        {
-            let grad_f = new_diff.0 / pump_step;
-            let grad_b = new_diff.1 / pump_step;
-            let threshold = current_pump - sf / grad_f;
-            return Ok((grad_f, grad_b, threshold));
+
+        let new_total_diff = (new_sf + new_sb) - (sb + sf);
+
+        if relative_diff(new_total_diff, total_diff) < ip.tol && new_total_diff > 0.0 {
+            let slope_f = (new_sf - sf) / pump_step;
+            let slope_b = (new_sb - sb) / pump_step;
+            let threshold = current_pump - (new_sf + new_sb) / (slope_b + slope_f);
+            return Ok((slope_f, slope_b, threshold));
         } else {
             current_pump += pump_step;
-            diff = new_diff;
+            total_diff = new_total_diff;
+            sb = new_sb;
+            sf = new_sf;
         }
     }
     Err(SolverError::ThresholdNotFound)
