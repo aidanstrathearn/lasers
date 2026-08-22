@@ -36,6 +36,7 @@ pub struct Plotter {
     x_label: String,
     y_label: String,
     title: String,
+    x_limits: Option<(f64, f64)>,
 }
 
 #[allow(dead_code)]
@@ -82,6 +83,10 @@ impl Plotter {
         self.title = title.into();
     }
 
+    pub fn xlim(&mut self, lower: f64, upper: f64) {
+        self.x_limits = Some((lower, upper));
+    }
+
     pub fn show(self, ui: &mut Ui, id: impl Hash) {
         let plot_id = egui::Id::new(id);
         ui.style_mut().text_styles.insert(
@@ -93,6 +98,10 @@ impl Plotter {
             .x_axis_label(egui::RichText::new(&self.x_label).size(24.0))
             .y_axis_label(egui::RichText::new(&self.y_label).size(24.0))
             .show(ui, |plot_ui| {
+                if let Some((lower, upper)) = self.x_limits {
+                    plot_ui.set_plot_bounds_x(lower..=upper);
+                }
+
                 for (index, line) in self.series.into_iter().enumerate() {
                     let colour = MATPLOTLIB_COLORS[index % MATPLOTLIB_COLORS.len()];
                     let legend_name = line.label.as_deref().unwrap_or_default();
