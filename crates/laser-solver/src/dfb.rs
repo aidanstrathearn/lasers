@@ -76,7 +76,7 @@ pub fn dfb_solve_shooting(
         pump_f: pu.forward,
         pump_b: 0.0, // shooting method requires pump.backward = 0
     };
-    let f = |sgnl_b| out_field(trial(sgnl_b), fp, dz, &kappas).sgnl_b;
+    let f = |sgnl_b| out_field(trial(sgnl_b), fp, dz, &kappas).sgnl_b / sgnl_b;
     let sgnl_b = rootfind_1d(f, config)?;
 
     if full_profile {

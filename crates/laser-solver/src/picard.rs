@@ -170,7 +170,7 @@ pub fn dfb_solve_from_picard_solver(
     let dz = gp.dz(fp.length);
     let f = |sgnl_b| -> Result<f64, SolverError> {
         let fields = solver.solve_profile_picard(sgnl_b, pu, fp, picard_config, &kappas, dz)?;
-        Ok(fields.last().unwrap().sgnl_b)
+        Ok(fields.last().unwrap().sgnl_b / sgnl_b)
     };
     // try_rootfind_1d muts the solver which leaves the lasing solution in the 'current' buffer
     let _sgnl_b = try_rootfind_1d(f, config)?;
