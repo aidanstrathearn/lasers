@@ -2,7 +2,7 @@ use crate::plotter::Plotter;
 use crate::{LaserApp, Points};
 use eframe::egui;
 use eframe::egui::Ui;
-use laser_solver::dfb::{dfb_pump_scan, dfb_pump_scan_shooting};
+use laser_solver::dfb::dfb_pump_scan;
 use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::BisectionConfig;
 use laser_solver::utils::linspace;
@@ -42,7 +42,7 @@ impl LaserApp {
             self.threshold_range.upper,
             self.threshold_range.num,
         );
-        let threshold = dfb_pump_scan(
+        let threshold = match dfb_pump_scan(
             &pumps,
             self.pump.balance,
             self.fibre_params,
@@ -50,9 +50,19 @@ impl LaserApp {
             self.grating,
             bc,
             picard_config,
-        );
-        let sgnl_f = threshold.iter().map(|x| x.0);
-        let sgnl_b = threshold.iter().map(|x| x.1);
+        ) {
+            Ok(threshold) => threshold,
+            Err(error) => {
+                ui.colored_label(egui::Color32::RED, error.to_string());
+                return;
+            }
+        };
+        let sgnl_f = threshold
+            .iter()
+            .map(|output| output.as_ref().map_or(0.0, |output| output.0));
+        let sgnl_b = threshold
+            .iter()
+            .map(|output| output.as_ref().map_or(0.0, |output| output.1));
 
         let sgnl_f_points: Points = pumps
             .iter()

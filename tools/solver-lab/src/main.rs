@@ -2,13 +2,15 @@ mod myplotlib;
 mod plots;
 
 use crate::plots::plot_profile_diff;
-use laser_solver::dfb::{dfb_find_threshold_and_slope, dfb_pump_scan, dfb_pump_scan_shooting, dfb_solve_shooting, solve_profile, transfer};
+use laser_solver::dfb::{
+    dfb_find_threshold_and_slope, dfb_pump_scan, dfb_solve_shooting, solve_profile,
+};
 use laser_solver::lase::{
     FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
 };
 use laser_solver::picard::{PicardConfig, PicardDfbSolver, dfb_solve_picard, initial_profile};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
-use laser_solver::utils::{IterationConfig, geomspace, linspace};
+use laser_solver::utils::{IterationConfig, linspace};
 use myplotlib::Plotter;
 use plots::show_field_profile;
 use std::time::Instant;
@@ -87,14 +89,20 @@ fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
 fn run_pump_scan(show_plots: bool) -> eframe::Result {
     let pumps = linspace(0.0, 10.0, 200);
     let start = Instant::now();
-    let threshold = dfb_pump_scan_shooting(&pumps, FIBRE, GRID, GRATING, BISECTION);
+    let threshold = dfb_pump_scan(&pumps, 1.0, FIBRE, GRID, GRATING, BISECTION, PICARD)
+        .expect("pump scan failed");
     let elapsed = start.elapsed();
     println!("pump sweep {:.3}", elapsed.as_secs_f64());
 
     if show_plots {
-        //let pump: Vec<f64> = pumps.iter().map(|x| x).collect();
-        let sgnl_f: Vec<f64> = threshold.iter().map(|x| x.0).collect();
-        let sgnl_b: Vec<f64> = threshold.iter().map(|x| x.1).collect();
+        let sgnl_f: Vec<f64> = threshold
+            .iter()
+            .map(|output| output.as_ref().map_or(0.0, |output| output.0))
+            .collect();
+        let sgnl_b: Vec<f64> = threshold
+            .iter()
+            .map(|output| output.as_ref().map_or(0.0, |output| output.1))
+            .collect();
 
         let mut plot = Plotter::new();
         plot.plot(&pumps, &sgnl_f).label("Forward");
@@ -110,10 +118,19 @@ fn plot_pump_scan_derivatives(show_plot: bool) -> eframe::Result {
     if !show_plot {
         return Ok(());
     }
-    let pc = PicardConfig { max_iterations: 500, relative_tolerance: 1e-6, absolute_tolerance: 1e-6};
+    let pc = PicardConfig {
+        max_iterations: 500,
+        relative_tolerance: 1e-6,
+        absolute_tolerance: 1e-6,
+    };
     let pumps = linspace(0.0, 10.0, 200);
     let balance = 0.95;
-    let outputs = dfb_pump_scan(&pumps, balance, FIBRE, GRID, GRATING, BISECTION, pc);
+    let outputs = dfb_pump_scan(&pumps, balance, FIBRE, GRID, GRATING, BISECTION, pc)
+        .expect("pump scan failed");
+    let outputs: Vec<(f64, f64)> = outputs
+        .into_iter()
+        .map(|output| output.unwrap_or((0.0, 0.0)))
+        .collect();
 
     let derivative_pumps: Vec<f64> = pumps
         .windows(2)
@@ -140,7 +157,7 @@ fn plot_pump_scan_derivatives(show_plot: bool) -> eframe::Result {
         GRID,
         GRATING,
         BISECTION,
-        pc
+        pc,
     )
     .expect("threshold not found");
 

@@ -1,5 +1,9 @@
 use crate::error::SolverError;
-use crate::utils::{linspace, relative_diff, IterationConfig};
+use crate::rootfind::RootFindError;
+use crate::utils::{IterationConfig, linspace, relative_diff};
+
+pub type OutputPower = (f64, f64);
+pub type PumpScan = Vec<Option<OutputPower>>;
 
 #[derive(Copy, Clone)]
 pub struct FibreParams {
@@ -170,6 +174,12 @@ impl FieldProfile {
         //could also do self.z.iter().copied()
         self.z.iter().map(|&z| z)
     }
+
+    pub fn output_powers(&self) -> OutputPower {
+        let left = self.fields.first().expect("field profile is empty");
+        let right = self.fields.last().expect("field profile is empty");
+        (right.sgnl_f.powi(2), left.sgnl_b.powi(2))
+    }
 }
 
 pub fn pops(fs: FieldState, fp: FibreParams) -> (f64, f64) {
@@ -215,48 +225,150 @@ impl Pump {
     }
 }
 
+pub fn classify_output(
+    result: Result<OutputPower, SolverError>,
+) -> Result<Option<OutputPower>, SolverError> {
+    match result {
+        Ok(output) => Ok(Some(output)),
+        // not bracketed error likely means below threshold, not true error
+        Err(SolverError::RootFind(RootFindError::RootNotBracketed)) => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+pub fn pump_scan(
+    pumps: &[f64],
+    mut output_power: impl FnMut(f64) -> Result<OutputPower, SolverError>,
+) -> Result<PumpScan, SolverError> {
+    pumps
+        .iter()
+        .map(|&pump| classify_output(output_power(pump)))
+        .collect()
+}
+
 pub fn find_threshold_and_slope(
     pump_start: f64,
     pump_step: f64,
     ip: IterationConfig,
-    mut output_power: impl FnMut(f64) -> (f64, f64, bool),
+    mut output_power: impl FnMut(f64) -> Result<OutputPower, SolverError>,
 ) -> Result<(f64, f64, f64), SolverError> {
+    assert!(pump_step > 0.0, "pump step must be positive");
+
     let mut current_pump = pump_start;
-    let mut total_diff = -1.0;
-    let mut sf = 0.0;
-    let mut sb = 0.0;
+    let mut previous_output = None;
+    let mut previous_total_slope = None;
+
     for _ in 0..ip.max {
-        let (new_sf, new_sb, success) = output_power(current_pump);
-        if !success {
-            current_pump += pump_step;
-            continue;
+        if let Some((new_sf, new_sb)) = classify_output(output_power(current_pump))? {
+            if let Some((previous_pump, sf, sb)) = previous_output {
+                let dp = current_pump - previous_pump;
+                let slope_f = (new_sf - sf) / dp;
+                let slope_b = (new_sb - sb) / dp;
+                let total_slope = slope_f + slope_b;
+
+                if previous_total_slope.is_some_and(|previous| {
+                    relative_diff(total_slope, previous) < ip.tol && total_slope > 0.0
+                }) {
+                    let threshold = current_pump - (new_sf + new_sb) / total_slope;
+                    return Ok((slope_f, slope_b, threshold));
+                }
+
+                previous_total_slope = Some(total_slope);
+            }
+
+            previous_output = Some((current_pump, new_sf, new_sb));
         }
 
-        let new_total_diff = (new_sf + new_sb) - (sb + sf);
-
-        if relative_diff(new_total_diff, total_diff) < ip.tol && new_total_diff > 0.0 {
-            let slope_f = (new_sf - sf) / pump_step;
-            let slope_b = (new_sb - sb) / pump_step;
-            let threshold = current_pump - (new_sf + new_sb) / (slope_b + slope_f);
-            return Ok((slope_f, slope_b, threshold));
-        } else {
-            current_pump += pump_step;
-            total_diff = new_total_diff;
-            sb = new_sb;
-            sf = new_sf;
-        }
+        current_pump += pump_step;
     }
+
     Err(SolverError::ThresholdNotFound)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::dfb::transfer;
     use super::*;
+    use crate::dfb::transfer;
+    use crate::picard::PicardError;
+
     #[test]
     fn check_transfer() {
         let (a, b, c, d) = transfer(1.0, 0.0, 1.0);
         println!("Transfer {:?}", (a, b, c, d));
-        assert_eq!(a ,(0.5_f64).exp());
+        assert_eq!(a, (0.5_f64).exp());
+    }
+
+    #[test]
+    fn field_profile_reports_boundary_output_powers() {
+        let profile = FieldProfile::new(
+            vec![0.0, 1.0],
+            vec![
+                FieldState {
+                    sgnl_b: -3.0,
+                    ..FieldState::default()
+                },
+                FieldState {
+                    sgnl_f: 2.0,
+                    ..FieldState::default()
+                },
+            ],
+        );
+
+        assert_eq!(profile.output_powers(), (4.0, 9.0));
+    }
+
+    #[test]
+    fn pump_scan_marks_only_unbracketed_roots_as_below_threshold() {
+        let samples = pump_scan(&[0.0, 1.0], |pump| {
+            if pump == 0.0 {
+                Err(RootFindError::RootNotBracketed.into())
+            } else {
+                Ok((2.0, 3.0))
+            }
+        })
+        .unwrap();
+
+        assert_eq!(samples, vec![None, Some((2.0, 3.0))]);
+    }
+
+    #[test]
+    fn pump_scan_propagates_picard_errors() {
+        let result = pump_scan(&[0.0], |_| {
+            Err(SolverError::Picard(PicardError::DidNotConverge))
+        });
+
+        assert!(matches!(
+            result,
+            Err(SolverError::Picard(PicardError::DidNotConverge))
+        ));
+    }
+
+    #[test]
+    fn threshold_slope_uses_spacing_between_successful_samples() {
+        let result =
+            find_threshold_and_slope(0.0, 1.0, IterationConfig { max: 6, tol: 1e-12 }, |pump| {
+                match pump as usize {
+                    0 | 2 | 4 => Err(RootFindError::RootNotBracketed.into()),
+                    _ => Ok((2.0 * (pump - 1.0), 3.0 * (pump - 1.0))),
+                }
+            })
+            .unwrap();
+
+        assert_eq!(result.0, 2.0);
+        assert_eq!(result.1, 3.0);
+        assert!((result.2 - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn threshold_slope_propagates_picard_errors() {
+        let result =
+            find_threshold_and_slope(0.0, 1.0, IterationConfig { max: 2, tol: 1e-3 }, |_| {
+                Err(SolverError::Picard(PicardError::DidNotConverge))
+            });
+
+        assert!(matches!(
+            result,
+            Err(SolverError::Picard(PicardError::DidNotConverge))
+        ));
     }
 }
