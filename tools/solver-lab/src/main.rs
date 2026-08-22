@@ -2,15 +2,16 @@ mod myplotlib;
 mod plots;
 
 use crate::plots::plot_profile_diff;
-use laser_solver::dfb::{dfb_find_threshold_and_slope_shooting, dfb_pump_scan_shooting, dfb_solve_shooting, solve_profile, transfer};
+use laser_solver::dfb::{
+    dfb_find_threshold_and_slope_shooting, dfb_pump_scan_shooting, dfb_solve_shooting,
+    solve_profile, transfer,
+};
 use laser_solver::lase::{
     FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
 };
-use laser_solver::picard::{
-    PicardConfig, PicardDfbSolver, dfb_solve_picard, initial_profile,
-};
+use laser_solver::picard::{PicardConfig, PicardDfbSolver, dfb_solve_picard, initial_profile};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
-use laser_solver::utils::{geomspace, linspace, IterationConfig};
+use laser_solver::utils::{IterationConfig, geomspace, linspace};
 use myplotlib::Plotter;
 use plots::show_field_profile;
 use std::time::Instant;
@@ -68,6 +69,7 @@ const SHOW_PLOTS: bool = true;
 fn main() -> eframe::Result {
     inspect_field_profiles(SHOW_PLOTS)?;
     run_pump_scan(SHOW_PLOTS)?;
+    plot_pump_scan_derivatives(SHOW_PLOTS)?;
     inspect_grating(SHOW_PLOTS)?;
     compare_profile_solvers(SHOW_PLOTS)?;
     compare_dfb_solvers(SHOW_PLOTS)?;
@@ -90,13 +92,7 @@ fn run_pump_scan(show_plots: bool) -> eframe::Result {
     let start = Instant::now();
     let threshold = dfb_pump_scan_shooting(&pumps, FIBRE, GRID, GRATING, BISECTION);
     let elapsed = start.elapsed();
-    let ip = IterationConfig {tol: 1e-2, max: 50};
-    let threshold_result =
-        dfb_find_threshold_and_slope_shooting(0.0, 0.2, ip, FIBRE, GRID, GRATING, BISECTION)
-            .expect("threshold not found");
-    println!("slopef {}, slopeb {}, thresh {}", threshold_result.0, threshold_result.1, threshold_result.2);
     println!("pump sweep {:.3}", elapsed.as_secs_f64());
-
 
     if show_plots {
         //let pump: Vec<f64> = pumps.iter().map(|x| x).collect();
@@ -111,6 +107,59 @@ fn run_pump_scan(show_plots: bool) -> eframe::Result {
     }
 
     Ok(())
+}
+
+fn plot_pump_scan_derivatives(show_plot: bool) -> eframe::Result {
+    if !show_plot {
+        return Ok(());
+    }
+
+    let pumps = linspace(0.0, 10.0, 200);
+    let outputs = dfb_pump_scan_shooting(&pumps, FIBRE, GRID, GRATING, BISECTION);
+
+    let derivative_pumps: Vec<f64> = pumps
+        .windows(2)
+        .map(|window| 0.5 * (window[0] + window[1]))
+        .collect();
+    let forward_derivative: Vec<f64> = pumps
+        .windows(2)
+        .zip(outputs.windows(2))
+        .map(|(pump, output)| (output[1].0 - output[0].0) / (pump[1] - pump[0]))
+        .collect();
+    let backward_derivative: Vec<f64> = pumps
+        .windows(2)
+        .zip(outputs.windows(2))
+        .map(|(pump, output)| (output[1].1 - output[0].1) / (pump[1] - pump[0]))
+        .collect();
+
+    let threshold_config = IterationConfig { tol: 1e-3, max: 5 };
+    let (forward_slope, backward_slope, threshold) = dfb_find_threshold_and_slope_shooting(
+        5.0,
+        1.0,
+        threshold_config,
+        FIBRE,
+        GRID,
+        GRATING,
+        BISECTION,
+    )
+    .expect("threshold not found");
+
+    println!(
+        "forward slope {forward_slope}, backward slope {backward_slope}, threshold {threshold}"
+    );
+
+    let mut plot = Plotter::new();
+    plot.plot(&derivative_pumps, &forward_derivative)
+        .label("Forward derivative");
+    plot.plot(&derivative_pumps, &backward_derivative)
+        .label("Backward derivative");
+    plot.axhline(forward_slope).label("Forward slope");
+    plot.axhline(backward_slope).label("Backward slope");
+    plot.axvline(threshold).label("Threshold");
+    plot.xlabel("Pump power");
+    plot.ylabel("d(output power) / d(pump power)");
+    plot.title("Pump-scan slope efficiency");
+    plot.show()
 }
 
 fn inspect_grating(show_plot: bool) -> eframe::Result {

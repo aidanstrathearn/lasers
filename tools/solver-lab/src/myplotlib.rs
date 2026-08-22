@@ -1,7 +1,7 @@
 //! Lightweight native plotting helpers for exploratory solver work.
 
 use eframe::egui;
-use egui_plot::{Legend, Line, Plot, PlotPoints};
+use egui_plot::{HLine, Legend, Line, LineStyle, Plot, PlotPoints, VLine};
 
 const MATPLOTLIB_COLORS: [egui::Color32; 10] = [
     egui::Color32::from_rgb(31, 119, 180),
@@ -28,9 +28,23 @@ impl PlotLine {
     }
 }
 
+pub struct ReferenceLine {
+    value: f64,
+    label: Option<String>,
+}
+
+impl ReferenceLine {
+    pub fn label(&mut self, label: impl Into<String>) -> &mut Self {
+        self.label = Some(label.into());
+        self
+    }
+}
+
 #[derive(Default)]
 pub struct Plotter {
     series: Vec<PlotLine>,
+    horizontal_lines: Vec<ReferenceLine>,
+    vertical_lines: Vec<ReferenceLine>,
     x_label: String,
     y_label: String,
     title: String,
@@ -56,6 +70,24 @@ impl Plotter {
         });
 
         self.series.last_mut().unwrap()
+    }
+
+    pub fn axhline(&mut self, y: f64) -> &mut ReferenceLine {
+        self.horizontal_lines.push(ReferenceLine {
+            value: y,
+            label: None,
+        });
+
+        self.horizontal_lines.last_mut().unwrap()
+    }
+
+    pub fn axvline(&mut self, x: f64) -> &mut ReferenceLine {
+        self.vertical_lines.push(ReferenceLine {
+            value: x,
+            label: None,
+        });
+
+        self.vertical_lines.last_mut().unwrap()
     }
 
     pub fn xlabel(&mut self, label: impl Into<String>) {
@@ -162,6 +194,36 @@ impl eframe::App for PlotApp {
                         .color(colour);
 
                     plot_ui.line(plot_line);
+                }
+
+                let colour_offset = self.plotter.series.len();
+
+                for (index, line) in self.plotter.horizontal_lines.iter().enumerate() {
+                    let colour =
+                        MATPLOTLIB_COLORS[(colour_offset + index) % MATPLOTLIB_COLORS.len()];
+                    let legend_name = line.label.as_deref().unwrap_or_default();
+
+                    let plot_line = HLine::new(format!("hline_{index}"), line.value)
+                        .name(legend_name)
+                        .color(colour)
+                        .style(LineStyle::dashed_dense());
+
+                    plot_ui.hline(plot_line);
+                }
+
+                let colour_offset = colour_offset + self.plotter.horizontal_lines.len();
+
+                for (index, line) in self.plotter.vertical_lines.iter().enumerate() {
+                    let colour =
+                        MATPLOTLIB_COLORS[(colour_offset + index) % MATPLOTLIB_COLORS.len()];
+                    let legend_name = line.label.as_deref().unwrap_or_default();
+
+                    let plot_line = VLine::new(format!("vline_{index}"), line.value)
+                        .name(legend_name)
+                        .color(colour)
+                        .style(LineStyle::dashed_dense());
+
+                    plot_ui.vline(plot_line);
                 }
             });
         });

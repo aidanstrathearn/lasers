@@ -1,6 +1,6 @@
+use crate::difference;
 use crate::myplotlib::Plotter;
 use laser_solver::lase::FieldProfile;
-use crate::difference;
 
 pub fn show_field_profile(profile: &FieldProfile, show_plot: bool) -> eframe::Result {
     if !show_plot {
