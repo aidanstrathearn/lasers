@@ -85,6 +85,8 @@ impl LaserApp {
         plt.ylabel("Signal");
         plt.add_points(sgnl_f_points).label("Forward");
         plt.add_points(sgnl_b_points).label("Backward");
+        plt.axvline(self.pump.total).label("Current pump");
+        plt.xlim(self.threshold_range.lower, self.threshold_range.upper);
         plt.show(ui, "threshold-plot");
     }
 }

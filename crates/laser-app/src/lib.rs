@@ -57,7 +57,7 @@ impl LaserApp {
     fn strong_coupling() -> Self {
         Self {
             pump: PumpParam {
-                total: 400.0,
+                total: 50.0,
                 balance: 1.0,
             },
             fibre_params: FibreParams {
@@ -195,23 +195,11 @@ fn grating_slider_grid(grating: &mut GratingProfile, ui: &mut Ui) {
     });
 }
 
-#[allow(dead_code)]
-fn pump_slider_grid(pump: &mut Pump, ui: &mut Ui) {
-    egui::Grid::new("pump").show(ui, |ui| {
-        ui.label("pump f");
-        ui.add(egui::Slider::new(&mut pump.forward, 0.0..=100.0).step_by(0.01));
-        ui.end_row();
-
-        ui.label("pump b");
-        ui.add(egui::Slider::new(&mut pump.backward, 0.0..=100.0).step_by(0.01));
-        ui.end_row();
-    });
-}
 
 fn pump_param_slider_grid(pump: &mut PumpParam, ui: &mut Ui) {
     egui::Grid::new("pumpp").show(ui, |ui| {
         ui.label("pump-total");
-        ui.add(egui::Slider::new(&mut pump.total, 0.0..=1000.0).step_by(0.01));
+        ui.add(egui::Slider::new(&mut pump.total, 0.0..=100.0).step_by(0.01));
         ui.end_row();
 
         ui.label("pump-balance");

@@ -1,7 +1,7 @@
 use crate::Points;
 use eframe::egui;
 use eframe::egui::Ui;
-use egui_plot::{Legend, Line, Plot};
+use egui_plot::{HLine, Legend, Line, LineStyle, Plot, VLine};
 use std::hash::Hash;
 
 const MATPLOTLIB_COLORS: [egui::Color32; 10] = [
@@ -22,7 +22,19 @@ pub struct PlotLine {
     label: Option<String>,
 }
 
+pub struct ReferenceLine {
+    value: f64,
+    label: Option<String>,
+}
+
 impl PlotLine {
+    pub fn label(&mut self, label: impl Into<String>) -> &mut Self {
+        self.label = Some(label.into());
+        self
+    }
+}
+
+impl ReferenceLine {
     pub fn label(&mut self, label: impl Into<String>) -> &mut Self {
         self.label = Some(label.into());
         self
@@ -33,6 +45,8 @@ impl PlotLine {
 #[derive(Default)]
 pub struct Plotter {
     series: Vec<PlotLine>,
+    horizontal_lines: Vec<ReferenceLine>,
+    vertical_lines: Vec<ReferenceLine>,
     x_label: String,
     y_label: String,
     title: String,
@@ -87,6 +101,24 @@ impl Plotter {
         self.x_limits = Some((lower, upper));
     }
 
+    pub fn axhline(&mut self, y: f64) -> &mut ReferenceLine {
+        self.horizontal_lines.push(ReferenceLine {
+            value: y,
+            label: None,
+        });
+
+        self.horizontal_lines.last_mut().unwrap()
+    }
+
+    pub fn axvline(&mut self, x: f64) -> &mut ReferenceLine {
+        self.vertical_lines.push(ReferenceLine {
+            value: x,
+            label: None,
+        });
+
+        self.vertical_lines.last_mut().unwrap()
+    }
+
     pub fn show(self, ui: &mut Ui, id: impl Hash) {
         let plot_id = egui::Id::new(id);
         ui.style_mut().text_styles.insert(
@@ -101,6 +133,7 @@ impl Plotter {
                 if let Some((lower, upper)) = self.x_limits {
                     plot_ui.set_plot_bounds_x(lower..=upper);
                 }
+                let colour_offset = self.series.len();
 
                 for (index, line) in self.series.into_iter().enumerate() {
                     let colour = MATPLOTLIB_COLORS[index % MATPLOTLIB_COLORS.len()];
@@ -111,6 +144,36 @@ impl Plotter {
                         .width(3.0);
 
                     plot_ui.line(plot_line);
+                }
+
+                for (index, line) in self.horizontal_lines.iter().enumerate() {
+                    let colour =
+                        MATPLOTLIB_COLORS[(colour_offset + index) % MATPLOTLIB_COLORS.len()];
+                    let legend_name = line.label.as_deref().unwrap_or_default();
+
+                    let plot_line = HLine::new(format!("hline_{index}"), line.value)
+                        .name(legend_name)
+                        .color(colour)
+                        .width(3.0)
+                        .style(LineStyle::dashed_dense());
+
+                    plot_ui.hline(plot_line);
+                }
+
+                let colour_offset = colour_offset + self.horizontal_lines.len();
+
+                for (index, line) in self.vertical_lines.iter().enumerate() {
+                    let colour =
+                        MATPLOTLIB_COLORS[(colour_offset + index) % MATPLOTLIB_COLORS.len()];
+                    let legend_name = line.label.as_deref().unwrap_or_default();
+
+                    let plot_line = VLine::new(format!("vline_{index}"), line.value)
+                        .name(legend_name)
+                        .color(colour)
+                        .width(3.0)
+                        .style(LineStyle::dashed_dense());
+
+                    plot_ui.vline(plot_line);
                 }
             });
     }
