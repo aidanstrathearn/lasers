@@ -170,10 +170,14 @@ fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) {
         ui.end_row();
 
 
-        // uh oh - how to do log slider?
-        // ui.label("tolerance");
-        // ui.add(egui::Slider::new(&mut config.tolerance, 0.0..=1.0).step_by(0.01));
-        // ui.end_row();
+        ui.label("tolerance");
+        ui.add(
+            egui::Slider::new(&mut config.iteration.tol, 1e-9..=1e-2)
+                // 1e-10 causes slider field box to resize
+                .logarithmic(true)
+                .custom_formatter(|value, _| format!("{value:.1e}")),
+        );
+        ui.end_row();
     });
 }
 
