@@ -126,22 +126,29 @@ impl LaserApp {
                 grating_slider_grid(&mut self.grating, ui);
             });
             ui.vertical(|ui| {
-                ui.heading("Solver");
-                bisection_slider_grid(&mut self.config, ui);
-                gridpoints_slider(&mut self.grid_points, ui);
-            });
-            ui.vertical(|ui| {
                 ui.heading("Pump");
                 pump_param_slider_grid(&mut self.pump, ui);
             });
             ui.vertical(|ui| {
-                ui.heading("Threshold");
-                threshold_slider_grid(&mut self.threshold_range, ui);
+                ui.heading("Solver");
+                bisection_slider_grid(&mut self.config, ui);
+                gridpoints_slider(&mut self.grid_points, ui);
             });
-            ui.vertical(|ui| {
-                ui.heading("Residual");
-                residual_slider_grid(&mut self.residual_range, ui);
-            });
+
+            match self.view {
+                View::Threshold => {ui.vertical(|ui| {
+                    ui.heading("Threshold");
+                    threshold_slider_grid(&mut self.threshold_range, ui);
+                });},
+
+                View::Residual => {ui.vertical(|ui| {
+                    ui.heading("Residual");
+                    residual_slider_grid(&mut self.residual_range, ui);
+                });},
+                _ => (),
+            };
+
+
             ui.end_row();
         });
     }
