@@ -4,17 +4,20 @@ mod plotter;
 mod pop_plot;
 mod profile_plot;
 mod threshold_plot;
+mod residual_plot;
 
 use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump};
 use laser_solver::rootfind::BisectionConfig;
+use crate::residual_plot::{residual_slider_grid, ResidualRange};
 
 #[derive(PartialEq, Default)]
 pub enum View {
     #[default]
     Profile,
+    Residual,
     Populations,
     Kappa,
     Threshold,
@@ -32,6 +35,7 @@ pub struct LaserApp {
     grating: GratingProfile,
     config: BisectionConfig,
     threshold_range: ThresholdRange,
+    residual_range: ResidualRange
 }
 
 struct PumpParam {
@@ -113,6 +117,10 @@ impl eframe::App for LaserApp {
                     ui.heading("Threshold");
                     threshold_slider_grid(&mut self.threshold_range, ui);
                 });
+                ui.vertical(|ui| {
+                    ui.heading("Residual");
+                    residual_slider_grid(&mut self.residual_range, ui);
+                });
                 ui.end_row();
             });
 
@@ -123,6 +131,7 @@ impl eframe::App for LaserApp {
                 View::Profile => self.profile_plot(ui).unwrap_or_else(|error| {
                     ui.colored_label(ui.visuals().error_fg_color, error.to_string());
                 }),
+                View::Residual => self.residual_plot(ui),
                 View::Populations => self.pops_plot(ui).unwrap_or_else(|error| {
                     ui.colored_label(ui.visuals().error_fg_color, error.to_string());
                 }),
@@ -136,6 +145,7 @@ impl eframe::App for LaserApp {
 fn view_selectors(view: &mut View, ui: &mut Ui) {
     ui.horizontal(|ui| {
         ui.selectable_value(view, View::Profile, "Profile");
+        ui.selectable_value(view, View::Residual, "Residual");
         ui.selectable_value(view, View::Populations, "Populations");
         ui.selectable_value(view, View::Kappa, "Kappa");
         ui.selectable_value(view, View::Threshold, "Threshold");
