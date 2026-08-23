@@ -7,7 +7,6 @@ use std::fmt;
 pub enum RootFindError {
     RootNotBracketed,
     DidNotConverge,
-    NotImplemented
 }
 
 impl fmt::Display for RootFindError {
@@ -19,16 +18,11 @@ impl fmt::Display for RootFindError {
             Self::DidNotConverge => {
                 write!(formatter, "root finder did not converge")
             }
-
-            Self::NotImplemented => {
-                write!(formatter, "method not implemented")
-            }
         }
     }
 }
 
 impl std::error::Error for RootFindError {}
-
 
 #[derive(Copy, Clone)]
 pub enum RootFindConfig {
@@ -65,21 +59,7 @@ impl Default for Newton1dConfig {
     }
 }
 
-pub fn newton1d(f: impl Fn(f64) -> f64, config: Newton1dConfig) -> Result<f64, RootFindError> {
-    let dx = config.dx;
-    let mut x = config.initial;
-    for _ in 0..config.iteration.max {
-        let fx = f(x);
-        if fx.abs() < config.iteration.tol {
-            return Ok(x);
-        }
-        let dfdx = (f(x + dx) - fx) / dx;
-        x -= fx / dfdx;
-    }
-    Err(RootFindError::DidNotConverge)
-}
-
-pub fn try_newton1d<F, E>(mut f: F, config: Newton1dConfig) -> Result<f64, E>
+fn try_newton1d<F, E>(mut f: F, config: Newton1dConfig) -> Result<f64, E>
 where
     F: FnMut(f64) -> Result<f64, E>,
     E: From<RootFindError>,
@@ -120,61 +100,27 @@ impl Default for BisectionConfig {
 pub enum Midpoint {
     Arithmetic,
     Geometric,
-    Interp
+    Interp,
 }
 
-pub fn bisection(
-    f: impl Fn(f64) -> f64,
-    mid: impl Fn(f64, f64) -> f64,
-    config: BisectionConfig,
-) -> Result<f64, RootFindError> {
+fn try_bisection_lininterp<F, E>(mut f: F, config: BisectionConfig) -> Result<f64, E>
+where
+    F: FnMut(f64) -> Result<f64, E>,
+    E: From<RootFindError>,
+{
     let mut lower = config.lower;
     let mut upper = config.upper;
-    let mut f_lower = f(lower);
-    let f_upper = f(upper);
+    let mut f_lower = f(lower)?;
+    let mut f_upper = f(upper)?;
 
     if f_lower * f_upper > 0.0 {
-        return Err(RootFindError::RootNotBracketed);
-    }
-
-    for _ in 0..config.iteration.max {
-        let midpoint = mid(upper, lower);
-        let f_midpoint = f(midpoint);
-
-        if f_midpoint.abs() < config.iteration.tol {
-            return Ok(midpoint);
-        }
-
-        if f_lower * f_midpoint <= 0.0 {
-            upper = midpoint;
-        } else {
-            lower = midpoint;
-            f_lower = f_midpoint;
-        }
-    }
-
-    Err(RootFindError::DidNotConverge)
-}
-
-pub fn bisection_lininterp(
-    f: impl Fn(f64) -> f64,
-    config: BisectionConfig,
-) -> Result<f64, RootFindError> {
-    let mut lower = config.lower;
-    let mut upper = config.upper;
-    let mut f_lower = f(lower);
-    let mut f_upper = f(upper);
-
-    if f_lower * f_upper > 0.0 {
-        return Err(RootFindError::RootNotBracketed);
+        return Err(RootFindError::RootNotBracketed.into());
     }
 
     for _ in 0..config.iteration.max {
         //let midpoint = (f_upper * lower - f_lower * upper) / (f_upper - f_lower) ;
-        let midpoint = ((f_upper * lower.ln() - f_lower * upper.ln())
-            / (f_upper - f_lower))
-            .exp();
-        let f_midpoint = f(midpoint);
+        let midpoint = ((f_upper * lower.ln() - f_lower * upper.ln()) / (f_upper - f_lower)).exp();
+        let f_midpoint = f(midpoint)?;
 
         if f_midpoint.abs() < config.iteration.tol {
             return Ok(midpoint);
@@ -182,18 +128,17 @@ pub fn bisection_lininterp(
 
         if f_lower * f_midpoint <= 0.0 {
             upper = midpoint;
-            f_upper = f_midpoint
+            f_upper = f_midpoint;
         } else {
             lower = midpoint;
             f_lower = f_midpoint;
         }
     }
 
-    Err(RootFindError::DidNotConverge)
+    Err(RootFindError::DidNotConverge.into())
 }
 
-pub fn try_bisection<F, E, M>(mut f: F, mid: M, config: BisectionConfig) -> Result<f64, E>
-// foo(mut f: F) {} roughly similar to foo(f: F) { let mut f = f ... }
+fn try_bisection<F, E, M>(mut f: F, mid: M, config: BisectionConfig) -> Result<f64, E>
 where
     F: FnMut(f64) -> Result<f64, E>,
     E: From<RootFindError>,
@@ -227,26 +172,15 @@ where
     Err(RootFindError::DidNotConverge.into())
 }
 
-pub fn arithmetic_mid(a: f64, b: f64) -> f64 {
+fn arithmetic_mid(a: f64, b: f64) -> f64 {
     0.5 * (a + b)
 }
 
-pub fn geometric_mid(a: f64, b: f64) -> f64 {
+fn geometric_mid(a: f64, b: f64) -> f64 {
     (a * b).sqrt()
 }
 
-pub fn bracket_bisection(
-    f: impl Fn(f64) -> f64,
-    config: BisectionConfig,
-) -> Result<f64, RootFindError> {
-    match config.midpoint {
-        Midpoint::Arithmetic => bisection(f, arithmetic_mid, config),
-        Midpoint::Geometric => bisection(f, geometric_mid, config),
-        Midpoint::Interp => bisection_lininterp(f, config)
-    }
-}
-
-pub fn try_bracket_bisection<F, E>(f: F, config: BisectionConfig) -> Result<f64, E>
+fn try_bracket_bisection<F, E>(f: F, config: BisectionConfig) -> Result<f64, E>
 where
     F: FnMut(f64) -> Result<f64, E>,
     E: From<RootFindError>,
@@ -254,19 +188,15 @@ where
     match config.midpoint {
         Midpoint::Arithmetic => try_bisection(f, arithmetic_mid, config),
         Midpoint::Geometric => try_bisection(f, geometric_mid, config),
-        Midpoint::Interp => Err(RootFindError::NotImplemented.into())
+        Midpoint::Interp => try_bisection_lininterp(f, config),
     }
 }
 
-pub fn rootfind_1d(
-    f: impl Fn(f64) -> f64,
-    config: impl Into<RootFindConfig>,
-) -> Result<f64, RootFindError> {
-    match config.into() {
-        // seems a bit silly to into() and then immediately destructure
-        RootFindConfig::Newton1d(n_config) => newton1d(f, n_config),
-        RootFindConfig::Bisection(b_config) => bracket_bisection(f, b_config),
-    }
+pub fn rootfind_1d<F>(mut f: F, config: impl Into<RootFindConfig>) -> Result<f64, RootFindError>
+where
+    F: FnMut(f64) -> f64,
+{
+    try_rootfind_1d(|x| Ok::<_, RootFindError>(f(x)), config)
 }
 
 pub fn try_rootfind_1d<F, E>(f: F, config: impl Into<RootFindConfig>) -> Result<f64, E>
@@ -277,5 +207,80 @@ where
     match config.into() {
         RootFindConfig::Newton1d(config) => try_newton1d(f, config),
         RootFindConfig::Bisection(config) => try_bracket_bisection(f, config),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn bisection_config(midpoint: Midpoint) -> BisectionConfig {
+        BisectionConfig {
+            iteration: IterationConfig {
+                max: 100,
+                tol: 1e-10,
+            },
+            lower: 1.0,
+            upper: 4.0,
+            midpoint,
+        }
+    }
+
+    #[test]
+    fn infallible_wrapper_supports_all_bisection_midpoints() {
+        for midpoint in [Midpoint::Arithmetic, Midpoint::Geometric, Midpoint::Interp] {
+            let root = rootfind_1d(|x| x - 2.0, bisection_config(midpoint)).unwrap();
+            assert!((root - 2.0).abs() < 1e-8);
+        }
+    }
+
+    #[test]
+    fn infallible_wrapper_supports_newton_and_fn_mut() {
+        let mut calls = 0;
+        let root = rootfind_1d(
+            |x| {
+                calls += 1;
+                x * x - 2.0
+            },
+            Newton1dConfig::default(),
+        )
+        .unwrap();
+
+        assert!((root - 2.0_f64.sqrt()).abs() < 1e-8);
+        assert!(calls > 0);
+    }
+
+    #[test]
+    fn fallible_rootfinder_supports_all_bisection_midpoints() {
+        for midpoint in [Midpoint::Arithmetic, Midpoint::Geometric, Midpoint::Interp] {
+            let root = try_rootfind_1d(
+                |x| Ok::<_, RootFindError>(x - 2.0),
+                bisection_config(midpoint),
+            )
+            .unwrap();
+            assert!((root - 2.0).abs() < 1e-8);
+        }
+    }
+
+    #[derive(Debug, PartialEq)]
+    enum TestError {
+        Callback,
+        RootFind,
+    }
+
+    impl From<RootFindError> for TestError {
+        fn from(_: RootFindError) -> Self {
+            Self::RootFind
+        }
+    }
+
+    #[test]
+    fn fallible_rootfinder_propagates_callback_errors() {
+        let result = try_rootfind_1d(
+            |_| Err::<f64, _>(TestError::Callback),
+            bisection_config(Midpoint::Arithmetic),
+        );
+
+        assert_eq!(result, Err(TestError::Callback));
     }
 }
