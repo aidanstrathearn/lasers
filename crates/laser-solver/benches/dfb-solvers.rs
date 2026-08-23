@@ -1,8 +1,8 @@
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use laser_solver::dfb::dfb_solve_shooting;
 use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump};
 use laser_solver::picard::{PicardConfig, dfb_solve_picard};
-use laser_solver::rootfind::Newton1dConfig;
+use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::IterationConfig;
 use std::hint::black_box;
 
@@ -57,6 +57,43 @@ fn benchmark_dfb_solver(c: &mut Criterion) {
     });
 }
 
+fn benchmark_bisection_midpoints(c: &mut Criterion) {
+    let mut group = c.benchmark_group("dfb/shooting/bisection");
+
+    for (name, midpoint) in [
+        ("arithmetic", Midpoint::Arithmetic),
+        ("geometric", Midpoint::Geometric),
+        ("interp", Midpoint::Interp),
+    ] {
+        group.bench_with_input(
+            BenchmarkId::from_parameter(name),
+            &midpoint,
+            |b, &midpoint| {
+                let config = BisectionConfig {
+                    // Linear interpolation converges much more slowly for this DFB residual.
+                    // Keep the tolerance identical while allowing every variant to finish.
+                    iteration: IterationConfig {
+                        max: 100_000,
+                        ..ITERATION
+                    },
+                    upper: PUMP.forward,
+                    lower: 1e-8,
+                    midpoint,
+                };
+
+                b.iter(|| {
+                    let result =
+                        dfb_solve_shooting(PUMP, FIBRE, GRID, GRATING, FULL_PROFILE, config)
+                            .expect("shooting DFB solve failed");
+                    black_box(result);
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
 fn benchmark_picard_solvers(c: &mut Criterion) {
     let pump = Pump {
         backward: 20.0,
@@ -75,5 +112,10 @@ fn benchmark_picard_solvers(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, benchmark_dfb_solver, benchmark_picard_solvers);
+criterion_group!(
+    benches,
+    benchmark_dfb_solver,
+    benchmark_bisection_midpoints,
+    benchmark_picard_solvers
+);
 criterion_main!(benches);

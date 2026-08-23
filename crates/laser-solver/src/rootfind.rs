@@ -7,6 +7,7 @@ use std::fmt;
 pub enum RootFindError {
     RootNotBracketed,
     DidNotConverge,
+    NotImplemented
 }
 
 impl fmt::Display for RootFindError {
@@ -18,82 +19,16 @@ impl fmt::Display for RootFindError {
             Self::DidNotConverge => {
                 write!(formatter, "root finder did not converge")
             }
+
+            Self::NotImplemented => {
+                write!(formatter, "method not implemented")
+            }
         }
     }
 }
 
 impl std::error::Error for RootFindError {}
 
-// pub struct RfConfig<G> {
-//     iteration: IterationConfig,
-//     method: G
-// }
-//
-// pub struct NConfig {
-//     initial: f64,
-//     dx: f64
-// }
-//
-// impl Default for NConfig {
-//     fn default() -> Self {
-//         Self { initial: 0.0, dx: 1e-6}
-//     }
-// }
-//
-// pub struct BConfig {
-//     upper: f64,
-//     lower: f64,
-//     midpoint: Midpoint
-// }
-//
-// impl Default for BConfig {
-//     fn default() -> Self {
-//         Self { upper: 2.0, lower: 1e-6, midpoint: Midpoint::Geometric}
-//     }
-// }
-//
-// impl<G> RfConfig<G> {
-//     pub fn max_iters(&mut self, max: usize) -> &mut Self {
-//         self.iteration.max = max;
-//         self
-//     }
-//     pub fn tolerance(&mut self, tol: f64) -> &mut Self {
-//         self.iteration.tol = tol;
-//         self
-//     }
-// }
-//
-// impl RfConfig<NConfig> {
-//     pub fn newton() -> Self {
-//         RfConfig {iteration: IterationConfig::default(), method: NConfig::default()}
-//     }
-//     pub fn initial(&mut self, initial: f64) -> &mut Self {
-//         self.method.initial = initial;
-//         self
-//     }
-//     pub fn dx(&mut self, dx: f64) -> &mut Self {
-//         self.method.dx = dx;
-//         self
-//     }
-// }
-//
-// impl RfConfig<BConfig> {
-//     pub fn bisection() -> Self {
-//         RfConfig {iteration: IterationConfig::default(), method: BConfig::default()}
-//     }
-//     pub fn upper(&mut self, upper: f64) -> &mut Self {
-//         self.method.upper = upper;
-//         self
-//     }
-//     pub fn lower(&mut self, lower: f64) -> &mut Self {
-//         self.method.lower = lower;
-//         self
-//     }
-//     pub fn midpoint(&mut self, midpoint: Midpoint) -> &mut Self {
-//         self.method.midpoint = midpoint;
-//         self
-//     }
-// }
 
 #[derive(Copy, Clone)]
 pub enum RootFindConfig {
@@ -185,6 +120,7 @@ impl Default for BisectionConfig {
 pub enum Midpoint {
     Arithmetic,
     Geometric,
+    Interp
 }
 
 pub fn bisection(
@@ -211,6 +147,42 @@ pub fn bisection(
 
         if f_lower * f_midpoint <= 0.0 {
             upper = midpoint;
+        } else {
+            lower = midpoint;
+            f_lower = f_midpoint;
+        }
+    }
+
+    Err(RootFindError::DidNotConverge)
+}
+
+pub fn bisection_lininterp(
+    f: impl Fn(f64) -> f64,
+    config: BisectionConfig,
+) -> Result<f64, RootFindError> {
+    let mut lower = config.lower;
+    let mut upper = config.upper;
+    let mut f_lower = f(lower);
+    let mut f_upper = f(upper);
+
+    if f_lower * f_upper > 0.0 {
+        return Err(RootFindError::RootNotBracketed);
+    }
+
+    for _ in 0..config.iteration.max {
+        //let midpoint = (f_upper * lower - f_lower * upper) / (f_upper - f_lower) ;
+        let midpoint = ((f_upper * lower.ln() - f_lower * upper.ln())
+            / (f_upper - f_lower))
+            .exp();
+        let f_midpoint = f(midpoint);
+
+        if f_midpoint.abs() < config.iteration.tol {
+            return Ok(midpoint);
+        }
+
+        if f_lower * f_midpoint <= 0.0 {
+            upper = midpoint;
+            f_upper = f_midpoint
         } else {
             lower = midpoint;
             f_lower = f_midpoint;
@@ -270,6 +242,7 @@ pub fn bracket_bisection(
     match config.midpoint {
         Midpoint::Arithmetic => bisection(f, arithmetic_mid, config),
         Midpoint::Geometric => bisection(f, geometric_mid, config),
+        Midpoint::Interp => bisection_lininterp(f, config)
     }
 }
 
@@ -281,6 +254,7 @@ where
     match config.midpoint {
         Midpoint::Arithmetic => try_bisection(f, arithmetic_mid, config),
         Midpoint::Geometric => try_bisection(f, geometric_mid, config),
+        Midpoint::Interp => Err(RootFindError::NotImplemented.into())
     }
 }
 

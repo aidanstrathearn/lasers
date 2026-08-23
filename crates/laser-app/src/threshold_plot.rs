@@ -5,6 +5,7 @@ use eframe::egui::Ui;
 use laser_solver::dfb::dfb_pump_scan;
 use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::BisectionConfig;
+use laser_solver::rootfind::RootFindConfig::Newton1d;
 use laser_solver::utils::linspace;
 
 #[derive(Copy, Clone)]
@@ -30,6 +31,10 @@ impl LaserApp {
             upper: self.threshold_range.upper.sqrt(),
             ..self.config
         };
+        // let nc = Newton1dConfig {
+        //
+        //     iter
+        // }
 
         let picard_config = PicardConfig {
             max_iterations: 5_000,
