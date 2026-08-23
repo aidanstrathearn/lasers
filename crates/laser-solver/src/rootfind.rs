@@ -167,11 +167,12 @@ where
     F: FnMut(f64) -> Result<f64, E>,
     E: From<RootFindError>,
 {
-    match config.midpoint {
-        Midpoint::Arithmetic => try_bisection(f, arithmetic_mid, config),
-        Midpoint::Geometric => try_bisection(f, geometric_mid, config),
-        Midpoint::Interp => try_bisection(f, interp_mid, config),
-    }
+    let mid = match config.midpoint {
+        Midpoint::Arithmetic => arithmetic_mid,
+        Midpoint::Geometric => geometric_mid,
+        Midpoint::Interp => interp_mid,
+    };
+    try_bisection(f, mid, config)
 }
 
 pub fn rootfind_1d<F>(mut f: F, config: impl Into<RootFindConfig>) -> Result<f64, RootFindError>
