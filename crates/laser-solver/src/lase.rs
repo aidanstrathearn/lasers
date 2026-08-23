@@ -214,6 +214,20 @@ impl Default for Pump {
     }
 }
 
+pub struct PumpParam {
+    pub total: f64,
+    pub balance: f64,
+}
+
+impl Default for PumpParam {
+    fn default() -> Self {
+        Self {
+            total: 100.0,
+            balance: 1.0,
+        }
+    }
+}
+
 impl Pump {
     pub fn from_total_and_balance(total: f64, balance: f64) -> Self {
         assert!(balance >= -1.0 && balance <= 1.0 && total >= 0.0);

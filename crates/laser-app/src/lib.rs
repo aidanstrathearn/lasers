@@ -10,7 +10,7 @@ use crate::residual_plot::{ResidualRange, residual_slider_grid};
 use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
 use eframe::egui::Ui;
-use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump};
+use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump, PumpParam};
 use laser_solver::rootfind::BisectionConfig;
 
 #[derive(PartialEq, Default)]
@@ -51,19 +51,7 @@ pub struct LaserApp {
     residual_range: ResidualRange,
 }
 
-struct PumpParam {
-    total: f64,
-    balance: f64,
-}
 
-impl Default for PumpParam {
-    fn default() -> Self {
-        Self {
-            total: 100.0,
-            balance: 1.0,
-        }
-    }
-}
 
 impl LaserApp {
     fn strong_coupling() -> Self {
