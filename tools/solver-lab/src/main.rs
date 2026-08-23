@@ -2,14 +2,12 @@ mod myplotlib;
 mod plots;
 
 use crate::plots::plot_profile_diff;
-use laser_solver::dfb::{
-    dfb_find_threshold_and_slope, dfb_pump_scan, dfb_solve_shooting, solve_profile,
-};
+use laser_solver::dfb::{dfb_find_threshold_and_slope, dfb_pump_scan, dfb_solve_shooting, out_field, solve_profile};
 use laser_solver::lase::{
     FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
 };
 use laser_solver::picard::{PicardConfig, PicardDfbSolver, dfb_solve_picard, initial_profile};
-use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
+use laser_solver::rootfind::{rootfind_1d, BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::{IterationConfig, linspace};
 use myplotlib::Plotter;
 use plots::show_field_profile;
@@ -66,6 +64,7 @@ const NEWTON: Newton1dConfig = Newton1dConfig {
 const SHOW_PLOTS: bool = true;
 
 fn main() -> eframe::Result {
+    inspect_resiudal_curve(SHOW_PLOTS)?;
     inspect_field_profiles(SHOW_PLOTS)?;
     run_pump_scan(SHOW_PLOTS)?;
     plot_pump_scan_derivatives(SHOW_PLOTS)?;
@@ -75,7 +74,31 @@ fn main() -> eframe::Result {
 
     Ok(())
 }
+fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result{
+    let kappas = GRATING.grid(GRID.0);
+    let dz = GRID.dz(FIBRE.length);
+    let trial = |sgnl_b| FieldState {
+        sgnl_f: 0.0,
+        sgnl_b: sgnl_b,
+        pump_f: 2.0,
+        pump_b: 0.0, // shooting method requires pump.backward = 0
+    };
+    let f = |sgnl_b| out_field(trial(sgnl_b), FIBRE, dz, &kappas).sgnl_b / sgnl_b;
+    let root = rootfind_1d(f, BISECTION).expect("root not found");
+    println!("root is at {}", root);
+    println!("residual at 0 {}", f(0.0));
 
+    let sgnl_bs = linspace(1e-8, 5.0 * root, 1000);
+    let residuals: Vec<f64> = sgnl_bs.iter().map(|&s| f(s).abs().log10()).collect();
+    if show_plots {
+        let mut plot = Plotter::new();
+        plot.plot(&sgnl_bs, &residuals);
+        plot.title("Residuals");
+        plot.show()?;
+    }
+    Ok(())
+
+}
 fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
     let result = dfb_solve_shooting(PUMP, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON).unwrap();
     show_field_profile(&result, show_plots)?;
