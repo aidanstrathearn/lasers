@@ -103,81 +103,63 @@ pub enum Midpoint {
     Interp,
 }
 
-fn try_bisection_lininterp<F, E>(mut f: F, config: BisectionConfig) -> Result<f64, E>
-where
-    F: FnMut(f64) -> Result<f64, E>,
-    E: From<RootFindError>,
-{
-    let mut lower = config.lower;
-    let mut upper = config.upper;
-    let mut f_lower = f(lower)?;
-    let mut f_upper = f(upper)?;
-
-    if f_lower * f_upper > 0.0 {
-        return Err(RootFindError::RootNotBracketed.into());
-    }
-
-    for _ in 0..config.iteration.max {
-        //let midpoint = (f_upper * lower - f_lower * upper) / (f_upper - f_lower) ;
-        let midpoint = ((f_upper * lower.ln() - f_lower * upper.ln()) / (f_upper - f_lower)).exp();
-        let f_midpoint = f(midpoint)?;
-
-        if f_midpoint.abs() < config.iteration.tol {
-            return Ok(midpoint);
-        }
-
-        if f_lower * f_midpoint <= 0.0 {
-            upper = midpoint;
-            f_upper = f_midpoint;
-        } else {
-            lower = midpoint;
-            f_lower = f_midpoint;
-        }
-    }
-
-    Err(RootFindError::DidNotConverge.into())
+#[derive(Copy, Clone)]
+struct Bracket {
+    lower: f64,
+    upper: f64,
+    f_lower: f64,
+    f_upper: f64,
 }
 
 fn try_bisection<F, E, M>(mut f: F, mid: M, config: BisectionConfig) -> Result<f64, E>
 where
     F: FnMut(f64) -> Result<f64, E>,
     E: From<RootFindError>,
-    M: Fn(f64, f64) -> f64,
+    M: Fn(Bracket) -> f64,
 {
-    let mut lower = config.lower;
-    let mut upper = config.upper;
-    let mut f_lower = f(lower)?;
-    let f_upper = f(upper)?;
+    let mut bracket = Bracket {
+        lower: config.lower,
+        upper: config.upper,
+        f_lower: f(config.lower)?,
+        f_upper: f(config.upper)?,
+    };
 
-    if f_lower * f_upper > 0.0 {
+    if bracket.f_lower * bracket.f_upper > 0.0 {
         return Err(RootFindError::RootNotBracketed.into());
     }
 
     for _ in 0..config.iteration.max {
-        let midpoint = mid(upper, lower);
+        let midpoint = mid(bracket);
         let f_midpoint = f(midpoint)?;
 
         if f_midpoint.abs() < config.iteration.tol {
             return Ok(midpoint);
         }
 
-        if f_lower * f_midpoint <= 0.0 {
-            upper = midpoint;
+        if bracket.f_lower * f_midpoint <= 0.0 {
+            bracket.upper = midpoint;
+            bracket.f_upper = f_midpoint;
         } else {
-            lower = midpoint;
-            f_lower = f_midpoint;
+            bracket.lower = midpoint;
+            bracket.f_lower = f_midpoint;
         }
     }
 
     Err(RootFindError::DidNotConverge.into())
 }
 
-fn arithmetic_mid(a: f64, b: f64) -> f64 {
-    0.5 * (a + b)
+fn arithmetic_mid(bracket: Bracket) -> f64 {
+    0.5 * (bracket.lower + bracket.upper)
 }
 
-fn geometric_mid(a: f64, b: f64) -> f64 {
-    (a * b).sqrt()
+fn geometric_mid(bracket: Bracket) -> f64 {
+    (bracket.lower * bracket.upper).sqrt()
+}
+
+fn interp_mid(bracket: Bracket) -> f64 {
+    ((bracket.f_upper * bracket.lower.ln() - bracket.f_lower * bracket.upper.ln())
+        / (bracket.f_upper - bracket.f_lower))
+        .exp()
 }
 
 fn try_bracket_bisection<F, E>(f: F, config: BisectionConfig) -> Result<f64, E>
@@ -188,7 +170,7 @@ where
     match config.midpoint {
         Midpoint::Arithmetic => try_bisection(f, arithmetic_mid, config),
         Midpoint::Geometric => try_bisection(f, geometric_mid, config),
-        Midpoint::Interp => try_bisection_lininterp(f, config),
+        Midpoint::Interp => try_bisection(f, interp_mid, config),
     }
 }
 
