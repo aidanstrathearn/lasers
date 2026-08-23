@@ -3,15 +3,15 @@ mod pi_pos_plot;
 mod plotter;
 mod pop_plot;
 mod profile_plot;
-mod threshold_plot;
 mod residual_plot;
+mod threshold_plot;
 
+use crate::residual_plot::{ResidualRange, residual_slider_grid};
 use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump};
 use laser_solver::rootfind::BisectionConfig;
-use crate::residual_plot::{residual_slider_grid, ResidualRange};
 
 #[derive(PartialEq, Default)]
 pub enum View {
@@ -35,7 +35,7 @@ pub struct LaserApp {
     grating: GratingProfile,
     config: BisectionConfig,
     threshold_range: ThresholdRange,
-    residual_range: ResidualRange
+    residual_range: ResidualRange,
 }
 
 struct PumpParam {

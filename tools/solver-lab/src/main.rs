@@ -2,12 +2,14 @@ mod myplotlib;
 mod plots;
 
 use crate::plots::plot_profile_diff;
-use laser_solver::dfb::{dfb_find_threshold_and_slope, dfb_pump_scan, dfb_solve_shooting, out_field, solve_profile};
+use laser_solver::dfb::{
+    dfb_find_threshold_and_slope, dfb_pump_scan, dfb_solve_shooting, out_field, solve_profile,
+};
 use laser_solver::lase::{
     FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
 };
 use laser_solver::picard::{PicardConfig, PicardDfbSolver, dfb_solve_picard, initial_profile};
-use laser_solver::rootfind::{rootfind_1d, BisectionConfig, Midpoint, Newton1dConfig};
+use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, rootfind_1d};
 use laser_solver::utils::{IterationConfig, linspace};
 use myplotlib::Plotter;
 use plots::show_field_profile;
@@ -74,7 +76,7 @@ fn main() -> eframe::Result {
 
     Ok(())
 }
-fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result{
+fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
     let kappas = GRATING.grid(GRID.0);
     let dz = GRID.dz(FIBRE.length);
     let trial = |sgnl_b| FieldState {
@@ -97,7 +99,6 @@ fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result{
         plot.show()?;
     }
     Ok(())
-
 }
 fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
     let result = dfb_solve_shooting(PUMP, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON).unwrap();

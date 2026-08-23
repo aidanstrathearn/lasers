@@ -28,8 +28,6 @@ impl Default for ResidualRange {
 
 impl LaserApp {
     pub fn residual_plot(&mut self, ui: &mut Ui) {
-
-
         let inputs = linspace(
             self.residual_range.lower,
             self.residual_range.upper,
@@ -45,8 +43,7 @@ impl LaserApp {
             pump_b: 0.0,
         }; //todo: use picard for backward pump
         let f = |sgnl_b| out_field(trial(sgnl_b), self.fibre_params, dz, &kappas).sgnl_b / sgnl_b;
-        let residuals: Vec<[f64;2]> = inputs.iter().map(|&s| [s, f(s).abs().log10()]).collect();
-
+        let residuals: Vec<[f64; 2]> = inputs.iter().map(|&s| [s, f(s).abs().log10()]).collect();
 
         let mut plt = Plotter::new();
         plt.xlabel("Input");
