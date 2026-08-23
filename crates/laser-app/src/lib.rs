@@ -11,6 +11,7 @@ use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump, PumpParam};
+use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::BisectionConfig;
 
 #[derive(PartialEq, Default)]
@@ -47,6 +48,7 @@ pub struct LaserApp {
     grid_points: GridPoints,
     grating: GratingProfile,
     config: BisectionConfig,
+    picard_config: PicardConfig,
     threshold_range: ThresholdRange,
     residual_range: ResidualRange,
 }
@@ -74,6 +76,11 @@ impl LaserApp {
                 kappa_left: 3.0,
                 kappa_right: 3.0,
                 pi_shift_position: 0.5,
+            },
+            picard_config: PicardConfig {
+                max_iterations: 5_000,
+                relative_tolerance: 1e-6,
+                absolute_tolerance: 1e-10,
             },
             ..Self::default()
         }

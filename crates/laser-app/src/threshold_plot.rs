@@ -3,7 +3,6 @@ use crate::{LaserApp, Points};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::dfb::dfb_pump_scan;
-use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::BisectionConfig;
 use laser_solver::rootfind::RootFindConfig::Newton1d;
 use laser_solver::utils::linspace;
@@ -36,12 +35,6 @@ impl LaserApp {
         //     iter
         // }
 
-        let picard_config = PicardConfig {
-            max_iterations: 5_000,
-            relative_tolerance: 1e-6,
-            absolute_tolerance: 1e-10,
-        };
-
         let pumps = linspace(
             self.threshold_range.lower,
             self.threshold_range.upper,
@@ -54,7 +47,7 @@ impl LaserApp {
             self.grid_points,
             self.grating,
             bc,
-            picard_config,
+            self.picard_config,
         ) {
             Ok(threshold) => threshold,
             Err(error) => {

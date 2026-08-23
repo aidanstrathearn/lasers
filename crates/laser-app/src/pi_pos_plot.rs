@@ -3,7 +3,6 @@ use crate::{LaserApp, Points};
 use eframe::egui::Ui;
 use laser_solver::dfb::dfb_solve;
 use laser_solver::lase::{GratingProfile, Pump};
-use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::BisectionConfig;
 use laser_solver::utils::linspace;
 
@@ -16,12 +15,6 @@ impl LaserApp {
             upper: 2.0 * self.pump.total.sqrt(),
             ..self.config
         };
-        let picard_config = PicardConfig {
-            max_iterations: 5_000,
-            relative_tolerance: 1e-6,
-            absolute_tolerance: 1e-10,
-        };
-
         let pi_positions = linspace(0.0, 1.0, PI_POSITION_INTERVALS);
         let mut forward_output: Points = Vec::with_capacity(pi_positions.len());
         let mut backward_output: Points = Vec::with_capacity(pi_positions.len());
@@ -39,7 +32,7 @@ impl LaserApp {
                 grating,
                 false,
                 bc,
-                picard_config,
+                self.picard_config,
             ) {
                 let (forward, backward) = profile.output_powers();
                 forward_output.push([pi_position, forward]);

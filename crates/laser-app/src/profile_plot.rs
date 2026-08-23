@@ -5,7 +5,6 @@ use eframe::egui::Ui;
 use laser_solver::dfb::{dfb_solve, dfb_solve_shooting};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{FibreParams, FieldProfile, GratingProfile, GridPoints, Pump};
-use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::{BisectionConfig, Newton1dConfig};
 use laser_solver::utils::IterationConfig;
 use std::sync::mpsc;
@@ -52,11 +51,6 @@ impl LaserApp {
             ..self.config
         };
 
-        let picard_config = PicardConfig {
-            max_iterations: 5_000,
-            relative_tolerance: 1e-6,
-            absolute_tolerance: 1e-10,
-        };
         let pu = Pump::from_total_and_balance(self.pump.total, self.pump.balance);
         let result = dfb_solve(
             pu,
@@ -65,7 +59,7 @@ impl LaserApp {
             self.grating,
             full_profile,
             bc,
-            picard_config,
+            self.picard_config,
         )?;
         let sgnl_f = result.plotpoints("sgnl_f");
         let sgnl_b = result.plotpoints("sgnl_b");
