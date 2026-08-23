@@ -24,6 +24,19 @@ pub enum View {
     PiPosition,
 }
 
+impl View {
+    fn selectors(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            ui.selectable_value(self, Self::Profile, "Profile");
+            ui.selectable_value(self, Self::Residual, "Residual");
+            ui.selectable_value(self, Self::Populations, "Populations");
+            ui.selectable_value(self, Self::Kappa, "Kappa");
+            ui.selectable_value(self, Self::Threshold, "Threshold");
+            ui.selectable_value(self, Self::PiPosition, "Pi position");
+        });
+    }
+}
+
 type Points = Vec<[f64; 2]>;
 
 #[derive(Default)]
@@ -84,84 +97,83 @@ impl LaserApp {
             .set_visuals(egui::Visuals::light());
         Self::strong_coupling()
     }
+
+    pub fn draw_view_selector(&mut self, ui: &mut Ui){
+        ui.horizontal(|ui| {
+            ui.heading("View: ");
+            self.view.selectors(ui);
+        });
+    }
+
+    pub fn draw_plot(&mut self, ui: &mut Ui) {
+        match self.view {
+            View::Threshold => self.threshold_plot(ui),
+            View::Profile => self.profile_plot(ui).unwrap_or_else(|error| {
+                ui.colored_label(ui.visuals().error_fg_color, error.to_string());
+            }),
+            View::Residual => self.residual_plot(ui),
+            View::Populations => self.pops_plot(ui).unwrap_or_else(|error| {
+                ui.colored_label(ui.visuals().error_fg_color, error.to_string());
+            }),
+            View::Kappa => self.kappa_plot(ui),
+            View::PiPosition => self.pi_pos_plot(ui),
+        };
+    }
+
+    pub fn draw_controls(&mut self, ui: &mut Ui) {
+        egui::Grid::new("global-params").show(ui, |ui| {
+            ui.vertical(|ui| {
+                ui.heading("Fibre");
+                fibre_params_slider_grid(&mut self.fibre_params, ui);
+            });
+            ui.vertical(|ui| {
+                ui.heading("Bragg");
+                grating_slider_grid(&mut self.grating, ui);
+            });
+            ui.vertical(|ui| {
+                ui.heading("Solver");
+                bisection_slider_grid(&mut self.config, ui);
+                gridpoints_slider(&mut self.grid_points, ui);
+            });
+            ui.vertical(|ui| {
+                ui.heading("Pump");
+                pump_param_slider_grid(&mut self.pump, ui);
+            });
+            ui.vertical(|ui| {
+                ui.heading("Threshold");
+                threshold_slider_grid(&mut self.threshold_range, ui);
+            });
+            ui.vertical(|ui| {
+                ui.heading("Residual");
+                residual_slider_grid(&mut self.residual_range, ui);
+            });
+            ui.end_row();
+        });
+    }
 }
 
 impl eframe::App for LaserApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.heading("View: ");
-                view_selectors(&mut self.view, ui);
-            });
+            self.draw_view_selector(ui);
 
             ui.separator();
 
-            egui::Grid::new("global-params").show(ui, |ui| {
-                ui.vertical(|ui| {
-                    ui.heading("Fibre");
-                    fibre_params_slider_grid(&mut self.fibre_params, ui);
-                });
-                ui.vertical(|ui| {
-                    ui.heading("Bragg");
-                    grating_slider_grid(&mut self.grating, ui);
-                });
-                ui.vertical(|ui| {
-                    ui.heading("Solver");
-                    bisection_slider_grid(&mut self.config, &mut self.grid_points, ui);
-                });
-                ui.vertical(|ui| {
-                    ui.heading("Pump");
-                    pump_param_slider_grid(&mut self.pump, ui);
-                });
-                ui.vertical(|ui| {
-                    ui.heading("Threshold");
-                    threshold_slider_grid(&mut self.threshold_range, ui);
-                });
-                ui.vertical(|ui| {
-                    ui.heading("Residual");
-                    residual_slider_grid(&mut self.residual_range, ui);
-                });
-                ui.end_row();
-            });
+            self.draw_controls(ui);
 
             ui.separator();
 
-            match self.view {
-                View::Threshold => self.threshold_plot(ui),
-                View::Profile => self.profile_plot(ui).unwrap_or_else(|error| {
-                    ui.colored_label(ui.visuals().error_fg_color, error.to_string());
-                }),
-                View::Residual => self.residual_plot(ui),
-                View::Populations => self.pops_plot(ui).unwrap_or_else(|error| {
-                    ui.colored_label(ui.visuals().error_fg_color, error.to_string());
-                }),
-                View::Kappa => self.kappa_plot(ui),
-                View::PiPosition => self.pi_pos_plot(ui),
-            };
+            self.draw_plot(ui);
         });
     }
 }
 
-fn view_selectors(view: &mut View, ui: &mut Ui) {
-    ui.horizontal(|ui| {
-        ui.selectable_value(view, View::Profile, "Profile");
-        ui.selectable_value(view, View::Residual, "Residual");
-        ui.selectable_value(view, View::Populations, "Populations");
-        ui.selectable_value(view, View::Kappa, "Kappa");
-        ui.selectable_value(view, View::Threshold, "Threshold");
-        ui.selectable_value(view, View::PiPosition, "Pi position");
-    });
-}
-
-fn bisection_slider_grid(config: &mut BisectionConfig, gp: &mut GridPoints, ui: &mut Ui) {
+fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) {
     egui::Grid::new("bisection").show(ui, |ui| {
         ui.label("iters");
         ui.add(egui::Slider::new(&mut config.iteration.max, 10..=2000).step_by(10.0));
         ui.end_row();
 
-        ui.label("grid points");
-        ui.add(egui::Slider::new(&mut gp.0, 10..=1000).step_by(2.0));
-        ui.end_row();
 
         // uh oh - how to do log slider?
         // ui.label("tolerance");
@@ -169,6 +181,16 @@ fn bisection_slider_grid(config: &mut BisectionConfig, gp: &mut GridPoints, ui: 
         // ui.end_row();
     });
 }
+
+fn gridpoints_slider(gp: &mut GridPoints, ui: &mut Ui) {
+    egui::Grid::new("grid-points").show(ui, |ui| {
+        ui.label("grid points");
+        ui.add(egui::Slider::new(&mut gp.0, 10..=1000).step_by(2.0));
+        ui.end_row();
+    });
+
+}
+
 fn grating_slider_grid(grating: &mut GratingProfile, ui: &mut Ui) {
     egui::Grid::new("grating").show(ui, |ui| {
         ui.label("kappa left");
