@@ -18,7 +18,7 @@ use laser_solver::rootfind::BisectionConfig;
 use std::time::Duration;
 use web_time::Instant;
 
-#[derive(PartialEq, Default)]
+#[derive(PartialEq, Default, Copy, Clone)]
 pub enum View {
     #[default]
     Profile,
@@ -149,6 +149,36 @@ impl LaserApp {
             ..Self::default()
         }
     }
+    fn reset_params(&mut self) {
+        *self = Self {
+            view: self.view,
+            ..Self::clear_physics()
+        };
+    }
+
+    fn reset_button(&mut self, ui: &mut Ui) {
+        let shortcut = egui::KeyboardShortcut::new(
+            egui::Modifiers::NONE,
+            egui::Key::R,
+        );
+
+        let shortcut_pressed =
+            !ui.ctx().wants_keyboard_input()
+                && ui.input_mut(|input| input.consume_shortcut(&shortcut));
+
+        let shortcut_text = ui.ctx().format_shortcut(&shortcut);
+
+        let button_clicked = ui
+            .add(
+                egui::Button::new("Reset")
+                    .shortcut_text(shortcut_text),
+            )
+            .clicked();
+
+        if button_clicked || shortcut_pressed {
+            self.reset_params();
+        }
+    }
 
     pub fn new(creation_context: &eframe::CreationContext<'_>) -> Self {
         creation_context
@@ -165,7 +195,7 @@ impl LaserApp {
             changed |= self.view.selectors(ui);
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("Reset").clicked() { *self = Self::clear_physics(); }
+                self.reset_button(ui);
                 if let Some(Ok(plotter)) = &self.cached_plotter {
                     let milliseconds = plotter.compute_time().as_secs_f64() * 1_000.0;
                     ui.label(format!("Compute: {milliseconds:.3} ms"));
@@ -294,8 +324,6 @@ fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) -> bool {
             )
             .changed();
         ui.end_row();
-
-
     });
 
     changed
