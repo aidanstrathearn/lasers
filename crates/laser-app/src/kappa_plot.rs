@@ -1,11 +1,15 @@
-use crate::LaserApp;
 use crate::plotter::Plotter;
+use crate::{LaserApp, timed};
 use laser_solver::error::SolverError;
 
 impl LaserApp {
     pub fn kappa_plot(&self) -> Result<Plotter, SolverError> {
-        let z = self.grid_points.grid(self.fibre_params.length);
-        let kappas = self.grating.grid(self.grid_points.0);
+        let ((z, kappas), compute_time) = timed(|| {
+            (
+                self.grid_points.grid(self.fibre_params.length),
+                self.grating.grid(self.grid_points.0),
+            )
+        });
 
         // kappas.len() = z.len() - 1, so zip ignores last element of z
         let points = z
@@ -18,6 +22,7 @@ impl LaserApp {
         plot.add_points(points).label("Kappa");
         plot.xlabel("z");
         plot.ylabel("Kappa");
+        plot.set_compute_time(compute_time);
         Ok(plot)
     }
 }

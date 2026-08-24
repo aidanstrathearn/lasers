@@ -1,5 +1,5 @@
 use crate::plotter::Plotter;
-use crate::{LaserApp, Points};
+use crate::{LaserApp, Points, timed};
 use eframe::egui;
 use laser_solver::dfb::{dfb_solve, dfb_solve_shooting};
 use laser_solver::error::SolverError;
@@ -51,15 +51,18 @@ impl LaserApp {
         };
 
         let pu = Pump::from_total_and_balance(self.pump.total, self.pump.balance);
-        let result = dfb_solve(
-            pu,
-            self.fibre_params,
-            self.grid_points,
-            self.grating,
-            full_profile,
-            bc,
-            self.picard_config,
-        )?;
+        let (result, compute_time) = timed(|| {
+            dfb_solve(
+                pu,
+                self.fibre_params,
+                self.grid_points,
+                self.grating,
+                full_profile,
+                bc,
+                self.picard_config,
+            )
+        });
+        let result = result?;
         let sgnl_f = result.plotpoints("sgnl_f");
         let sgnl_b = result.plotpoints("sgnl_b");
         let pump_f = result.plotpoints("pump_f");
@@ -72,6 +75,7 @@ impl LaserApp {
         plt.add_points(pump_b).label("Backward pump");
         plt.xlabel("z");
         plt.ylabel("Fields");
+        plt.set_compute_time(compute_time);
         Ok(plt)
     }
 }

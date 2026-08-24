@@ -15,6 +15,8 @@ use laser_solver::error::SolverError;
 use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump, PumpParam};
 use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::BisectionConfig;
+use std::time::Duration;
+use web_time::Instant;
 
 #[derive(PartialEq, Default)]
 pub enum View {
@@ -66,6 +68,12 @@ impl View {
 }
 
 type Points = Vec<[f64; 2]>;
+
+fn timed<T>(compute: impl FnOnce() -> T) -> (T, Duration) {
+    let start = Instant::now();
+    let result = compute();
+    (result, start.elapsed())
+}
 
 #[derive(Default)]
 pub struct LaserApp {

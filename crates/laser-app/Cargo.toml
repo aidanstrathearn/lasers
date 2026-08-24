@@ -8,3 +8,4 @@ publish = false
 eframe.workspace = true
 egui_plot.workspace = true
 laser-solver.workspace = true
+web-time.workspace = true

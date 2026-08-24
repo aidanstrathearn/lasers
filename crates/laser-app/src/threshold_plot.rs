@@ -1,5 +1,5 @@
 use crate::plotter::Plotter;
-use crate::{LaserApp, Points};
+use crate::{LaserApp, Points, timed};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::dfb::dfb_pump_scan;
@@ -41,15 +41,18 @@ impl LaserApp {
             self.threshold_range.upper,
             self.threshold_range.num,
         );
-        let threshold = dfb_pump_scan(
-            &pumps,
-            self.pump.balance,
-            self.fibre_params,
-            self.grid_points,
-            self.grating,
-            bc,
-            self.picard_config,
-        )?;
+        let (threshold, compute_time) = timed(|| {
+            dfb_pump_scan(
+                &pumps,
+                self.pump.balance,
+                self.fibre_params,
+                self.grid_points,
+                self.grating,
+                bc,
+                self.picard_config,
+            )
+        });
+        let threshold = threshold?;
         let sgnl_f = threshold
             .iter()
             .map(|output| output.as_ref().map_or(0.0, |output| output.0));
@@ -75,6 +78,7 @@ impl LaserApp {
         plt.add_points(sgnl_b_points).label("Backward");
         plt.axvline(self.pump.total).label("Current pump");
         plt.xlim(self.threshold_range.lower, self.threshold_range.upper);
+        plt.set_compute_time(compute_time);
         Ok(plt)
     }
 }

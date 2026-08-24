@@ -1,10 +1,11 @@
 use crate::plotter::Plotter;
-use crate::{LaserApp, Points};
+use crate::{LaserApp, Points, timed};
 use laser_solver::dfb::dfb_solve;
 use laser_solver::error::SolverError;
 use laser_solver::lase::{GratingProfile, Pump};
 use laser_solver::rootfind::BisectionConfig;
 use laser_solver::utils::linspace;
+use std::time::Duration;
 
 const PI_POSITION_INTERVALS: usize = 40;
 
@@ -18,6 +19,7 @@ impl LaserApp {
         let pi_positions = linspace(0.0, 1.0, PI_POSITION_INTERVALS);
         let mut forward_output: Points = Vec::with_capacity(pi_positions.len());
         let mut backward_output: Points = Vec::with_capacity(pi_positions.len());
+        let mut compute_time = Duration::ZERO;
 
         for pi_position in pi_positions {
             let grating = GratingProfile {
@@ -25,15 +27,20 @@ impl LaserApp {
                 ..self.grating
             };
 
-            if let Ok(profile) = dfb_solve(
-                pump,
-                self.fibre_params,
-                self.grid_points,
-                grating,
-                false,
-                bc,
-                self.picard_config,
-            ) {
+            let (profile, elapsed) = timed(|| {
+                dfb_solve(
+                    pump,
+                    self.fibre_params,
+                    self.grid_points,
+                    grating,
+                    false,
+                    bc,
+                    self.picard_config,
+                )
+            });
+            compute_time += elapsed;
+
+            if let Ok(profile) = profile {
                 let (forward, backward) = profile.output_powers();
                 forward_output.push([pi_position, forward]);
                 backward_output.push([pi_position, backward]);
@@ -46,6 +53,7 @@ impl LaserApp {
         plot.xlabel("Pi shift position");
         plot.ylabel("Output power");
         plot.xlim(0.0, 1.0);
+        plot.set_compute_time(compute_time);
         Ok(plot)
     }
 }

@@ -1,5 +1,5 @@
 use crate::plotter::Plotter;
-use crate::{LaserApp, Points};
+use crate::{LaserApp, Points, timed};
 use laser_solver::dfb::dfb_solve;
 use laser_solver::error::SolverError;
 use laser_solver::lase::{Pump, pops};
@@ -14,15 +14,18 @@ impl LaserApp {
         };
 
         let pu = Pump::from_total_and_balance(self.pump.total, self.pump.balance);
-        let result = dfb_solve(
-            pu,
-            self.fibre_params,
-            self.grid_points,
-            self.grating,
-            full_profile,
-            bc,
-            self.picard_config,
-        )?;
+        let (result, compute_time) = timed(|| {
+            dfb_solve(
+                pu,
+                self.fibre_params,
+                self.grid_points,
+                self.grating,
+                full_profile,
+                bc,
+                self.picard_config,
+            )
+        });
+        let result = result?;
 
         let (ground, excited): (Points, Points) = result
             .z
@@ -39,6 +42,7 @@ impl LaserApp {
         plot.add_points(excited).label("Excited state");
         plot.xlabel("z");
         plot.ylabel("Population fraction");
+        plot.set_compute_time(compute_time);
         Ok(plot)
     }
 }

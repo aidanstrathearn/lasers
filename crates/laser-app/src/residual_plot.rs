@@ -1,5 +1,5 @@
 use crate::plotter::Plotter;
-use crate::{LaserApp, Points};
+use crate::{LaserApp, Points, timed};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::dfb::{dfb_pump_scan, out_field};
@@ -43,12 +43,21 @@ impl LaserApp {
             pump_b: 0.0,
         }; //todo: use picard for backward pump
         let f = |sgnl_b| out_field(trial(sgnl_b), self.fibre_params, dz, &kappas).sgnl_b / sgnl_b;
-        let residuals: Vec<[f64; 2]> = inputs.iter().map(|&s| [s, f(s).abs().log10()]).collect();
+        let mut compute_time = std::time::Duration::ZERO;
+        let residuals = inputs
+            .iter()
+            .map(|&s| {
+                let (residual, elapsed) = timed(|| f(s));
+                compute_time += elapsed;
+                [s, residual.abs().log10()]
+            })
+            .collect::<Points>();
 
         let mut plt = Plotter::new();
         plt.xlabel("Input");
         plt.ylabel("log(|residual|)");
         plt.add_points(residuals);
+        plt.set_compute_time(compute_time);
         Ok(plt)
     }
 }

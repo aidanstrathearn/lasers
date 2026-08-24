@@ -3,6 +3,7 @@ use eframe::egui;
 use eframe::egui::Ui;
 use egui_plot::{HLine, Legend, Line, LineStyle, Plot, VLine};
 use std::hash::Hash;
+use std::time::Duration;
 
 const MATPLOTLIB_COLORS: [egui::Color32; 10] = [
     egui::Color32::from_rgb(31, 119, 180),
@@ -51,6 +52,7 @@ pub struct Plotter {
     y_label: String,
     title: String,
     x_limits: Option<(f64, f64)>,
+    compute_time: Duration,
 }
 
 #[allow(dead_code)]
@@ -99,6 +101,14 @@ impl Plotter {
 
     pub fn xlim(&mut self, lower: f64, upper: f64) {
         self.x_limits = Some((lower, upper));
+    }
+
+    pub fn set_compute_time(&mut self, compute_time: Duration) {
+        self.compute_time = compute_time;
+    }
+
+    pub fn compute_time(&self) -> Duration {
+        self.compute_time
     }
 
     pub fn axhline(&mut self, y: f64) -> &mut ReferenceLine {
