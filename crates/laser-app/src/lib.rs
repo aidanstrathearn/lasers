@@ -27,15 +27,29 @@ pub enum View {
 }
 
 impl View {
-    fn selectors(&mut self, ui: &mut Ui) {
+    fn selectors(&mut self, ui: &mut Ui) -> bool {
+        let mut changed = false;
+
         ui.horizontal(|ui| {
-            ui.selectable_value(self, Self::Profile, "Profile");
-            ui.selectable_value(self, Self::Residual, "Residual");
-            ui.selectable_value(self, Self::Populations, "Populations");
-            ui.selectable_value(self, Self::Kappa, "Kappa");
-            ui.selectable_value(self, Self::Threshold, "Threshold");
-            ui.selectable_value(self, Self::PiPosition, "Pi position");
+            changed |= ui
+                .selectable_value(self, Self::Profile, "Profile")
+                .changed();
+            changed |= ui
+                .selectable_value(self, Self::Residual, "Residual")
+                .changed();
+            changed |= ui
+                .selectable_value(self, Self::Populations, "Populations")
+                .changed();
+            changed |= ui.selectable_value(self, Self::Kappa, "Kappa").changed();
+            changed |= ui
+                .selectable_value(self, Self::Threshold, "Threshold")
+                .changed();
+            changed |= ui
+                .selectable_value(self, Self::PiPosition, "Pi position")
+                .changed();
         });
+
+        changed
     }
 }
 
@@ -93,11 +107,15 @@ impl LaserApp {
         Self::strong_coupling()
     }
 
-    pub fn draw_view_selector(&mut self, ui: &mut Ui) {
+    pub fn draw_view_selector(&mut self, ui: &mut Ui) -> bool {
+        let mut changed = false;
+
         ui.horizontal(|ui| {
             ui.heading("View: ");
-            self.view.selectors(ui);
+            changed |= self.view.selectors(ui);
         });
+
+        changed
     }
 
     pub fn draw_plot(&mut self, ui: &mut Ui) {
@@ -168,7 +186,7 @@ impl eframe::App for LaserApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let mut changed = false;
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.draw_view_selector(ui);
+            changed |= self.draw_view_selector(ui);
 
             ui.separator();
 
