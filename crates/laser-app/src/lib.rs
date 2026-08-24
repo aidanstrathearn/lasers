@@ -11,6 +11,7 @@ use crate::residual_plot::{ResidualRange, residual_slider_grid};
 use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
 use eframe::egui::Ui;
+use laser_solver::error::SolverError;
 use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump, PumpParam};
 use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::BisectionConfig;
@@ -27,6 +28,17 @@ pub enum View {
 }
 
 impl View {
+    fn plot_id(&self) -> &'static str {
+        match self {
+            Self::Threshold => "threshold-plot",
+            Self::Profile => "profile-plot",
+            Self::Residual => "residual-plot",
+            Self::Populations => "population-plot",
+            Self::Kappa => "kappa-plot",
+            Self::PiPosition => "pi-position-output-plot",
+        }
+    }
+
     fn selectors(&mut self, ui: &mut Ui) -> bool {
         let mut changed = false;
 
@@ -66,7 +78,7 @@ pub struct LaserApp {
     picard_config: PicardConfig,
     threshold_range: ThresholdRange,
     residual_range: ResidualRange,
-    cached_plotter: Option<Plotter>,
+    cached_plotter: Option<Result<Plotter, SolverError>>,
 }
 
 impl LaserApp {
@@ -118,21 +130,24 @@ impl LaserApp {
         changed
     }
 
-    pub fn draw_plot(&mut self, ui: &mut Ui) {
-        let (plotter, id) = match self.view {
-            View::Threshold => (self.threshold_plot(), "threshold-plot"),
-            View::Profile => (self.profile_plot(), "profile-plot"),
-            View::Residual => (self.residual_plot(), "residual-plot"),
-            View::Populations => (self.pops_plot(), "population-plot"),
-            View::Kappa => (self.kappa_plot(), "kappa-plot"),
-            View::PiPosition => (self.pi_pos_plot(), "pi-position-output-plot"),
-        };
+    pub fn compute_plot(&mut self) -> Result<Plotter, SolverError> {
+        match self.view {
+            View::Threshold => self.threshold_plot(),
+            View::Profile => self.profile_plot(),
+            View::Residual => self.residual_plot(),
+            View::Populations => self.pops_plot(),
+            View::Kappa => self.kappa_plot(),
+            View::PiPosition => self.pi_pos_plot(),
+        }
+    }
 
-        match plotter {
-            Ok(plotter) => plotter.show(ui, id),
-            Err(error) => {
+    pub fn draw_plot(&self, ui: &mut Ui) {
+        match &self.cached_plotter {
+            Some(Ok(plotter)) => plotter.show(ui, self.view.plot_id()),
+            Some(Err(error)) => {
                 ui.colored_label(ui.visuals().error_fg_color, error.to_string());
             }
+            None => {}
         }
     }
 
@@ -191,8 +206,8 @@ impl eframe::App for LaserApp {
             ui.separator();
 
             changed |= self.draw_controls(ui);
-            if changed {
-                println!("changed = {}", changed)
+            if changed || self.cached_plotter.is_none() {
+                self.cached_plotter = Some(self.compute_plot());
             }
             ui.separator();
 
