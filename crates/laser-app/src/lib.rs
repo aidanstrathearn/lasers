@@ -120,11 +120,41 @@ impl LaserApp {
         }
     }
 
+    fn clear_physics() -> Self {
+        Self {
+            pump: PumpParam {
+                total: 10.0,
+                balance: 1.0,
+            },
+            fibre_params: FibreParams {
+                density: 0.50,
+                lifetime: 1.0,
+                pump_ab: 1.0,
+                pump_em: 0.0,
+                sgnl_ab: 0.0,
+                sgnl_em: 1.0,
+                length: 5.0,
+            },
+            grid_points: GridPoints::default(),
+            grating: GratingProfile {
+                kappa_left: 0.6,
+                kappa_right: 0.6,
+                pi_shift_position: 0.5,
+            },
+            picard_config: PicardConfig {
+                max_iterations: 5_000,
+                relative_tolerance: 1e-6,
+                absolute_tolerance: 1e-10,
+            },
+            ..Self::default()
+        }
+    }
+
     pub fn new(creation_context: &eframe::CreationContext<'_>) -> Self {
         creation_context
             .egui_ctx
             .set_visuals(egui::Visuals::light());
-        Self::strong_coupling()
+        Self::clear_physics()
     }
 
     pub fn draw_view_selector(&mut self, ui: &mut Ui) -> bool {
@@ -252,6 +282,19 @@ fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) -> bool {
             )
             .changed();
         ui.end_row();
+
+        ui.label("lower bracket");
+        changed |= ui
+            .add(
+                egui::Slider::new(&mut config.lower, 1e-9..=1e-2)
+                    // 1e-10 causes slider field box to resize
+                    .logarithmic(true)
+                    .custom_formatter(|value, _| format!("{value:.1e}")),
+            )
+            .changed();
+        ui.end_row();
+
+
     });
 
     changed
