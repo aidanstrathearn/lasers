@@ -165,6 +165,7 @@ impl LaserApp {
             changed |= self.view.selectors(ui);
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("Reset").clicked() { *self = Self::clear_physics(); }
                 if let Some(Ok(plotter)) = &self.cached_plotter {
                     let milliseconds = plotter.compute_time().as_secs_f64() * 1_000.0;
                     ui.label(format!("Compute: {milliseconds:.3} ms"));
