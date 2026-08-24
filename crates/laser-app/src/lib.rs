@@ -53,8 +53,6 @@ pub struct LaserApp {
     residual_range: ResidualRange,
 }
 
-
-
 impl LaserApp {
     fn strong_coupling() -> Self {
         Self {
@@ -93,7 +91,7 @@ impl LaserApp {
         Self::strong_coupling()
     }
 
-    pub fn draw_view_selector(&mut self, ui: &mut Ui){
+    pub fn draw_view_selector(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.heading("View: ");
             self.view.selectors(ui);
@@ -115,54 +113,62 @@ impl LaserApp {
         };
     }
 
-    pub fn draw_controls(&mut self, ui: &mut Ui) {
+    pub fn draw_controls(&mut self, ui: &mut Ui) -> bool {
+        let mut changed = false;
+
         egui::Grid::new("global-params").show(ui, |ui| {
             ui.vertical(|ui| {
                 ui.heading("Fibre");
-                fibre_params_slider_grid(&mut self.fibre_params, ui);
+                changed |= fibre_params_slider_grid(&mut self.fibre_params, ui);
             });
             ui.vertical(|ui| {
                 ui.heading("Bragg");
-                grating_slider_grid(&mut self.grating, ui);
+                changed |= grating_slider_grid(&mut self.grating, ui);
             });
             ui.vertical(|ui| {
                 ui.heading("Pump");
-                pump_param_slider_grid(&mut self.pump, ui);
+                changed |= pump_param_slider_grid(&mut self.pump, ui);
             });
             ui.vertical(|ui| {
                 ui.heading("Solver");
-                bisection_slider_grid(&mut self.config, ui);
-                gridpoints_slider(&mut self.grid_points, ui);
+                changed |= bisection_slider_grid(&mut self.config, ui);
+                changed |= gridpoints_slider(&mut self.grid_points, ui);
             });
 
             match self.view {
-                View::Threshold => {ui.vertical(|ui| {
-                    ui.heading("Threshold");
-                    threshold_slider_grid(&mut self.threshold_range, ui);
-                });},
+                View::Threshold => {
+                    ui.vertical(|ui| {
+                        ui.heading("Threshold");
+                        changed |= threshold_slider_grid(&mut self.threshold_range, ui);
+                    });
+                }
 
-                View::Residual => {ui.vertical(|ui| {
-                    ui.heading("Residual");
-                    residual_slider_grid(&mut self.residual_range, ui);
-                });},
+                View::Residual => {
+                    ui.vertical(|ui| {
+                        ui.heading("Residual");
+                        changed |= residual_slider_grid(&mut self.residual_range, ui);
+                    });
+                }
                 _ => (),
             };
 
-
             ui.end_row();
         });
+
+        changed
     }
 }
 
 impl eframe::App for LaserApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let mut changed = false;
         egui::CentralPanel::default().show(ctx, |ui| {
             self.draw_view_selector(ui);
 
             ui.separator();
 
-            self.draw_controls(ui);
-
+            changed |=self.draw_controls(ui);
+            if changed {println!("changed = {}", changed)}
             ui.separator();
 
             self.draw_plot(ui);
@@ -170,94 +176,141 @@ impl eframe::App for LaserApp {
     }
 }
 
-fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) {
+fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) -> bool {
+    let mut changed = false;
+
     egui::Grid::new("bisection").show(ui, |ui| {
         ui.label("iters");
-        ui.add(egui::Slider::new(&mut config.iteration.max, 10..=2000).step_by(10.0));
+        changed |= ui
+            .add(egui::Slider::new(&mut config.iteration.max, 10..=2000).step_by(10.0))
+            .changed();
         ui.end_row();
-
 
         ui.label("tolerance");
-        ui.add(
-            egui::Slider::new(&mut config.iteration.tol, 1e-9..=1e-2)
-                // 1e-10 causes slider field box to resize
-                .logarithmic(true)
-                .custom_formatter(|value, _| format!("{value:.1e}")),
-        );
+        changed |= ui
+            .add(
+                egui::Slider::new(&mut config.iteration.tol, 1e-9..=1e-2)
+                    // 1e-10 causes slider field box to resize
+                    .logarithmic(true)
+                    .custom_formatter(|value, _| format!("{value:.1e}")),
+            )
+            .changed();
         ui.end_row();
     });
+
+    changed
 }
 
-fn gridpoints_slider(gp: &mut GridPoints, ui: &mut Ui) {
+fn gridpoints_slider(gp: &mut GridPoints, ui: &mut Ui) -> bool {
+    let mut changed = false;
+
     egui::Grid::new("grid-points").show(ui, |ui| {
         ui.label("grid points");
-        ui.add(egui::Slider::new(&mut gp.0, 10..=1000).step_by(2.0));
+        changed |= ui
+            .add(egui::Slider::new(&mut gp.0, 10..=1000).step_by(2.0))
+            .changed();
         ui.end_row();
     });
 
+    changed
 }
 
-fn grating_slider_grid(grating: &mut GratingProfile, ui: &mut Ui) {
+fn grating_slider_grid(grating: &mut GratingProfile, ui: &mut Ui) -> bool {
+    let mut changed = false;
+
     egui::Grid::new("grating").show(ui, |ui| {
         ui.label("kappa left");
-        ui.add(egui::Slider::new(&mut grating.kappa_left, 0.0..=10.0).step_by(0.01));
+        changed |= ui
+            .add(egui::Slider::new(&mut grating.kappa_left, 0.0..=10.0).step_by(0.01))
+            .changed();
         ui.end_row();
 
         ui.label("kappa right");
-        ui.add(egui::Slider::new(&mut grating.kappa_right, 0.0..=10.0).step_by(0.01));
+        changed |= ui
+            .add(egui::Slider::new(&mut grating.kappa_right, 0.0..=10.0).step_by(0.01))
+            .changed();
         ui.end_row();
 
         ui.label("pi pos");
-        ui.add(egui::Slider::new(&mut grating.pi_shift_position, 0.0..=1.0).step_by(0.01));
+        changed |= ui
+            .add(egui::Slider::new(&mut grating.pi_shift_position, 0.0..=1.0).step_by(0.01))
+            .changed();
         ui.end_row();
     });
+
+    changed
 }
 
+fn pump_param_slider_grid(pump: &mut PumpParam, ui: &mut Ui) -> bool {
+    let mut changed = false;
 
-fn pump_param_slider_grid(pump: &mut PumpParam, ui: &mut Ui) {
     egui::Grid::new("pumpp").show(ui, |ui| {
         ui.label("pump-total");
-        ui.add(egui::Slider::new(&mut pump.total, 0.0..=100.0).step_by(0.01));
+        changed |= ui
+            .add(egui::Slider::new(&mut pump.total, 0.0..=100.0).step_by(0.01))
+            .changed();
         ui.end_row();
 
         ui.label("pump-balance");
-        ui.add(egui::Slider::new(&mut pump.balance, -1.0..=1.0).step_by(0.01));
+        changed |= ui
+            .add(egui::Slider::new(&mut pump.balance, -1.0..=1.0).step_by(0.01))
+            .changed();
         ui.end_row();
     });
+
+    changed
 }
 
-fn fibre_params_slider_grid(params: &mut FibreParams, ui: &mut Ui) {
+fn fibre_params_slider_grid(params: &mut FibreParams, ui: &mut Ui) -> bool {
+    let mut changed = false;
+
     egui::Grid::new("params").show(ui, |ui| {
         egui::Grid::new("params1").show(ui, |ui| {
             ui.label("pump_em");
-            ui.add(egui::Slider::new(&mut params.pump_em, 0.0..=10.0).step_by(0.01));
+            changed |= ui
+                .add(egui::Slider::new(&mut params.pump_em, 0.0..=10.0).step_by(0.01))
+                .changed();
             ui.end_row();
 
             ui.label("pump_ab");
-            ui.add(egui::Slider::new(&mut params.pump_ab, 0.0..=10.0).step_by(0.01));
+            changed |= ui
+                .add(egui::Slider::new(&mut params.pump_ab, 0.0..=10.0).step_by(0.01))
+                .changed();
             ui.end_row();
 
             ui.label("sgnl_em");
-            ui.add(egui::Slider::new(&mut params.sgnl_em, 0.0..=10.0).step_by(0.01));
+            changed |= ui
+                .add(egui::Slider::new(&mut params.sgnl_em, 0.0..=10.0).step_by(0.01))
+                .changed();
             ui.end_row();
 
             ui.label("sgnl_ab");
-            ui.add(egui::Slider::new(&mut params.sgnl_ab, 0.0..=10.0).step_by(0.01));
+            changed |= ui
+                .add(egui::Slider::new(&mut params.sgnl_ab, 0.0..=10.0).step_by(0.01))
+                .changed();
             ui.end_row();
         });
 
         egui::Grid::new("params2").show(ui, |ui| {
             ui.label("density");
-            ui.add(egui::Slider::new(&mut params.density, 0.1..=10.0).step_by(0.01));
+            changed |= ui
+                .add(egui::Slider::new(&mut params.density, 0.1..=10.0).step_by(0.01))
+                .changed();
             ui.end_row();
 
             ui.label("lifetime");
-            ui.add(egui::Slider::new(&mut params.lifetime, 0.1..=2.0).step_by(0.01));
+            changed |= ui
+                .add(egui::Slider::new(&mut params.lifetime, 0.1..=2.0).step_by(0.01))
+                .changed();
             ui.end_row();
 
             ui.label("length");
-            ui.add(egui::Slider::new(&mut params.length, 0.1..=15.0).step_by(0.01));
+            changed |= ui
+                .add(egui::Slider::new(&mut params.length, 0.1..=15.0).step_by(0.01))
+                .changed();
             ui.end_row();
         });
     });
+
+    changed
 }

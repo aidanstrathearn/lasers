@@ -52,18 +52,28 @@ impl LaserApp {
     }
 }
 
-pub fn residual_slider_grid(tr: &mut ResidualRange, ui: &mut Ui) {
+pub fn residual_slider_grid(tr: &mut ResidualRange, ui: &mut Ui) -> bool {
+    let mut changed = false;
+
     egui::Grid::new("residual").show(ui, |ui| {
         ui.label("high");
-        ui.add(egui::Slider::new(&mut tr.upper, 1e-5..=100.0).step_by(0.01));
+        changed |= ui
+            .add(egui::Slider::new(&mut tr.upper, 1e-5..=100.0).step_by(0.01))
+            .changed();
         ui.end_row();
 
         ui.label("low");
-        ui.add(egui::Slider::new(&mut tr.lower, 1e-6..=tr.upper).step_by(0.01));
+        changed |= ui
+            .add(egui::Slider::new(&mut tr.lower, 1e-6..=tr.upper).step_by(0.01))
+            .changed();
         ui.end_row();
 
         ui.label("num");
-        ui.add(egui::Slider::new(&mut tr.num, 5..=100).step_by(0.01));
+        changed |= ui
+            .add(egui::Slider::new(&mut tr.num, 5..=100).step_by(0.01))
+            .changed();
         ui.end_row();
     });
+
+    changed
 }
