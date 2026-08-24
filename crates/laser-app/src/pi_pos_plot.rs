@@ -1,7 +1,7 @@
 use crate::plotter::Plotter;
 use crate::{LaserApp, Points};
-use eframe::egui::Ui;
 use laser_solver::dfb::dfb_solve;
+use laser_solver::error::SolverError;
 use laser_solver::lase::{GratingProfile, Pump};
 use laser_solver::rootfind::BisectionConfig;
 use laser_solver::utils::linspace;
@@ -9,7 +9,7 @@ use laser_solver::utils::linspace;
 const PI_POSITION_INTERVALS: usize = 40;
 
 impl LaserApp {
-    pub fn pi_pos_plot(&mut self, ui: &mut Ui) {
+    pub fn pi_pos_plot(&mut self) -> Result<Plotter, SolverError> {
         let pump = Pump::from_total_and_balance(self.pump.total, self.pump.balance);
         let bc = BisectionConfig {
             upper: 2.0 * self.pump.total.sqrt(),
@@ -46,6 +46,6 @@ impl LaserApp {
         plot.xlabel("Pi shift position");
         plot.ylabel("Output power");
         plot.xlim(0.0, 1.0);
-        plot.show(ui, "pi-position-output-plot");
+        Ok(plot)
     }
 }

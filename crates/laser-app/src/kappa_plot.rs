@@ -1,9 +1,9 @@
 use crate::LaserApp;
 use crate::plotter::Plotter;
-use eframe::egui::Ui;
+use laser_solver::error::SolverError;
 
 impl LaserApp {
-    pub fn kappa_plot(&self, ui: &mut Ui) {
+    pub fn kappa_plot(&self) -> Result<Plotter, SolverError> {
         let z = self.grid_points.grid(self.fibre_params.length);
         let kappas = self.grating.grid(self.grid_points.0);
 
@@ -18,6 +18,6 @@ impl LaserApp {
         plot.add_points(points).label("Kappa");
         plot.xlabel("z");
         plot.ylabel("Kappa");
-        plot.show(ui, "kappa-plot");
+        Ok(plot)
     }
 }

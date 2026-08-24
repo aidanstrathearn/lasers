@@ -1,7 +1,6 @@
 use crate::plotter::Plotter;
 use crate::{LaserApp, Points};
 use eframe::egui;
-use eframe::egui::Ui;
 use laser_solver::dfb::{dfb_solve, dfb_solve_shooting};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{FibreParams, FieldProfile, GratingProfile, GridPoints, Pump};
@@ -44,7 +43,7 @@ impl FieldProfileExt for FieldProfile {
 }
 
 impl LaserApp {
-    pub fn profile_plot(&mut self, ui: &mut Ui) -> Result<(), SolverError> {
+    pub fn profile_plot(&mut self) -> Result<Plotter, SolverError> {
         let full_profile = true;
         let bc = BisectionConfig {
             upper: 2.0 * self.pump.total.sqrt(),
@@ -73,8 +72,7 @@ impl LaserApp {
         plt.add_points(pump_b).label("Backward pump");
         plt.xlabel("z");
         plt.ylabel("Fields");
-        plt.show(ui, "profile-plot");
-        Ok(())
+        Ok(plt)
     }
 }
 

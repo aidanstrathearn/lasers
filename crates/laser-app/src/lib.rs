@@ -6,6 +6,7 @@ mod profile_plot;
 mod residual_plot;
 mod threshold_plot;
 
+use crate::plotter::Plotter;
 use crate::residual_plot::{ResidualRange, residual_slider_grid};
 use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
@@ -51,6 +52,7 @@ pub struct LaserApp {
     picard_config: PicardConfig,
     threshold_range: ThresholdRange,
     residual_range: ResidualRange,
+    cached_plotter: Option<Plotter>,
 }
 
 impl LaserApp {
@@ -99,18 +101,21 @@ impl LaserApp {
     }
 
     pub fn draw_plot(&mut self, ui: &mut Ui) {
-        match self.view {
-            View::Threshold => self.threshold_plot(ui),
-            View::Profile => self.profile_plot(ui).unwrap_or_else(|error| {
-                ui.colored_label(ui.visuals().error_fg_color, error.to_string());
-            }),
-            View::Residual => self.residual_plot(ui),
-            View::Populations => self.pops_plot(ui).unwrap_or_else(|error| {
-                ui.colored_label(ui.visuals().error_fg_color, error.to_string());
-            }),
-            View::Kappa => self.kappa_plot(ui),
-            View::PiPosition => self.pi_pos_plot(ui),
+        let (plotter, id) = match self.view {
+            View::Threshold => (self.threshold_plot(), "threshold-plot"),
+            View::Profile => (self.profile_plot(), "profile-plot"),
+            View::Residual => (self.residual_plot(), "residual-plot"),
+            View::Populations => (self.pops_plot(), "population-plot"),
+            View::Kappa => (self.kappa_plot(), "kappa-plot"),
+            View::PiPosition => (self.pi_pos_plot(), "pi-position-output-plot"),
         };
+
+        match plotter {
+            Ok(plotter) => plotter.show(ui, id),
+            Err(error) => {
+                ui.colored_label(ui.visuals().error_fg_color, error.to_string());
+            }
+        }
     }
 
     pub fn draw_controls(&mut self, ui: &mut Ui) -> bool {
@@ -167,8 +172,10 @@ impl eframe::App for LaserApp {
 
             ui.separator();
 
-            changed |=self.draw_controls(ui);
-            if changed {println!("changed = {}", changed)}
+            changed |= self.draw_controls(ui);
+            if changed {
+                println!("changed = {}", changed)
+            }
             ui.separator();
 
             self.draw_plot(ui);

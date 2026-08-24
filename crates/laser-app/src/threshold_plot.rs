@@ -3,6 +3,7 @@ use crate::{LaserApp, Points};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::dfb::dfb_pump_scan;
+use laser_solver::error::SolverError;
 use laser_solver::rootfind::BisectionConfig;
 use laser_solver::rootfind::RootFindConfig::Newton1d;
 use laser_solver::utils::linspace;
@@ -25,7 +26,7 @@ impl Default for ThresholdRange {
 }
 
 impl LaserApp {
-    pub fn threshold_plot(&mut self, ui: &mut Ui) {
+    pub fn threshold_plot(&mut self) -> Result<Plotter, SolverError> {
         let bc = BisectionConfig {
             upper: self.threshold_range.upper.sqrt(),
             ..self.config
@@ -40,7 +41,7 @@ impl LaserApp {
             self.threshold_range.upper,
             self.threshold_range.num,
         );
-        let threshold = match dfb_pump_scan(
+        let threshold = dfb_pump_scan(
             &pumps,
             self.pump.balance,
             self.fibre_params,
@@ -48,13 +49,7 @@ impl LaserApp {
             self.grating,
             bc,
             self.picard_config,
-        ) {
-            Ok(threshold) => threshold,
-            Err(error) => {
-                ui.colored_label(egui::Color32::RED, error.to_string());
-                return;
-            }
-        };
+        )?;
         let sgnl_f = threshold
             .iter()
             .map(|output| output.as_ref().map_or(0.0, |output| output.0));
@@ -80,7 +75,7 @@ impl LaserApp {
         plt.add_points(sgnl_b_points).label("Backward");
         plt.axvline(self.pump.total).label("Current pump");
         plt.xlim(self.threshold_range.lower, self.threshold_range.upper);
-        plt.show(ui, "threshold-plot");
+        Ok(plt)
     }
 }
 

@@ -3,6 +3,7 @@ use crate::{LaserApp, Points};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::dfb::{dfb_pump_scan, out_field};
+use laser_solver::error::SolverError;
 use laser_solver::lase::FieldState;
 use laser_solver::rootfind::BisectionConfig;
 use laser_solver::rootfind::RootFindConfig::Newton1d;
@@ -26,7 +27,7 @@ impl Default for ResidualRange {
 }
 
 impl LaserApp {
-    pub fn residual_plot(&mut self, ui: &mut Ui) {
+    pub fn residual_plot(&mut self) -> Result<Plotter, SolverError> {
         let inputs = linspace(
             self.residual_range.lower,
             self.residual_range.upper,
@@ -48,7 +49,7 @@ impl LaserApp {
         plt.xlabel("Input");
         plt.ylabel("log(|residual|)");
         plt.add_points(residuals);
-        plt.show(ui, "residual-plot");
+        Ok(plt)
     }
 }
 

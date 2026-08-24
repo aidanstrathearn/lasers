@@ -1,13 +1,12 @@
 use crate::plotter::Plotter;
 use crate::{LaserApp, Points};
-use eframe::egui::Ui;
 use laser_solver::dfb::dfb_solve;
 use laser_solver::error::SolverError;
 use laser_solver::lase::{Pump, pops};
 use laser_solver::rootfind::BisectionConfig;
 
 impl LaserApp {
-    pub fn pops_plot(&mut self, ui: &mut Ui) -> Result<(), SolverError> {
+    pub fn pops_plot(&mut self) -> Result<Plotter, SolverError> {
         let full_profile = true;
         let bc = BisectionConfig {
             upper: 2.0 * self.pump.total.sqrt(),
@@ -40,8 +39,6 @@ impl LaserApp {
         plot.add_points(excited).label("Excited state");
         plot.xlabel("z");
         plot.ylabel("Population fraction");
-        plot.show(ui, "population-plot");
-
-        Ok(())
+        Ok(plot)
     }
 }

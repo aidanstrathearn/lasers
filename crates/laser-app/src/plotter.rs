@@ -119,7 +119,7 @@ impl Plotter {
         self.vertical_lines.last_mut().unwrap()
     }
 
-    pub fn show(self, ui: &mut Ui, id: impl Hash) {
+    pub fn show(&self, ui: &mut Ui, id: impl Hash) {
         let plot_id = egui::Id::new(id);
         ui.style_mut().text_styles.insert(
             egui::TextStyle::Body,
@@ -135,10 +135,10 @@ impl Plotter {
                 }
                 let colour_offset = self.series.len();
 
-                for (index, line) in self.series.into_iter().enumerate() {
+                for (index, line) in self.series.iter().enumerate() {
                     let colour = MATPLOTLIB_COLORS[index % MATPLOTLIB_COLORS.len()];
                     let legend_name = line.label.as_deref().unwrap_or_default();
-                    let plot_line = Line::new(legend_name, line.points)
+                    let plot_line = Line::new(legend_name, line.points.clone())
                         .color(colour)
                         .id(plot_id.with(index))
                         .width(3.0);
