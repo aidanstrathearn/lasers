@@ -29,6 +29,15 @@ pub enum View {
     PiPosition,
 }
 
+const VIEW_OPTIONS: [(View, &str, egui::Key); 6] = [
+    (View::Profile, "[1] Profile", egui::Key::Num1),
+    (View::Residual, "[2] Residual", egui::Key::Num2),
+    (View::Populations, "[3] Populations", egui::Key::Num3),
+    (View::Kappa, "[4] Kappa", egui::Key::Num4),
+    (View::Threshold, "[5] Threshold", egui::Key::Num5),
+    (View::PiPosition, "[6] Pi position", egui::Key::Num6),
+];
+
 impl View {
     fn plot_id(&self) -> &'static str {
         match self {
@@ -44,23 +53,22 @@ impl View {
     fn selectors(&mut self, ui: &mut Ui) -> bool {
         let mut changed = false;
 
+        if !ui.ctx().wants_keyboard_input() {
+            for &(view, _, key) in &VIEW_OPTIONS {
+                let shortcut = egui::KeyboardShortcut::new(egui::Modifiers::NONE, key);
+
+                if ui.input_mut(|input| input.consume_shortcut(&shortcut)) {
+                    changed |= *self != view;
+                    *self = view;
+                    break;
+                }
+            }
+        }
+
         ui.horizontal(|ui| {
-            changed |= ui
-                .selectable_value(self, Self::Profile, "Profile")
-                .changed();
-            changed |= ui
-                .selectable_value(self, Self::Residual, "Residual")
-                .changed();
-            changed |= ui
-                .selectable_value(self, Self::Populations, "Populations")
-                .changed();
-            changed |= ui.selectable_value(self, Self::Kappa, "Kappa").changed();
-            changed |= ui
-                .selectable_value(self, Self::Threshold, "Threshold")
-                .changed();
-            changed |= ui
-                .selectable_value(self, Self::PiPosition, "Pi position")
-                .changed();
+            for &(view, label, _) in &VIEW_OPTIONS {
+                changed |= ui.selectable_value(self, view, label).changed();
+            }
         });
 
         changed
@@ -157,22 +165,15 @@ impl LaserApp {
     }
 
     fn reset_button(&mut self, ui: &mut Ui) {
-        let shortcut = egui::KeyboardShortcut::new(
-            egui::Modifiers::NONE,
-            egui::Key::R,
-        );
+        let shortcut = egui::KeyboardShortcut::new(egui::Modifiers::NONE, egui::Key::R);
 
-        let shortcut_pressed =
-            !ui.ctx().wants_keyboard_input()
-                && ui.input_mut(|input| input.consume_shortcut(&shortcut));
+        let shortcut_pressed = !ui.ctx().wants_keyboard_input()
+            && ui.input_mut(|input| input.consume_shortcut(&shortcut));
 
         let shortcut_text = ui.ctx().format_shortcut(&shortcut);
 
         let button_clicked = ui
-            .add(
-                egui::Button::new("Reset")
-                    .shortcut_text(shortcut_text),
-            )
+            .add(egui::Button::new("Reset").shortcut_text(shortcut_text))
             .clicked();
 
         if button_clicked || shortcut_pressed {
