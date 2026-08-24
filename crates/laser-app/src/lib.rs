@@ -133,6 +133,13 @@ impl LaserApp {
         ui.horizontal(|ui| {
             ui.heading("View: ");
             changed |= self.view.selectors(ui);
+
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if let Some(Ok(plotter)) = &self.cached_plotter {
+                    let milliseconds = plotter.compute_time().as_secs_f64() * 1_000.0;
+                    ui.label(format!("Compute: {milliseconds:.3} ms"));
+                }
+            });
         });
 
         changed
@@ -216,6 +223,7 @@ impl eframe::App for LaserApp {
             changed |= self.draw_controls(ui);
             if changed || self.cached_plotter.is_none() {
                 self.cached_plotter = Some(self.compute_plot());
+                ctx.request_repaint();
             }
             ui.separator();
 
