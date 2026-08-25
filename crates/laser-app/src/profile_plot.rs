@@ -74,7 +74,7 @@ impl LaserApp {
         plt.add_points(pump_f).label("Forward pump");
         plt.add_points(pump_b).label("Backward pump");
         plt.xlabel("z");
-        plt.ylabel("Fields");
+        plt.ylabel("Power");
         plt.set_compute_time(compute_time);
         Ok(plt)
     }

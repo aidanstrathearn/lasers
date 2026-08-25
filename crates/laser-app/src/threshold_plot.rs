@@ -72,8 +72,8 @@ impl LaserApp {
             .collect();
 
         let mut plt = Plotter::new();
-        plt.xlabel("Pump");
-        plt.ylabel("Signal");
+        plt.xlabel("Pump power");
+        plt.ylabel("Output power");
         plt.add_points(sgnl_f_points).label("Forward");
         plt.add_points(sgnl_b_points).label("Backward");
         plt.axvline(self.pump.total).label("Current pump");
