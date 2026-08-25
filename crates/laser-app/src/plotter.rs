@@ -140,6 +140,8 @@ impl Plotter {
             .x_axis_label(egui::RichText::new(&self.x_label).size(24.0))
             .y_axis_label(egui::RichText::new(&self.y_label).size(24.0))
             .allow_scroll(false)
+            .allow_axis_zoom_drag(false)
+            .allow_drag(false)
             .show(ui, |plot_ui| {
                 if let Some((lower, upper)) = self.x_limits {
                     plot_ui.set_plot_bounds_x(lower..=upper);
