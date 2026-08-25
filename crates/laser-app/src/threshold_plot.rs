@@ -19,7 +19,7 @@ impl Default for ThresholdRange {
     fn default() -> Self {
         Self {
             lower: 1e-6,
-            upper: 100.0,
+            upper: 10.0,
             num: 20,
         }
     }
