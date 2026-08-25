@@ -50,6 +50,7 @@ impl LaserApp {
         let mut plot = Plotter::new();
         plot.add_points(forward_output).label("Forward");
         plot.add_points(backward_output).label("Backward");
+        plot.axvline(self.grating.pi_shift_position).label("Current position");
         plot.xlabel("Pi shift position");
         plot.ylabel("Output power");
         plot.xlim(0.0, 1.0);
