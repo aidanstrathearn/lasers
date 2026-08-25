@@ -18,9 +18,6 @@ use laser_solver::rootfind::BisectionConfig;
 use std::time::Duration;
 use web_time::Instant;
 
-const MIN_ZOOM_FACTOR: f32 = 0.35;
-const MAX_ZOOM_FACTOR: f32 = 1.5;
-
 #[derive(PartialEq, Default, Copy, Clone)]
 pub enum View {
     #[default]
@@ -98,8 +95,6 @@ pub struct LaserApp {
     threshold_range: ThresholdRange,
     residual_range: ResidualRange,
     cached_plotter: Option<Result<Plotter, SolverError>>,
-    mobile_layout: bool,
-    initial_zoom_applied: bool,
 }
 
 impl LaserApp {
@@ -165,8 +160,6 @@ impl LaserApp {
     fn reset_params(&mut self) {
         *self = Self {
             view: self.view,
-            mobile_layout: self.mobile_layout,
-            initial_zoom_applied: self.initial_zoom_applied,
             ..Self::clear_physics()
         };
     }
@@ -189,20 +182,10 @@ impl LaserApp {
     }
 
     pub fn new(creation_context: &eframe::CreationContext<'_>) -> Self {
-        Self::new_with_mobile_layout(creation_context, false)
-    }
-
-    pub fn new_with_mobile_layout(
-        creation_context: &eframe::CreationContext<'_>,
-        mobile_layout: bool,
-    ) -> Self {
         creation_context
             .egui_ctx
             .set_visuals(egui::Visuals::light());
-        Self {
-            mobile_layout,
-            ..Self::clear_physics()
-        }
+        Self::clear_physics()
     }
 
     pub fn draw_view_selector(&mut self, ui: &mut Ui) -> bool {
@@ -295,17 +278,8 @@ impl eframe::App for LaserApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let mut changed = false;
 
-        if self.mobile_layout
-            && let Some(zoom_delta) =
-                ctx.input(|input| input.multi_touch().map(|touch| touch.zoom_delta))
-        {
-            let zoom_factor =
-                (ctx.zoom_factor() * zoom_delta).clamp(MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
-            ctx.set_zoom_factor(zoom_factor);
-        }
-
         egui::CentralPanel::default().show(ctx, |ui| {
-            let scroll_output = egui::ScrollArea::both().show(ui, |ui| {
+            egui::ScrollArea::both().show(ui, |ui| {
                 changed |= self.draw_view_selector(ui);
 
                 ui.separator();
@@ -319,18 +293,6 @@ impl eframe::App for LaserApp {
 
                 self.draw_plot(ui);
             });
-
-            if self.mobile_layout && !self.initial_zoom_applied {
-                self.initial_zoom_applied = true;
-
-                let available_width = scroll_output.inner_rect.width();
-                let content_width = scroll_output.content_size.x;
-                if content_width > available_width {
-                    let zoom_factor = (ctx.zoom_factor() * available_width / content_width)
-                        .clamp(MIN_ZOOM_FACTOR, 1.0);
-                    ctx.set_zoom_factor(zoom_factor);
-                }
-            }
         });
     }
 }
