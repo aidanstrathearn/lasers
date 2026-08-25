@@ -353,19 +353,19 @@ fn grating_slider_grid(grating: &mut GratingProfile, ui: &mut Ui) -> bool {
     egui::Grid::new("grating").show(ui, |ui| {
         ui.label("Kappa left");
         changed |= ui
-            .add(egui::Slider::new(&mut grating.kappa_left, 0.0..=10.0).step_by(0.01))
+            .add(egui::Slider::new(&mut grating.kappa_left, 0.1..=10.0).step_by(0.01))
             .changed();
         ui.end_row();
 
         ui.label("Kappa right");
         changed |= ui
-            .add(egui::Slider::new(&mut grating.kappa_right, 0.0..=10.0).step_by(0.01))
+            .add(egui::Slider::new(&mut grating.kappa_right, 0.1..=10.0).step_by(0.01))
             .changed();
         ui.end_row();
 
         ui.label("Pi Shift Pos");
         changed |= ui
-            .add(egui::Slider::new(&mut grating.pi_shift_position, 0.0..=1.0).step_by(0.01))
+            .add(egui::Slider::new(&mut grating.pi_shift_position, 0.05..=0.95).step_by(0.01))
             .changed();
         ui.end_row();
     });
@@ -406,13 +406,13 @@ fn fibre_params_slider_grid(params: &mut FibreParams, ui: &mut Ui) -> bool {
 
             ui.label("Pump abs.");
             changed |= ui
-                .add(egui::Slider::new(&mut params.pump_ab, 0.0..=10.0).step_by(0.01))
+                .add(egui::Slider::new(&mut params.pump_ab, 0.05..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
             ui.label("Signl em.");
             changed |= ui
-                .add(egui::Slider::new(&mut params.sgnl_em, 0.0..=10.0).step_by(0.01))
+                .add(egui::Slider::new(&mut params.sgnl_em, 0.05..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
