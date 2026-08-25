@@ -142,6 +142,7 @@ impl Plotter {
             .allow_scroll(false)
             .allow_axis_zoom_drag(false)
             .allow_drag(false)
+            .sense(egui::Sense::hover())
             .show(ui, |plot_ui| {
                 if let Some((lower, upper)) = self.x_limits {
                     plot_ui.set_plot_bounds_x(lower..=upper);
