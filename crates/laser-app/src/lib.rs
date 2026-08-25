@@ -277,19 +277,22 @@ impl LaserApp {
 impl eframe::App for LaserApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let mut changed = false;
+
         egui::CentralPanel::default().show(ctx, |ui| {
-            changed |= self.draw_view_selector(ui);
+            egui::ScrollArea::both().show(ui, |ui| {
+                changed |= self.draw_view_selector(ui);
 
-            ui.separator();
+                ui.separator();
 
-            changed |= self.draw_controls(ui);
-            if changed || self.cached_plotter.is_none() {
-                self.cached_plotter = Some(self.compute_plot());
-                ctx.request_repaint();
-            }
-            ui.separator();
+                changed |= self.draw_controls(ui);
+                if changed || self.cached_plotter.is_none() {
+                    self.cached_plotter = Some(self.compute_plot());
+                    ctx.request_repaint();
+                }
+                ui.separator();
 
-            self.draw_plot(ui);
+                self.draw_plot(ui);
+            });
         });
     }
 }
