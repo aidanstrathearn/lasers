@@ -31,11 +31,11 @@ pub enum View {
 
 const VIEW_OPTIONS: [(View, &str, egui::Key); 6] = [
     (View::Profile, "[1] Profile", egui::Key::Num1),
-    (View::Residual, "[2] Residual", egui::Key::Num2),
-    (View::Populations, "[3] Populations", egui::Key::Num3),
-    (View::Kappa, "[4] Kappa", egui::Key::Num4),
-    (View::Threshold, "[5] Threshold", egui::Key::Num5),
-    (View::PiPosition, "[6] Pi position", egui::Key::Num6),
+    (View::Populations, "[2] Populations", egui::Key::Num2),
+    (View::Kappa, "[3] Kappa", egui::Key::Num3),
+    (View::Threshold, "[4] Threshold", egui::Key::Num4),
+    (View::PiPosition, "[5] Pi position", egui::Key::Num5),
+    (View::Residual, "[6] Residual", egui::Key::Num6),
 ];
 
 impl View {

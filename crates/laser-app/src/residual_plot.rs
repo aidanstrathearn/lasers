@@ -20,8 +20,8 @@ impl Default for ResidualRange {
     fn default() -> Self {
         Self {
             lower: 1e-6,
-            upper: 100.0,
-            num: 20,
+            upper: 20.0,
+            num: 100,
         }
     }
 }
