@@ -11,13 +11,13 @@ use crate::residual_plot::{ResidualRange, residual_slider_grid};
 use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
 use eframe::egui::Ui;
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{Fibre, GridPoints, Pump};
 use laser_solver::picard::PicardConfig;
-use laser_solver::rootfind::BisectionConfig;
+use laser_solver::rootfind::{BisectionConfig, RootFindConfig};
 use std::time::Duration;
 use web_time::Instant;
-use laser_solver::dfb::Grating;
 
 #[derive(PartialEq, Default, Copy, Clone)]
 pub enum View {
@@ -99,6 +99,20 @@ pub struct LaserApp {
 }
 
 impl LaserApp {
+    fn dfb_laser(&self) -> DfbLaser {
+        DfbLaser {
+            fibre: self.fibre_params,
+            grating: self.grating,
+        }
+    }
+
+    fn dfb_solve_config(&self, root_find: impl Into<RootFindConfig>) -> DfbSolveConfig {
+        DfbSolveConfig {
+            grid_points: self.grid_points,
+            root_find: root_find.into(),
+            picard: self.picard_config,
+        }
+    }
 
     fn clear_physics() -> Self {
         Self {
