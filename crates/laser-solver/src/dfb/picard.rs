@@ -40,12 +40,12 @@ impl Default for PicardConfig {
     }
 }
 
-pub struct PicardDfbSolver {
+pub struct PicardSolver {
     current: Vec<FieldState>,
     new: Vec<FieldState>,
 }
 
-impl PicardDfbSolver {
+impl PicardSolver {
     pub fn from_initial(initial: Vec<FieldState>) -> Self {
         let n = initial.len();
         Self {
@@ -166,7 +166,7 @@ pub fn dfb_solve_from_picard_solver(
     kp: Grating,
     full_profile: bool,
     config: impl Into<RootFindConfig>,
-    solver: &mut PicardDfbSolver,
+    solver: &mut PicardSolver,
     picard_config: PicardConfig,
 ) -> Result<FieldProfile, SolverError> {
     let kappas = kp.grid(gp.0);
@@ -199,7 +199,7 @@ pub fn dfb_solve_picard(
     config: impl Into<RootFindConfig>,
     picard_config: PicardConfig,
 ) -> Result<FieldProfile, SolverError> {
-    let mut solver = PicardDfbSolver::new(pump, fp, gp);
+    let mut solver = PicardSolver::new(pump, fp, gp);
     dfb_solve_from_picard_solver(
         pump,
         fp,
@@ -218,7 +218,7 @@ pub fn dfb_output_power_picard(
     gp: GridPoints,
     kp: Grating,
     config: impl Into<RootFindConfig> + Copy,
-    solver: &mut PicardDfbSolver,
+    solver: &mut PicardSolver,
     picard_config: PicardConfig,
 ) -> Result<OutputPower, SolverError> {
     let profile =

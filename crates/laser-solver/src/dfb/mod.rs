@@ -1,7 +1,7 @@
 pub mod picard;
 mod shooting;
 
-use self::picard::{PicardConfig, PicardDfbSolver, dfb_output_power_picard, dfb_solve_picard};
+use self::picard::{PicardConfig, PicardSolver, dfb_output_power_picard, dfb_solve_picard};
 use crate::error::SolverError;
 use crate::lase::{
     Fibre, FieldProfile, FieldState, GridPoints, Pump, PumpScan, find_threshold_and_slope, gain,
@@ -144,7 +144,7 @@ pub fn dfb_find_threshold_and_slope(
     pump_start.amplitudes();
     let use_picard = pump_start.balance != 1.0;
     if use_picard {
-        let mut solver = PicardDfbSolver::new(pump_start, fp, gp);
+        let mut solver = PicardSolver::new(pump_start, fp, gp);
         let f = |total| {
             dfb_output_power_picard(
                 Pump {
@@ -198,7 +198,7 @@ pub fn dfb_pump_scan(
 
     let use_picard = balance != 1.0;
     if use_picard {
-        let mut solver = PicardDfbSolver::new(
+        let mut solver = PicardSolver::new(
             Pump {
                 total: pump_start,
                 balance,

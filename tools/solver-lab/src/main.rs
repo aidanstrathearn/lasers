@@ -9,7 +9,7 @@ use laser_solver::dfb::{
 use laser_solver::lase::{
     Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff,
 };
-use laser_solver::picard::{PicardConfig, PicardDfbSolver, dfb_solve_picard, initial_profile};
+use laser_solver::picard::{PicardConfig, PicardSolver, dfb_solve_picard, initial_profile};
 use laser_solver::rootfind::{
     BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig, rootfind_1d,
 };
@@ -267,7 +267,7 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
         ),
     );
 
-    let mut picard_solver = PicardDfbSolver::new(comparison_pump, FIBRE, GRID);
+    let mut picard_solver = PicardSolver::new(comparison_pump, FIBRE, GRID);
     let picard_fields = picard_solver
         .solve_profile_picard(
             comparison_sgnl_b,
