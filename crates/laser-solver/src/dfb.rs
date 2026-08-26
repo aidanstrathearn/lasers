@@ -7,9 +7,32 @@ use crate::picard::{PicardConfig, PicardDfbSolver, dfb_output_power_picard, dfb_
 use crate::rootfind::{RootFindConfig, rootfind_1d};
 use crate::utils::IterationConfig;
 
+pub struct DfbSolveConfig {
+    pub grid_points: GridPoints,
+    pub root_find: RootFindConfig,
+    pub picard: PicardConfig,
+}
+
 pub struct DfbLaser {
-    fibre: Fibre,
-    grating: Grating
+    pub fibre: Fibre,
+    pub grating: Grating,
+}
+
+impl DfbLaser {
+    pub fn dfb_solve(&self,
+        pump: Pump,
+        gp: GridPoints,
+        full_profile: bool,
+        config: impl Into<RootFindConfig>,
+        picard_config: PicardConfig,
+    ) -> Result<FieldProfile, SolverError> {
+        let use_picard = pump.backward_amplitude() > 0.0;
+        if use_picard {
+            dfb_solve_picard(pump, self.fibre, gp, self.grating, full_profile, config, picard_config)
+        } else {
+            dfb_solve_shooting(pump, self.fibre, gp, self.grating, full_profile, config)
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
