@@ -1,10 +1,10 @@
+use super::Grating;
 use crate::error::SolverError;
 use crate::lase::{
     Fibre, FieldProfile, FieldState, GridPoints, OutputPower, Pump, gain,
 };
 use crate::rootfind::{RootFindConfig, try_rootfind_1d};
 use std::fmt;
-use crate::dfb::Grating;
 
 #[derive(Debug)]
 pub enum PicardError {

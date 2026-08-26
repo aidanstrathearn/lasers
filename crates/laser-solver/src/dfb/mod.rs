@@ -1,9 +1,11 @@
+pub mod picard;
+
+use self::picard::{PicardConfig, PicardDfbSolver, dfb_output_power_picard, dfb_solve_picard};
 use crate::error::SolverError;
 use crate::lase::{
     Fibre, FieldProfile, FieldState, GridPoints, OutputPower, Pump, PumpScan,
     find_threshold_and_slope, gain, pump_scan,
 };
-use crate::picard::{PicardConfig, PicardDfbSolver, dfb_output_power_picard, dfb_solve_picard};
 use crate::rootfind::{RootFindConfig, rootfind_1d};
 use crate::utils::IterationConfig;
 
