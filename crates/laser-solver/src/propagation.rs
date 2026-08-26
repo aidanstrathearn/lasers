@@ -51,3 +51,46 @@ pub fn transfer(gain: f64, kappa: f64, dz: f64) -> (f64, f64, f64, f64) {
         cosh - g_dz * sinch,
     )
 }
+
+pub fn solve_profile_uncoupled(
+    fs: FieldState,
+    fp: Fibre,
+    dz: f64,
+    nsteps: usize,
+) -> Vec<FieldState> {
+    let mut current = fs;
+    let mut result = Vec::with_capacity(nsteps + 1);
+    result.push(current);
+    for _ in 0..nsteps {
+        current = current.uncoupled_step_shooting(fp, dz);
+        result.push(current);
+    }
+    result
+}
+
+pub fn out_field_uncoupled(fs: FieldState, fp: Fibre, dz: f64, nsteps: usize) -> FieldState {
+    let mut current = fs;
+    for _ in 0..nsteps {
+        current = current.uncoupled_step_shooting(fp, dz);
+    }
+    current
+}
+
+pub fn solve_profile_coupled(fs: FieldState, fp: Fibre, dz: f64, kappas: &[f64]) -> Vec<FieldState> {
+    let mut current = fs;
+    let mut result = Vec::with_capacity(kappas.len() + 1);
+    result.push(current);
+    for &kappa in kappas {
+        current = current.coupled_step_shooting(fp, kappa, dz);
+        result.push(current);
+    }
+    result
+}
+
+pub fn out_field_coupled(fs: FieldState, fp: Fibre, dz: f64, kappas: &[f64]) -> FieldState {
+    let mut current = fs;
+    for &kappa in kappas {
+        current = current.coupled_step_shooting(fp, kappa, dz);
+    }
+    current
+}

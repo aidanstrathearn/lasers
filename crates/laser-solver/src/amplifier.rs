@@ -1,5 +1,6 @@
 use crate::error::SolverError;
 use crate::lase::{Fibre, FieldProfile, FieldState, GridPoints, OutputPower, Pump};
+use crate::propagation::{out_field_uncoupled, solve_profile_uncoupled};
 use crate::rootfind::{RootFindConfig, rootfind_1d};
 
 #[derive(Copy, Clone)]
@@ -39,8 +40,10 @@ impl Amplifier {
         let pump_b = if pump_backward == 0.0 {
             0.0
         } else {
-            let f =
-                |pump_b| out_field_uncoupled(trial(pump_b), self.fibre, dz, nsteps).pump_b / pump_backward - 1.0;
+            let f = |pump_b| {
+                out_field_uncoupled(trial(pump_b), self.fibre, dz, nsteps).pump_b / pump_backward
+                    - 1.0
+            };
             rootfind_1d(f, config.root_find)?
         };
 
@@ -68,28 +71,4 @@ impl Amplifier {
         let profile = self.solve(input_signal_power, pump, config, false)?;
         Ok(profile.output_powers())
     }
-}
-
-pub fn solve_profile_uncoupled(
-    fs: FieldState,
-    fp: Fibre,
-    dz: f64,
-    nsteps: usize,
-) -> Vec<FieldState> {
-    let mut current = fs;
-    let mut result = Vec::with_capacity(nsteps + 1);
-    result.push(current);
-    for _ in 0..nsteps {
-        current = current.uncoupled_step_shooting(fp, dz);
-        result.push(current);
-    }
-    result
-}
-
-pub fn out_field_uncoupled(fs: FieldState, fp: Fibre, dz: f64, nsteps: usize) -> FieldState {
-    let mut current = fs;
-    for _ in 0..nsteps {
-        current = current.uncoupled_step_shooting(fp, dz);
-    }
-    current
 }
