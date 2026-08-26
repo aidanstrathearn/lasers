@@ -91,7 +91,7 @@ fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
     let dz = GRID.dz(FIBRE.length);
     let trial = |sgnl_b| FieldState {
         sgnl_f: 0.0,
-        sgnl_b: sgnl_b,
+        sgnl_b,
         pump_f: 2.0,
         pump_b: 0.0, // shooting method requires zero backward pump amplitude
     };

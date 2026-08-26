@@ -70,7 +70,7 @@ impl PicardDfbSolver {
         let (pump_forward, _) = pump.amplitudes();
         let boundary = FieldState {
             sgnl_f: 0.0,
-            sgnl_b: sgnl_b,
+            sgnl_b,
             pump_f: pump_forward,
             pump_b: 0.0,
         };
@@ -146,7 +146,7 @@ pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProf
         .collect();
     FieldProfile::new(zs, fields)
 }
-pub fn find_pump_b(pump: Pump, profile: &Vec<FieldState>, fp: FibreParams, dz: f64) -> f64 {
+pub fn find_pump_b(pump: Pump, profile: &[FieldState], fp: FibreParams, dz: f64) -> f64 {
     let expg: f64 = profile[..profile.len() - 1]
         .iter()
         .map(|&field| {

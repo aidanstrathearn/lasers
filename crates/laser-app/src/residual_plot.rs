@@ -2,11 +2,9 @@ use crate::plotter::Plotter;
 use crate::{LaserApp, Points, timed};
 use eframe::egui;
 use eframe::egui::Ui;
-use laser_solver::dfb::{dfb_pump_scan, out_field};
+use laser_solver::dfb::{out_field};
 use laser_solver::error::SolverError;
 use laser_solver::lase::FieldState;
-use laser_solver::rootfind::BisectionConfig;
-use laser_solver::rootfind::RootFindConfig::Newton1d;
 use laser_solver::utils::linspace;
 
 #[derive(Copy, Clone)]
@@ -38,7 +36,7 @@ impl LaserApp {
         let dz = self.grid_points.dz(self.fibre_params.length);
         let trial = |sgnl_b| FieldState {
             sgnl_f: 0.0,
-            sgnl_b: sgnl_b,
+            sgnl_b,
             pump_f: self.pump.forward_amplitude(),
             pump_b: 0.0,
         }; //todo: use picard for backward pump

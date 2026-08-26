@@ -98,35 +98,6 @@ pub struct LaserApp {
 }
 
 impl LaserApp {
-    fn strong_coupling() -> Self {
-        Self {
-            pump: Pump {
-                total: 50.0,
-                balance: 1.0,
-            },
-            fibre_params: FibreParams {
-                density: 0.20,
-                lifetime: 1.0,
-                pump_ab: 0.1,
-                pump_em: 0.0,
-                sgnl_ab: 0.1,
-                sgnl_em: 0.1,
-                length: 5.0,
-            },
-            grid_points: GridPoints::default(),
-            grating: GratingProfile {
-                kappa_left: 3.0,
-                kappa_right: 3.0,
-                pi_shift_position: 0.5,
-            },
-            picard_config: PicardConfig {
-                max_iterations: 5_000,
-                relative_tolerance: 1e-6,
-                absolute_tolerance: 1e-10,
-            },
-            ..Self::default()
-        }
-    }
 
     fn clear_physics() -> Self {
         Self {

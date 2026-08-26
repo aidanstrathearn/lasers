@@ -5,7 +5,6 @@ use eframe::egui::Ui;
 use laser_solver::dfb::dfb_pump_scan;
 use laser_solver::error::SolverError;
 use laser_solver::rootfind::BisectionConfig;
-use laser_solver::rootfind::RootFindConfig::Newton1d;
 use laser_solver::utils::linspace;
 
 #[derive(Copy, Clone)]

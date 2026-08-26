@@ -77,7 +77,7 @@ pub fn dfb_solve_shooting(
     let dz = gp.dz(fp.length);
     let trial = |sgnl_b| FieldState {
         sgnl_f: 0.0,
-        sgnl_b: sgnl_b,
+        sgnl_b,
         pump_f: pump_forward,
         pump_b: 0.0, // shooting method requires zero backward pump amplitude
     };

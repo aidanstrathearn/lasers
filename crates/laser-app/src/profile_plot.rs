@@ -132,11 +132,11 @@ impl ProfilePlot {
         // &self.pending: &Option<..>, and rust treats LHS as &Some(ref rx) -- generally derefs through pattern matching
         // e.g. (a, b) = &my_tuple derefs the outer tuple and makes a,b: &...
         // using self.pending.as_ref(): Option<&..> would mean nothing implicit happens
-        if let Some(rx) = &self.pending {
-            if let Ok(points) = rx.try_recv() {
+        if let Some(rx) = &self.pending &&
+            let Ok(points) = rx.try_recv() {
                 self.result = Some(points);
                 self.pending = None;
             }
-        }
+        
     }
 }

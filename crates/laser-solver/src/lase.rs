@@ -114,7 +114,7 @@ pub fn field_max_diff(f1: FieldState, f2: FieldState) -> f64 {
     ];
     diffs.into_iter().fold(0.0, f64::max)
 }
-pub fn profile_max_diff(p1: &Vec<FieldState>, p2: &Vec<FieldState>) -> f64 {
+pub fn profile_max_diff(p1: &[FieldState], p2: &[FieldState]) -> f64 {
     p1.iter()
         .zip(p2.iter())
         .map(|(&f1, &f2)| field_max_diff(f1, f2))
@@ -131,7 +131,7 @@ pub fn field_avg_diff(f1: FieldState, f2: FieldState) -> f64 {
     ];
     diffs.into_iter().sum::<f64>() / 4.0
 }
-pub fn profile_avg_diff(p1: &Vec<FieldState>, p2: &Vec<FieldState>) -> f64 {
+pub fn profile_avg_diff(p1: &[FieldState], p2: &[FieldState]) -> f64 {
     p1.iter()
         .zip(p2.iter())
         .map(|(&f1, &f2)| field_max_diff(f1, f2))
@@ -172,7 +172,7 @@ impl FieldProfile {
     pub fn z(&self) -> impl Iterator<Item = f64> {
         //manual deref needed here and not for self.fields because struct field access e.g. x.sgnl_b derefs implicitly.
         //could also do self.z.iter().copied()
-        self.z.iter().map(|&z| z)
+        self.z.iter().copied()
     }
 
     pub fn output_powers(&self) -> OutputPower {
