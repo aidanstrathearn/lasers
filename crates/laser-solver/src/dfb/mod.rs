@@ -23,26 +23,25 @@ pub struct DfbLaser {
 }
 
 impl DfbLaser {
-    pub fn solve(&self,
+    pub fn solve(
+        &self,
         pump: Pump,
-        gp: GridPoints,
+        solve_config: DfbSolveConfig,
         full_profile: bool,
-        config: impl Into<RootFindConfig>,
-        picard_config: PicardConfig,
     ) -> Result<FieldProfile, SolverError> {
         let use_picard = pump.backward_amplitude() > 0.0;
         if use_picard {
-            dfb_solve_picard(pump, self.fibre, gp, self.grating, full_profile, config, picard_config)
-        } else {
-            self.solve_shooting(
+            dfb_solve_picard(
                 pump,
-                DfbSolveConfig {
-                    grid_points: gp,
-                    root_find: config.into(),
-                    picard: picard_config,
-                },
+                self.fibre,
+                solve_config.grid_points,
+                self.grating,
                 full_profile,
+                solve_config.root_find,
+                solve_config.picard,
             )
+        } else {
+            self.solve_shooting(pump, solve_config, full_profile)
         }
     }
 }
