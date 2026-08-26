@@ -1,10 +1,10 @@
 use crate::error::SolverError;
 use crate::lase::{
-    FibreParams, FieldProfile, FieldState, GridPoints, OutputPower, Pump, gain,
+    Fibre, FieldProfile, FieldState, GridPoints, OutputPower, Pump, gain,
 };
 use crate::rootfind::{RootFindConfig, try_rootfind_1d};
 use std::fmt;
-use crate::dfb::GratingProfile;
+use crate::dfb::Grating;
 
 #[derive(Debug)]
 pub enum PicardError {
@@ -54,7 +54,7 @@ impl PicardDfbSolver {
         }
     }
 
-    pub fn new(pump: Pump, fp: FibreParams, gp: GridPoints) -> Self {
+    pub fn new(pump: Pump, fp: Fibre, gp: GridPoints) -> Self {
         Self::from_initial(initial_profile(pump, fp, gp).fields)
     }
 
@@ -62,7 +62,7 @@ impl PicardDfbSolver {
         &mut self,
         sgnl_b: f64,
         pump: Pump,
-        fp: FibreParams,
+        fp: Fibre,
         config: PicardConfig,
         kappas: &[f64],
         dz: f64,
@@ -125,7 +125,7 @@ pub fn profile_convergence_error(
         .max(max_dif_s / (config.absolute_tolerance + config.relative_tolerance * max_mag_s))
 }
 
-pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProfile {
+pub fn initial_profile(pump: Pump, fp: Fibre, gp: GridPoints) -> FieldProfile {
     let g = 0.5 * (-fp.pump_ab + fp.pump_em) * fp.density; // ground and excited populations are equal
     let zs = gp.grid(fp.length);
     let end_factor = (0.5 * g * fp.length).exp();
@@ -147,7 +147,7 @@ pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProf
         .collect();
     FieldProfile::new(zs, fields)
 }
-pub fn find_pump_b(pump: Pump, profile: &[FieldState], fp: FibreParams, dz: f64) -> f64 {
+pub fn find_pump_b(pump: Pump, profile: &[FieldState], fp: Fibre, dz: f64) -> f64 {
     let expg: f64 = profile[..profile.len() - 1]
         .iter()
         .map(|&field| {
@@ -161,9 +161,9 @@ pub fn find_pump_b(pump: Pump, profile: &[FieldState], fp: FibreParams, dz: f64)
 
 pub fn dfb_solve_from_picard_solver(
     pump: Pump,
-    fp: FibreParams,
+    fp: Fibre,
     gp: GridPoints,
-    kp: GratingProfile,
+    kp: Grating,
     full_profile: bool,
     config: impl Into<RootFindConfig>,
     solver: &mut PicardDfbSolver,
@@ -192,9 +192,9 @@ pub fn dfb_solve_from_picard_solver(
 
 pub fn dfb_solve_picard(
     pump: Pump,
-    fp: FibreParams,
+    fp: Fibre,
     gp: GridPoints,
-    kp: GratingProfile,
+    kp: Grating,
     full_profile: bool,
     config: impl Into<RootFindConfig>,
     picard_config: PicardConfig,
@@ -214,9 +214,9 @@ pub fn dfb_solve_picard(
 
 pub fn dfb_output_power_picard(
     pump: Pump,
-    fp: FibreParams,
+    fp: Fibre,
     gp: GridPoints,
-    kp: GratingProfile,
+    kp: Grating,
     config: impl Into<RootFindConfig> + Copy,
     solver: &mut PicardDfbSolver,
     picard_config: PicardConfig,

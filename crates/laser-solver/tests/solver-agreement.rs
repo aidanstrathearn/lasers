@@ -1,6 +1,6 @@
-use laser_solver::dfb::{dfb_solve_shooting, solve_profile, GratingProfile};
+use laser_solver::dfb::{dfb_solve_shooting, solve_profile, Grating};
 use laser_solver::lase::{
-    FibreParams, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff,
+    Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff,
 };
 use laser_solver::picard::{PicardConfig, PicardDfbSolver, dfb_solve_picard};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
@@ -12,7 +12,7 @@ const FORWARD_PUMP: Pump = Pump {
     balance: 1.0,
 };
 
-const FIBRE: FibreParams = FibreParams {
+const FIBRE: Fibre = Fibre {
     density: 1.0,
     lifetime: 1.0,
     pump_ab: 0.01 * 100.0,
@@ -27,13 +27,13 @@ const GRID: GridPoints = GridPoints(500);
 // with grid refinement rather than holding bit-for-bit on a coarse grid.
 const SYMMETRY_GRID: GridPoints = GridPoints(5_000);
 
-const GRATING: GratingProfile = GratingProfile {
+const GRATING: Grating = Grating {
     kappa_left: 1.0,
     kappa_right: 1.0,
     pi_shift_position: 0.45,
 };
 
-const SYMMETRIC_GRATING: GratingProfile = GratingProfile {
+const SYMMETRIC_GRATING: Grating = Grating {
     kappa_left: 1.0,
     kappa_right: 1.0,
     pi_shift_position: 0.5,

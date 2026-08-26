@@ -1,6 +1,6 @@
 use crate::plotter::Plotter;
 use crate::{LaserApp, Points, timed};
-use laser_solver::dfb::{dfb_solve, GratingProfile};
+use laser_solver::dfb::{dfb_solve, Grating};
 use laser_solver::error::SolverError;
 use laser_solver::rootfind::BisectionConfig;
 use laser_solver::utils::linspace;
@@ -20,7 +20,7 @@ impl LaserApp {
         let mut compute_time = Duration::ZERO;
 
         for pi_position in pi_positions {
-            let grating = GratingProfile {
+            let grating = Grating {
                 pi_shift_position: pi_position,
                 ..self.grating
             };

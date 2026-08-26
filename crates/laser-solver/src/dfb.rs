@@ -1,6 +1,6 @@
 use crate::error::SolverError;
 use crate::lase::{
-    FibreParams, FieldProfile, FieldState, GridPoints, OutputPower, Pump, PumpScan,
+    Fibre, FieldProfile, FieldState, GridPoints, OutputPower, Pump, PumpScan,
     find_threshold_and_slope, gain, pump_scan,
 };
 use crate::picard::{PicardConfig, PicardDfbSolver, dfb_output_power_picard, dfb_solve_picard};
@@ -8,18 +8,18 @@ use crate::rootfind::{RootFindConfig, rootfind_1d};
 use crate::utils::IterationConfig;
 
 pub struct DfbLaser {
-    fibre: FibreParams,
-    grating: GratingProfile
+    fibre: Fibre,
+    grating: Grating
 }
 
 #[derive(Copy, Clone)]
-pub struct GratingProfile {
+pub struct Grating {
     pub kappa_left: f64,
     pub kappa_right: f64,
     pub pi_shift_position: f64,
 }
 
-impl Default for GratingProfile {
+impl Default for Grating {
     fn default() -> Self {
         Self {
             kappa_left: 1.0,
@@ -29,7 +29,7 @@ impl Default for GratingProfile {
     }
 }
 
-impl GratingProfile {
+impl Grating {
     pub fn grid(self, n: usize) -> Vec<f64> {
         (0..n)
             .map(|j| {
@@ -45,11 +45,11 @@ impl GratingProfile {
 }
 
 impl FieldState {
-    pub fn propagate(self, fp: FibreParams, kappa: f64, dz: f64) -> Self {
+    pub fn propagate(self, fp: Fibre, kappa: f64, dz: f64) -> Self {
         self.general_step(self, fp, kappa, dz)
     }
 
-    pub fn general_step(self, other: Self, fp: FibreParams, kappa: f64, dz: f64) -> Self {
+    pub fn general_step(self, other: Self, fp: Fibre, kappa: f64, dz: f64) -> Self {
         let (gp, gs) = gain(other, fp);
         let (a, b, c, d) = transfer(gs, kappa, dz);
         let expg = (0.5 * gp * dz).exp();
@@ -78,7 +78,7 @@ pub fn transfer(gain: f64, kappa: f64, dz: f64) -> (f64, f64, f64, f64) {
     )
 }
 
-pub fn solve_profile(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> Vec<FieldState> {
+pub fn solve_profile(fs: FieldState, fp: Fibre, dz: f64, kappas: &[f64]) -> Vec<FieldState> {
     let mut current = fs;
     let mut result = Vec::with_capacity(kappas.len() + 1);
     result.push(current);
@@ -89,7 +89,7 @@ pub fn solve_profile(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -
     result
 }
 
-pub fn out_field(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> FieldState {
+pub fn out_field(fs: FieldState, fp: Fibre, dz: f64, kappas: &[f64]) -> FieldState {
     let mut current = fs;
     for &kappa in kappas {
         current = current.propagate(fp, kappa, dz);
@@ -99,9 +99,9 @@ pub fn out_field(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> Fi
 
 pub fn dfb_solve_shooting(
     pump: Pump,
-    fp: FibreParams,
+    fp: Fibre,
     gp: GridPoints,
-    kp: GratingProfile,
+    kp: Grating,
     full_profile: bool,
     config: impl Into<RootFindConfig>,
 ) -> Result<FieldProfile, SolverError> {
@@ -135,9 +135,9 @@ pub fn dfb_solve_shooting(
 
 pub fn dfb_output_power_shooting(
     pump: Pump,
-    fp: FibreParams,
+    fp: Fibre,
     gp: GridPoints,
-    kp: GratingProfile,
+    kp: Grating,
     config: impl Into<RootFindConfig> + Copy,
 ) -> Result<OutputPower, SolverError> {
     let profile = dfb_solve_shooting(pump, fp, gp, kp, false, config)?;
@@ -148,9 +148,9 @@ pub fn dfb_find_threshold_and_slope(
     pump_start: Pump,
     pump_step: f64,
     ip: IterationConfig,
-    fp: FibreParams,
+    fp: Fibre,
     gp: GridPoints,
-    kp: GratingProfile,
+    kp: Grating,
     config: impl Into<RootFindConfig> + Copy,
     picard_config: PicardConfig,
 ) -> Result<(f64, f64, f64), SolverError> {
@@ -193,9 +193,9 @@ pub fn dfb_find_threshold_and_slope(
 pub fn dfb_pump_scan(
     pumps: &[f64],
     balance: f64,
-    fp: FibreParams,
+    fp: Fibre,
     gp: GridPoints,
-    kp: GratingProfile,
+    kp: Grating,
     config: impl Into<RootFindConfig> + Copy,
     picard_config: PicardConfig,
 ) -> Result<PumpScan, SolverError> {
@@ -233,9 +233,9 @@ pub fn dfb_pump_scan(
 
 pub fn dfb_solve(
     pump: Pump,
-    fp: FibreParams,
+    fp: Fibre,
     gp: GridPoints,
-    kp: GratingProfile,
+    kp: Grating,
     full_profile: bool,
     config: impl Into<RootFindConfig>,
     picard_config: PicardConfig,

@@ -1,6 +1,6 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use laser_solver::dfb::{dfb_solve_shooting, GratingProfile};
-use laser_solver::lase::{FibreParams, GridPoints, Pump};
+use laser_solver::dfb::{dfb_solve_shooting, Grating};
+use laser_solver::lase::{Fibre, GridPoints, Pump};
 use laser_solver::picard::{PicardConfig, dfb_solve_picard};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::IterationConfig;
@@ -12,7 +12,7 @@ const FORWARD_PUMP: Pump = Pump {
     balance: 1.0,
 };
 
-const FIBRE: FibreParams = FibreParams {
+const FIBRE: Fibre = Fibre {
     density: 1.0,
     lifetime: 1.0,
     pump_ab: 0.01 * 100.0,
@@ -25,7 +25,7 @@ const FIBRE: FibreParams = FibreParams {
 const GRID: GridPoints = GridPoints(500);
 const FULL_PROFILE: bool = true;
 
-const GRATING: GratingProfile = GratingProfile {
+const GRATING: Grating = Grating {
     kappa_left: 1.0,
     kappa_right: 1.0,
     pi_shift_position: 0.45,

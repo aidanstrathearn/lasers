@@ -12,12 +12,12 @@ use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::error::SolverError;
-use laser_solver::lase::{FibreParams, GridPoints, Pump};
+use laser_solver::lase::{Fibre, GridPoints, Pump};
 use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::BisectionConfig;
 use std::time::Duration;
 use web_time::Instant;
-use laser_solver::dfb::GratingProfile;
+use laser_solver::dfb::Grating;
 
 #[derive(PartialEq, Default, Copy, Clone)]
 pub enum View {
@@ -88,9 +88,9 @@ fn timed<T>(compute: impl FnOnce() -> T) -> (T, Duration) {
 pub struct LaserApp {
     view: View,
     pump: Pump,
-    fibre_params: FibreParams,
+    fibre_params: Fibre,
     grid_points: GridPoints,
-    grating: GratingProfile,
+    grating: Grating,
     config: BisectionConfig,
     picard_config: PicardConfig,
     threshold_range: ThresholdRange,
@@ -106,7 +106,7 @@ impl LaserApp {
                 total: 10.0,
                 balance: 1.0,
             },
-            fibre_params: FibreParams {
+            fibre_params: Fibre {
                 density: 0.50,
                 lifetime: 1.0,
                 pump_ab: 1.0,
@@ -116,7 +116,7 @@ impl LaserApp {
                 length: 5.0,
             },
             grid_points: GridPoints::default(),
-            grating: GratingProfile {
+            grating: Grating {
                 kappa_left: 0.6,
                 kappa_right: 0.6,
                 pi_shift_position: 0.5,
@@ -319,7 +319,7 @@ fn gridpoints_slider(gp: &mut GridPoints, ui: &mut Ui) -> bool {
     changed
 }
 
-fn grating_slider_grid(grating: &mut GratingProfile, ui: &mut Ui) -> bool {
+fn grating_slider_grid(grating: &mut Grating, ui: &mut Ui) -> bool {
     let mut changed = false;
 
     egui::Grid::new("grating").show(ui, |ui| {
@@ -365,7 +365,7 @@ fn pump_slider_grid(pump: &mut Pump, ui: &mut Ui) -> bool {
     changed
 }
 
-fn fibre_params_slider_grid(params: &mut FibreParams, ui: &mut Ui) -> bool {
+fn fibre_params_slider_grid(params: &mut Fibre, ui: &mut Ui) -> bool {
     let mut changed = false;
 
     egui::Grid::new("params").show(ui, |ui| {

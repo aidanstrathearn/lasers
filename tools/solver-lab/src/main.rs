@@ -3,10 +3,10 @@ mod plots;
 
 use crate::plots::plot_profile_diff;
 use laser_solver::dfb::{
-    dfb_find_threshold_and_slope, dfb_pump_scan, dfb_solve_shooting, out_field, solve_profile, GratingProfile,
+    dfb_find_threshold_and_slope, dfb_pump_scan, dfb_solve_shooting, out_field, solve_profile, Grating,
 };
 use laser_solver::lase::{
-    FibreParams, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff,
+    Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff,
 };
 use laser_solver::picard::{PicardConfig, PicardDfbSolver, dfb_solve_picard, initial_profile};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, rootfind_1d};
@@ -30,7 +30,7 @@ const FORWARD_PUMP: Pump = Pump {
     balance: 1.0,
 };
 
-const FIBRE: FibreParams = FibreParams {
+const FIBRE: Fibre = Fibre {
     density: 1.0,
     lifetime: 1.0,
     pump_ab: 0.01 * 100.0,
@@ -43,7 +43,7 @@ const FIBRE: FibreParams = FibreParams {
 const GRID: GridPoints = GridPoints(500);
 const FULL_PROFILE: bool = true;
 
-const GRATING: GratingProfile = GratingProfile {
+const GRATING: Grating = Grating {
     kappa_left: 1.0,
     kappa_right: 1.0,
     pi_shift_position: 0.45,

@@ -1,9 +1,9 @@
 use crate::plotter::Plotter;
 use crate::{LaserApp, Points, timed};
 use eframe::egui;
-use laser_solver::dfb::{dfb_solve, dfb_solve_shooting, GratingProfile};
+use laser_solver::dfb::{dfb_solve, dfb_solve_shooting, Grating};
 use laser_solver::error::SolverError;
-use laser_solver::lase::{FibreParams, FieldProfile, GridPoints, Pump};
+use laser_solver::lase::{Fibre, FieldProfile, GridPoints, Pump};
 use laser_solver::rootfind::{BisectionConfig, Newton1dConfig};
 use laser_solver::utils::IterationConfig;
 use std::sync::mpsc;
@@ -83,9 +83,9 @@ impl LaserApp {
 #[derive(Default)]
 pub struct ProfilePlot {
     pump: Pump,
-    fibre_params: FibreParams,
+    fibre_params: Fibre,
     grid_points: GridPoints,
-    grating: GratingProfile,
+    grating: Grating,
     pending: Option<Receiver<[Points; 4]>>,
     result: Option<[Points; 4]>,
 }

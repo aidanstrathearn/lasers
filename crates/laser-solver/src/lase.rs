@@ -6,7 +6,7 @@ pub type OutputPower = (f64, f64);
 pub type PumpScan = Vec<Option<OutputPower>>;
 
 #[derive(Copy, Clone)]
-pub struct FibreParams {
+pub struct Fibre {
     pub density: f64,
     pub lifetime: f64,
     pub pump_ab: f64,
@@ -16,7 +16,7 @@ pub struct FibreParams {
     pub length: f64,
 }
 
-impl Default for FibreParams {
+impl Default for Fibre {
     fn default() -> Self {
         Self {
             density: 1.0,
@@ -152,7 +152,7 @@ impl FieldProfile {
     }
 }
 
-pub fn pops(fs: FieldState, fp: FibreParams) -> (f64, f64) {
+pub fn pops(fs: FieldState, fp: Fibre) -> (f64, f64) {
     let pump_flux = fs.pump_f * fs.pump_f + fs.pump_b * fs.pump_b;
     let sgnl_flux = fs.sgnl_f * fs.sgnl_f + fs.sgnl_b * fs.sgnl_b;
     let gamma_up = pump_flux * fp.pump_ab + sgnl_flux * fp.sgnl_ab;
@@ -161,7 +161,7 @@ pub fn pops(fs: FieldState, fp: FibreParams) -> (f64, f64) {
     (gamma_dn / denom, gamma_up / denom)
 }
 
-pub fn gain(fs: FieldState, fp: FibreParams) -> (f64, f64) {
+pub fn gain(fs: FieldState, fp: Fibre) -> (f64, f64) {
     let (g, e) = pops(fs, fp);
     (
         fp.density * (-g * fp.pump_ab + e * fp.pump_em),
