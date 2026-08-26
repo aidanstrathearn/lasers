@@ -1,14 +1,17 @@
 pub mod picard;
+mod shooting;
 
 use self::picard::{PicardConfig, PicardDfbSolver, dfb_output_power_picard, dfb_solve_picard};
+pub use self::shooting::{dfb_output_power_shooting, dfb_solve_shooting};
 use crate::error::SolverError;
 use crate::lase::{
-    Fibre, FieldProfile, FieldState, GridPoints, OutputPower, Pump, PumpScan,
-    find_threshold_and_slope, gain, pump_scan,
+    Fibre, FieldProfile, FieldState, GridPoints, Pump, PumpScan, find_threshold_and_slope, gain,
+    pump_scan,
 };
-use crate::rootfind::{RootFindConfig, rootfind_1d};
+use crate::rootfind::RootFindConfig;
 use crate::utils::IterationConfig;
 
+#[derive(Copy, Clone)]
 pub struct DfbSolveConfig {
     pub grid_points: GridPoints,
     pub root_find: RootFindConfig,
@@ -21,7 +24,7 @@ pub struct DfbLaser {
 }
 
 impl DfbLaser {
-    pub fn dfb_solve(&self,
+    pub fn solve(&self,
         pump: Pump,
         gp: GridPoints,
         full_profile: bool,
@@ -32,7 +35,15 @@ impl DfbLaser {
         if use_picard {
             dfb_solve_picard(pump, self.fibre, gp, self.grating, full_profile, config, picard_config)
         } else {
-            dfb_solve_shooting(pump, self.fibre, gp, self.grating, full_profile, config)
+            self.solve_shooting(
+                pump,
+                DfbSolveConfig {
+                    grid_points: gp,
+                    root_find: config.into(),
+                    picard: picard_config,
+                },
+                full_profile,
+            )
         }
     }
 }
@@ -120,53 +131,6 @@ pub fn out_field(fs: FieldState, fp: Fibre, dz: f64, kappas: &[f64]) -> FieldSta
         current = current.propagate(fp, kappa, dz);
     }
     current
-}
-
-pub fn dfb_solve_shooting(
-    pump: Pump,
-    fp: Fibre,
-    gp: GridPoints,
-    kp: Grating,
-    full_profile: bool,
-    config: impl Into<RootFindConfig>,
-) -> Result<FieldProfile, SolverError> {
-    let (pump_forward, pump_backward) = pump.amplitudes();
-    assert_eq!(
-        pump_backward, 0.0,
-        "shooting solver requires a forward-only pump"
-    );
-    let kappas = kp.grid(gp.0);
-    let dz = gp.dz(fp.length);
-    let trial = |sgnl_b| FieldState {
-        sgnl_f: 0.0,
-        sgnl_b,
-        pump_f: pump_forward,
-        pump_b: 0.0, // shooting method requires zero backward pump amplitude
-    };
-    let f = |sgnl_b| out_field(trial(sgnl_b), fp, dz, &kappas).sgnl_b / sgnl_b;
-    let sgnl_b = rootfind_1d(f, config)?;
-
-    if full_profile {
-        let z = gp.grid(fp.length);
-        let fields = solve_profile(trial(sgnl_b), fp, dz, &kappas);
-        Ok(FieldProfile::new(z, fields))
-    } else {
-        let z = vec![0.0_f64, fp.length];
-        let out_left = trial(sgnl_b);
-        let fields = vec![out_left, out_field(out_left, fp, dz, &kappas)];
-        Ok(FieldProfile::new(z, fields))
-    }
-}
-
-pub fn dfb_output_power_shooting(
-    pump: Pump,
-    fp: Fibre,
-    gp: GridPoints,
-    kp: Grating,
-    config: impl Into<RootFindConfig> + Copy,
-) -> Result<OutputPower, SolverError> {
-    let profile = dfb_solve_shooting(pump, fp, gp, kp, false, config)?;
-    Ok(profile.output_powers())
 }
 
 pub fn dfb_find_threshold_and_slope(
