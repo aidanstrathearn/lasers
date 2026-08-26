@@ -3,7 +3,7 @@ mod plots;
 
 use crate::plots::plot_profile_diff;
 use laser_solver::dfb::{
-    DfbLaser, DfbSolveConfig, Grating, out_field, solve_profile,
+    DfbLaser, DfbSolveConfig, Grating, out_field_coupled, solve_profile_coupled,
 };
 use laser_solver::lase::{
     Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff,
@@ -114,7 +114,7 @@ fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
         pump_f: 2.0,
         pump_b: 0.0, // shooting method requires zero backward pump amplitude
     };
-    let f = |sgnl_b| out_field(trial(sgnl_b), FIBRE, dz, &kappas).sgnl_b / sgnl_b;
+    let f = |sgnl_b| out_field_coupled(trial(sgnl_b), FIBRE, dz, &kappas).sgnl_b / sgnl_b;
     let root = rootfind_1d(f, BISECTION).expect("root not found");
     println!("root is at {}", root);
     println!("residual at 0 {}", f(0.0));
@@ -267,7 +267,7 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
 
     let direct_profile = FieldProfile::new(
         GRID.grid(FIBRE.length),
-        solve_profile(
+        solve_profile_coupled(
             comparison_boundary,
             FIBRE,
             GRID.dz(FIBRE.length),

@@ -136,7 +136,7 @@ impl Grating {
     }
 }
 
-pub fn solve_profile(fs: FieldState, fp: Fibre, dz: f64, kappas: &[f64]) -> Vec<FieldState> {
+pub fn solve_profile_coupled(fs: FieldState, fp: Fibre, dz: f64, kappas: &[f64]) -> Vec<FieldState> {
     let mut current = fs;
     let mut result = Vec::with_capacity(kappas.len() + 1);
     result.push(current);
@@ -147,7 +147,7 @@ pub fn solve_profile(fs: FieldState, fp: Fibre, dz: f64, kappas: &[f64]) -> Vec<
     result
 }
 
-pub fn out_field(fs: FieldState, fp: Fibre, dz: f64, kappas: &[f64]) -> FieldState {
+pub fn out_field_coupled(fs: FieldState, fp: Fibre, dz: f64, kappas: &[f64]) -> FieldState {
     let mut current = fs;
     for &kappa in kappas {
         current = current.coupled_step_shooting(fp, kappa, dz);

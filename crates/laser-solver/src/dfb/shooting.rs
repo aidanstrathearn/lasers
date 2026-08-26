@@ -1,4 +1,4 @@
-use super::{DfbLaser, DfbSolveConfig, out_field, solve_profile};
+use super::{DfbLaser, DfbSolveConfig, out_field_coupled, solve_profile_coupled};
 use crate::error::SolverError;
 use crate::lase::{FieldProfile, FieldState, OutputPower, Pump};
 use crate::rootfind::rootfind_1d;
@@ -24,17 +24,17 @@ impl DfbLaser {
             pump_f: pump_forward,
             pump_b: 0.0, // shooting method requires zero backward pump amplitude
         };
-        let f = |sgnl_b| out_field(trial(sgnl_b), self.fibre, dz, &kappas).sgnl_b / sgnl_b;
+        let f = |sgnl_b| out_field_coupled(trial(sgnl_b), self.fibre, dz, &kappas).sgnl_b / sgnl_b;
         let sgnl_b = rootfind_1d(f, config.root_find)?;
 
         if full_profile {
             let z = gp.grid(self.fibre.length);
-            let fields = solve_profile(trial(sgnl_b), self.fibre, dz, &kappas);
+            let fields = solve_profile_coupled(trial(sgnl_b), self.fibre, dz, &kappas);
             Ok(FieldProfile::new(z, fields))
         } else {
             let z = vec![0.0_f64, self.fibre.length];
             let out_left = trial(sgnl_b);
-            let fields = vec![out_left, out_field(out_left, self.fibre, dz, &kappas)];
+            let fields = vec![out_left, out_field_coupled(out_left, self.fibre, dz, &kappas)];
             Ok(FieldProfile::new(z, fields))
         }
     }
