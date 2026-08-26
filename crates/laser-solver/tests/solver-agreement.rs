@@ -2,7 +2,7 @@ use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, solve_profile};
 use laser_solver::lase::{
     Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff,
 };
-use laser_solver::picard::{PicardConfig, PicardSolver, dfb_solve_picard};
+use laser_solver::picard::{PicardConfig, PicardSolver};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
 use laser_solver::utils::IterationConfig;
 
@@ -135,7 +135,8 @@ fn shooting_and_picard_dfb_solvers_agree_newton() {
     let shooting_profile = DFB_LASER
         .solve_shooting(pump, NEWTON_SOLVE_CONFIG, true)
         .expect("shooting DFB solve failed");
-    let picard_profile = dfb_solve_picard(pump, FIBRE, GRID, GRATING, true, NEWTON, PICARD)
+    let picard_profile = DFB_LASER
+        .solve_picard(pump, NEWTON_SOLVE_CONFIG, true)
         .expect("Picard DFB solve failed");
 
     assert_profiles_agree(
@@ -175,7 +176,8 @@ fn shooting_and_picard_dfb_solvers_agree_bisection() {
     let shooting_profile = DFB_LASER
         .solve_shooting(pump, BISECTION_SOLVE_CONFIG, true)
         .expect("shooting DFB solve failed");
-    let picard_profile = dfb_solve_picard(pump, FIBRE, GRID, GRATING, true, BISECTION, PICARD)
+    let picard_profile = DFB_LASER
+        .solve_picard(pump, BISECTION_SOLVE_CONFIG, true)
         .expect("Picard DFB solve failed");
 
     assert_profiles_agree(
@@ -206,14 +208,14 @@ fn backward_pumped_picard_is_reverse_of_forward_pumped_shooting() {
         true,
     )
     .expect("forward-pumped shooting DFB solve failed");
-    let picard_profile = dfb_solve_picard(
+    let picard_profile = SYMMETRIC_DFB_LASER.solve_picard(
         picard_pump,
-        FIBRE,
-        SYMMETRY_GRID,
-        SYMMETRIC_GRATING,
+        DfbSolveConfig {
+            grid_points: SYMMETRY_GRID,
+            root_find: RootFindConfig::Bisection(BISECTION),
+            picard: SYMMETRY_PICARD,
+        },
         true,
-        BISECTION,
-        SYMMETRY_PICARD,
     )
     .expect("backward-pumped Picard DFB solve failed");
 

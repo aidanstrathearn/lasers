@@ -1,7 +1,7 @@
 pub mod picard;
 mod shooting;
 
-use self::picard::{PicardConfig, PicardSolver, dfb_output_power_picard, dfb_solve_picard};
+use self::picard::{PicardConfig, PicardSolver};
 use crate::error::SolverError;
 use crate::lase::{
     Fibre, FieldProfile, FieldState, GridPoints, Pump, PumpScan, find_threshold_and_slope, gain,
@@ -31,15 +31,7 @@ impl DfbLaser {
     ) -> Result<FieldProfile, SolverError> {
         let use_picard = pump.backward_amplitude() > 0.0;
         if use_picard {
-            dfb_solve_picard(
-                pump,
-                self.fibre,
-                solve_config.grid_points,
-                self.grating,
-                full_profile,
-                solve_config.root_find,
-                solve_config.picard,
-            )
+            self.solve_picard(pump, solve_config, full_profile)
         } else {
             self.solve_shooting(pump, solve_config, full_profile)
         }
@@ -144,19 +136,24 @@ pub fn dfb_find_threshold_and_slope(
     pump_start.amplitudes();
     let use_picard = pump_start.balance != 1.0;
     if use_picard {
+        let laser = DfbLaser {
+            fibre: fp,
+            grating: kp,
+        };
+        let solve_config = DfbSolveConfig {
+            grid_points: gp,
+            root_find: config.into(),
+            picard: picard_config,
+        };
         let mut solver = PicardSolver::new(pump_start, fp, gp);
         let f = |total| {
-            dfb_output_power_picard(
+            laser.output_power_picard(
                 Pump {
                     total,
                     ..pump_start
                 },
-                fp,
-                gp,
-                kp,
-                config,
+                solve_config,
                 &mut solver,
-                picard_config,
             )
         };
         find_threshold_and_slope(pump_start.total, pump_step, ip, f)
@@ -198,6 +195,15 @@ pub fn dfb_pump_scan(
 
     let use_picard = balance != 1.0;
     if use_picard {
+        let laser = DfbLaser {
+            fibre: fp,
+            grating: kp,
+        };
+        let solve_config = DfbSolveConfig {
+            grid_points: gp,
+            root_find: config.into(),
+            picard: picard_config,
+        };
         let mut solver = PicardSolver::new(
             Pump {
                 total: pump_start,
@@ -207,14 +213,10 @@ pub fn dfb_pump_scan(
             gp,
         );
         pump_scan(pumps, |total| {
-            dfb_output_power_picard(
+            laser.output_power_picard(
                 Pump { total, balance },
-                fp,
-                gp,
-                kp,
-                config,
+                solve_config,
                 &mut solver,
-                picard_config,
             )
         })
     } else {
@@ -244,7 +246,19 @@ pub fn dfb_solve(
 ) -> Result<FieldProfile, SolverError> {
     let use_picard = pump.backward_amplitude() > 0.0;
     if use_picard {
-        dfb_solve_picard(pump, fp, gp, kp, full_profile, config, picard_config)
+        DfbLaser {
+            fibre: fp,
+            grating: kp,
+        }
+        .solve_picard(
+            pump,
+            DfbSolveConfig {
+                grid_points: gp,
+                root_find: config.into(),
+                picard: picard_config,
+            },
+            full_profile,
+        )
     } else {
         DfbLaser {
             fibre: fp,

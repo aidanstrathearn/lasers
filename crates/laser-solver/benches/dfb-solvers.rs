@@ -1,7 +1,7 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::lase::{Fibre, GridPoints, Pump};
-use laser_solver::picard::{PicardConfig, dfb_solve_picard};
+use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
 use laser_solver::utils::IterationConfig;
 use std::hint::black_box;
@@ -128,7 +128,8 @@ fn benchmark_picard_solvers(c: &mut Criterion) {
 
     group.bench_function("buffered", |b| {
         b.iter(|| {
-            let result = dfb_solve_picard(pump, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON, PICARD)
+            let result = DFB_LASER
+                .solve_picard(pump, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
                 .expect("buffered Picard DFB solve failed");
             black_box(result);
         });

@@ -1,9 +1,7 @@
-use super::Grating;
+use super::{DfbLaser, DfbSolveConfig};
 use crate::error::SolverError;
-use crate::lase::{
-    Fibre, FieldProfile, FieldState, GridPoints, OutputPower, Pump, gain,
-};
-use crate::rootfind::{RootFindConfig, try_rootfind_1d};
+use crate::lase::{Fibre, FieldProfile, FieldState, GridPoints, OutputPower, Pump, gain};
+use crate::rootfind::try_rootfind_1d;
 use std::fmt;
 
 #[derive(Debug)]
@@ -159,71 +157,62 @@ pub fn find_pump_b(pump: Pump, profile: &[FieldState], fp: Fibre, dz: f64) -> f6
     pump.backward_amplitude() * expg
 }
 
-pub fn dfb_solve_from_picard_solver(
-    pump: Pump,
-    fp: Fibre,
-    gp: GridPoints,
-    kp: Grating,
-    full_profile: bool,
-    config: impl Into<RootFindConfig>,
-    solver: &mut PicardSolver,
-    picard_config: PicardConfig,
-) -> Result<FieldProfile, SolverError> {
-    let kappas = kp.grid(gp.0);
-    let dz = gp.dz(fp.length);
-    let f = |sgnl_b| -> Result<f64, SolverError> {
-        let fields = solver.solve_profile_picard(sgnl_b, pump, fp, picard_config, &kappas, dz)?;
-        Ok(fields.last().unwrap().sgnl_b / sgnl_b)
-    };
-    // try_rootfind_1d muts the solver which leaves the lasing solution in the 'current' buffer
-    let _sgnl_b = try_rootfind_1d(f, config)?;
-    if full_profile {
-        Ok(FieldProfile::new(
-            gp.grid(fp.length),
-            solver.current.clone(),
-        ))
-    } else {
-        Ok(FieldProfile::new(
-            vec![0.0_f64, fp.length],
-            vec![solver.current[0], solver.current.last().copied().unwrap()],
-        ))
+impl DfbLaser {
+    fn solve_with_picard_solver(
+        &self,
+        pump: Pump,
+        config: DfbSolveConfig,
+        full_profile: bool,
+        solver: &mut PicardSolver,
+    ) -> Result<FieldProfile, SolverError> {
+        let gp = config.grid_points;
+        let kappas = self.grating.grid(gp.0);
+        let dz = gp.dz(self.fibre.length);
+        let f = |sgnl_b| -> Result<f64, SolverError> {
+            let fields = solver.solve_profile_picard(
+                sgnl_b,
+                pump,
+                self.fibre,
+                config.picard,
+                &kappas,
+                dz,
+            )?;
+            Ok(fields.last().unwrap().sgnl_b / sgnl_b)
+        };
+        // try_rootfind_1d muts the solver which leaves the lasing solution in the 'current' buffer
+        let _sgnl_b = try_rootfind_1d(f, config.root_find)?;
+        if full_profile {
+            Ok(FieldProfile::new(
+                gp.grid(self.fibre.length),
+                solver.current.clone(),
+            ))
+        } else {
+            Ok(FieldProfile::new(
+                vec![0.0_f64, self.fibre.length],
+                vec![solver.current[0], solver.current.last().copied().unwrap()],
+            ))
+        }
     }
-}
 
-pub fn dfb_solve_picard(
-    pump: Pump,
-    fp: Fibre,
-    gp: GridPoints,
-    kp: Grating,
-    full_profile: bool,
-    config: impl Into<RootFindConfig>,
-    picard_config: PicardConfig,
-) -> Result<FieldProfile, SolverError> {
-    let mut solver = PicardSolver::new(pump, fp, gp);
-    dfb_solve_from_picard_solver(
-        pump,
-        fp,
-        gp,
-        kp,
-        full_profile,
-        config,
-        &mut solver,
-        picard_config,
-    )
-}
+    pub fn solve_picard(
+        &self,
+        pump: Pump,
+        config: DfbSolveConfig,
+        full_profile: bool,
+    ) -> Result<FieldProfile, SolverError> {
+        let mut solver = PicardSolver::new(pump, self.fibre, config.grid_points);
+        self.solve_with_picard_solver(pump, config, full_profile, &mut solver)
+    }
 
-pub fn dfb_output_power_picard(
-    pump: Pump,
-    fp: Fibre,
-    gp: GridPoints,
-    kp: Grating,
-    config: impl Into<RootFindConfig> + Copy,
-    solver: &mut PicardSolver,
-    picard_config: PicardConfig,
-) -> Result<OutputPower, SolverError> {
-    let profile =
-        dfb_solve_from_picard_solver(pump, fp, gp, kp, false, config, solver, picard_config)?;
-    Ok(profile.output_powers())
+    pub(crate) fn output_power_picard(
+        &self,
+        pump: Pump,
+        config: DfbSolveConfig,
+        solver: &mut PicardSolver,
+    ) -> Result<OutputPower, SolverError> {
+        let profile = self.solve_with_picard_solver(pump, config, false, solver)?;
+        Ok(profile.output_powers())
+    }
 }
 
 #[cfg(test)]
