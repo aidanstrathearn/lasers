@@ -35,7 +35,10 @@ impl DfbLaser {
         } else {
             let z = vec![0.0_f64, self.fibre.length];
             let out_left = trial(sgnl_b);
-            let fields = vec![out_left, out_field_coupled(out_left, self.fibre, dz, &kappas)];
+            let fields = vec![
+                out_left,
+                out_field_coupled(out_left, self.fibre, dz, &kappas),
+            ];
             Ok(FieldProfile::new(z, fields))
         }
     }

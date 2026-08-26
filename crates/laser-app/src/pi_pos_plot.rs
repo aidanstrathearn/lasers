@@ -30,11 +30,7 @@ impl LaserApp {
                     grating,
                     ..self.dfb_laser()
                 }
-                .solve(
-                    self.pump,
-                    self.dfb_solve_config(bc),
-                    false,
-                )
+                .solve(self.pump, self.dfb_solve_config(bc), false)
             });
             compute_time += elapsed;
 

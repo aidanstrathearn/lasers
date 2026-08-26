@@ -40,11 +40,8 @@ impl LaserApp {
             self.threshold_range.num,
         );
         let (threshold, compute_time) = timed(|| {
-            self.dfb_laser().pump_scan(
-                &pumps,
-                self.pump.balance,
-                self.dfb_solve_config(bc),
-            )
+            self.dfb_laser()
+                .pump_scan(&pumps, self.pump.balance, self.dfb_solve_config(bc))
         });
         let threshold = threshold?;
         let sgnl_f = threshold

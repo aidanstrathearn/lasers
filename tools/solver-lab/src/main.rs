@@ -2,13 +2,10 @@ mod myplotlib;
 mod plots;
 
 use crate::plots::plot_profile_diff;
-use laser_solver::dfb::{
-    DfbLaser, DfbSolveConfig, Grating, out_field_coupled, solve_profile_coupled,
-};
-use laser_solver::lase::{
-    Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff,
-};
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
+use laser_solver::lase::{Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff};
 use laser_solver::picard::{PicardConfig, PicardSolver, initial_profile};
+use laser_solver::propagation::{out_field_coupled, solve_profile_coupled};
 use laser_solver::rootfind::{
     BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig, rootfind_1d,
 };
@@ -315,7 +312,7 @@ fn compare_dfb_solvers(show_plots: bool) -> eframe::Result {
     let start = Instant::now();
     let picard_profile = DFB_LASER
         .solve_picard(comparison_pump, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
-    .expect("Picard DFB solve failed");
+        .expect("Picard DFB solve failed");
     let picard_elapsed = start.elapsed();
 
     let max_diff = profile_max_diff(&shooting_profile.fields, &picard_profile.fields);

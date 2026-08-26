@@ -2,9 +2,9 @@ use crate::plotter::Plotter;
 use crate::{LaserApp, Points, timed};
 use eframe::egui;
 use eframe::egui::Ui;
-use laser_solver::dfb::{out_field_coupled};
 use laser_solver::error::SolverError;
 use laser_solver::lase::FieldState;
+use laser_solver::propagation::out_field_coupled;
 use laser_solver::utils::linspace;
 
 #[derive(Copy, Clone)]
@@ -40,7 +40,9 @@ impl LaserApp {
             pump_f: self.pump.forward_amplitude(),
             pump_b: 0.0,
         }; //todo: use picard for backward pump
-        let f = |sgnl_b| out_field_coupled(trial(sgnl_b), self.fibre_params, dz, &kappas).sgnl_b / sgnl_b;
+        let f = |sgnl_b| {
+            out_field_coupled(trial(sgnl_b), self.fibre_params, dz, &kappas).sgnl_b / sgnl_b
+        };
         let mut compute_time = std::time::Duration::ZERO;
         let residuals = inputs
             .iter()

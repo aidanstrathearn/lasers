@@ -76,7 +76,12 @@ pub fn out_field_uncoupled(fs: FieldState, fp: Fibre, dz: f64, nsteps: usize) ->
     current
 }
 
-pub fn solve_profile_coupled(fs: FieldState, fp: Fibre, dz: f64, kappas: &[f64]) -> Vec<FieldState> {
+pub fn solve_profile_coupled(
+    fs: FieldState,
+    fp: Fibre,
+    dz: f64,
+    kappas: &[f64],
+) -> Vec<FieldState> {
     let mut current = fs;
     let mut result = Vec::with_capacity(kappas.len() + 1);
     result.push(current);

@@ -135,5 +135,3 @@ impl Grating {
             .collect()
     }
 }
-
-

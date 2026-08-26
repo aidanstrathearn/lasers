@@ -56,8 +56,6 @@ impl GridPoints {
     }
 }
 
-
-
 #[derive(Copy, Clone, Debug, Default)]
 pub struct FieldState {
     pub sgnl_f: f64,

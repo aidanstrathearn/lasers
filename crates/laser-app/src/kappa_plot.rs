@@ -12,11 +12,7 @@ impl LaserApp {
         });
 
         // kappas.len() = z.len() - 1, so zip ignores last element of z
-        let points = z
-            .into_iter()
-            .zip(kappas)
-            .map(|(z, k)| [z, k])
-            .collect();
+        let points = z.into_iter().zip(kappas).map(|(z, k)| [z, k]).collect();
 
         let mut plot = Plotter::new();
         plot.add_points(points).label("Kappa");

@@ -13,11 +13,8 @@ impl LaserApp {
         };
 
         let (result, compute_time) = timed(|| {
-            self.dfb_laser().solve(
-                self.pump,
-                self.dfb_solve_config(bc),
-                full_profile,
-            )
+            self.dfb_laser()
+                .solve(self.pump, self.dfb_solve_config(bc), full_profile)
         });
         let result = result?;
 

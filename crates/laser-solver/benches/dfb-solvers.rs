@@ -95,16 +95,17 @@ fn benchmark_bisection_midpoints(c: &mut Criterion) {
                 };
 
                 b.iter(|| {
-                    let result = DFB_LASER.solve_shooting(
-                        FORWARD_PUMP,
-                        DfbSolveConfig {
-                            grid_points: GRID,
-                            root_find: RootFindConfig::Bisection(config),
-                            picard: PICARD,
-                        },
-                        FULL_PROFILE,
-                    )
-                    .expect("shooting DFB solve failed");
+                    let result = DFB_LASER
+                        .solve_shooting(
+                            FORWARD_PUMP,
+                            DfbSolveConfig {
+                                grid_points: GRID,
+                                root_find: RootFindConfig::Bisection(config),
+                                picard: PICARD,
+                            },
+                            FULL_PROFILE,
+                        )
+                        .expect("shooting DFB solve failed");
                     black_box(result);
                 });
             },

@@ -1,8 +1,7 @@
-use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, solve_profile_coupled};
-use laser_solver::lase::{
-    Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff,
-};
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
+use laser_solver::lase::{Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff};
 use laser_solver::picard::{PicardConfig, PicardSolver};
+use laser_solver::propagation::solve_profile_coupled;
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
 use laser_solver::utils::IterationConfig;
 
@@ -198,26 +197,28 @@ fn backward_pumped_picard_is_reverse_of_forward_pumped_shooting() {
         balance: -1.0,
     };
 
-    let shooting_profile = SYMMETRIC_DFB_LASER.solve_shooting(
-        shooting_pump,
-        DfbSolveConfig {
-            grid_points: SYMMETRY_GRID,
-            root_find: RootFindConfig::Bisection(BISECTION),
-            picard: SYMMETRY_PICARD,
-        },
-        true,
-    )
-    .expect("forward-pumped shooting DFB solve failed");
-    let picard_profile = SYMMETRIC_DFB_LASER.solve_picard(
-        picard_pump,
-        DfbSolveConfig {
-            grid_points: SYMMETRY_GRID,
-            root_find: RootFindConfig::Bisection(BISECTION),
-            picard: SYMMETRY_PICARD,
-        },
-        true,
-    )
-    .expect("backward-pumped Picard DFB solve failed");
+    let shooting_profile = SYMMETRIC_DFB_LASER
+        .solve_shooting(
+            shooting_pump,
+            DfbSolveConfig {
+                grid_points: SYMMETRY_GRID,
+                root_find: RootFindConfig::Bisection(BISECTION),
+                picard: SYMMETRY_PICARD,
+            },
+            true,
+        )
+        .expect("forward-pumped shooting DFB solve failed");
+    let picard_profile = SYMMETRIC_DFB_LASER
+        .solve_picard(
+            picard_pump,
+            DfbSolveConfig {
+                grid_points: SYMMETRY_GRID,
+                root_find: RootFindConfig::Bisection(BISECTION),
+                picard: SYMMETRY_PICARD,
+            },
+            true,
+        )
+        .expect("backward-pumped Picard DFB solve failed");
 
     assert_nontrivial_signal("shooting", &shooting_profile);
     assert_nontrivial_signal("Picard", &picard_profile);
