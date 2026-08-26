@@ -1,6 +1,6 @@
 use crate::plotter::Plotter;
 use crate::{LaserApp, Points, timed};
-use laser_solver::dfb::{dfb_solve, Grating};
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::error::SolverError;
 use laser_solver::rootfind::BisectionConfig;
 use laser_solver::utils::linspace;
@@ -26,14 +26,18 @@ impl LaserApp {
             };
 
             let (profile, elapsed) = timed(|| {
-                dfb_solve(
-                    self.pump,
-                    self.fibre_params,
-                    self.grid_points,
+                DfbLaser {
+                    fibre: self.fibre_params,
                     grating,
+                }
+                .solve(
+                    self.pump,
+                    DfbSolveConfig {
+                        grid_points: self.grid_points,
+                        root_find: bc.into(),
+                        picard: self.picard_config,
+                    },
                     false,
-                    bc,
-                    self.picard_config,
                 )
             });
             compute_time += elapsed;
