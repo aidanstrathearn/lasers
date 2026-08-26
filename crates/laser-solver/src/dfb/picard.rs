@@ -80,7 +80,7 @@ impl PicardSolver {
             };
             for j in 1..self.new.len() {
                 self.new[j] =
-                    self.new[j - 1].general_step(self.current[j - 1], fp, kappas[j - 1], dz);
+                    self.new[j - 1].coupled_step_general(self.current[j - 1], fp, kappas[j - 1], dz);
             }
 
             std::mem::swap(&mut self.current, &mut self.new);

@@ -5,7 +5,7 @@ use self::picard::{PicardConfig, PicardSolver};
 use crate::error::SolverError;
 use crate::lase::{
     Fibre, FieldProfile, FieldState, GridPoints, Pump, PumpScan,
-    find_threshold_and_slope as scan_for_threshold, gain, pump_scan as scan_pump_totals,
+    find_threshold_and_slope as scan_for_threshold, pump_scan as scan_pump_totals,
 };
 use crate::rootfind::RootFindConfig;
 use crate::utils::IterationConfig;
@@ -136,46 +136,12 @@ impl Grating {
     }
 }
 
-impl FieldState {
-    pub fn propagate(self, fp: Fibre, kappa: f64, dz: f64) -> Self {
-        self.general_step(self, fp, kappa, dz)
-    }
-
-    pub fn general_step(self, other: Self, fp: Fibre, kappa: f64, dz: f64) -> Self {
-        let (gp, gs) = gain(other, fp);
-        let (a, b, c, d) = transfer(gs, kappa, dz);
-        let expg = (0.5 * gp * dz).exp();
-
-        FieldState {
-            sgnl_f: a * self.sgnl_f + b * self.sgnl_b,
-            sgnl_b: c * self.sgnl_f + d * self.sgnl_b,
-            pump_f: self.pump_f * expg,
-            pump_b: self.pump_b / expg,
-        }
-    }
-}
-
-pub fn transfer(gain: f64, kappa: f64, dz: f64) -> (f64, f64, f64, f64) {
-    let g_dz = 0.5 * gain * dz;
-    let k_dz = kappa * dz;
-    let x = (g_dz * g_dz + k_dz * k_dz).sqrt();
-
-    let cosh = x.cosh();
-    let sinch = if x > 1e-30 { x.sinh() / x } else { 1.0_f64 };
-    (
-        cosh + g_dz * sinch,
-        k_dz * sinch,
-        k_dz * sinch,
-        cosh - g_dz * sinch,
-    )
-}
-
 pub fn solve_profile(fs: FieldState, fp: Fibre, dz: f64, kappas: &[f64]) -> Vec<FieldState> {
     let mut current = fs;
     let mut result = Vec::with_capacity(kappas.len() + 1);
     result.push(current);
     for &kappa in kappas {
-        current = current.propagate(fp, kappa, dz);
+        current = current.coupled_step_shooting(fp, kappa, dz);
         result.push(current);
     }
     result
@@ -184,7 +150,7 @@ pub fn solve_profile(fs: FieldState, fp: Fibre, dz: f64, kappas: &[f64]) -> Vec<
 pub fn out_field(fs: FieldState, fp: Fibre, dz: f64, kappas: &[f64]) -> FieldState {
     let mut current = fs;
     for &kappa in kappas {
-        current = current.propagate(fp, kappa, dz);
+        current = current.coupled_step_shooting(fp, kappa, dz);
     }
     current
 }

@@ -269,8 +269,8 @@ pub fn find_threshold_and_slope(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dfb::transfer;
     use crate::picard::PicardError;
+    use crate::propagation::transfer;
 
     #[test]
     fn check_transfer() {
