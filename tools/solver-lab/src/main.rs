@@ -3,10 +3,10 @@ mod plots;
 
 use crate::plots::plot_profile_diff;
 use laser_solver::dfb::{
-    dfb_find_threshold_and_slope, dfb_pump_scan, dfb_solve_shooting, out_field, solve_profile,
+    dfb_find_threshold_and_slope, dfb_pump_scan, dfb_solve_shooting, out_field, solve_profile, GratingProfile,
 };
 use laser_solver::lase::{
-    FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, Pump, profile_max_diff,
+    FibreParams, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff,
 };
 use laser_solver::picard::{PicardConfig, PicardDfbSolver, dfb_solve_picard, initial_profile};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, rootfind_1d};

@@ -1,9 +1,10 @@
 use crate::error::SolverError;
 use crate::lase::{
-    FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, OutputPower, Pump, gain,
+    FibreParams, FieldProfile, FieldState, GridPoints, OutputPower, Pump, gain,
 };
 use crate::rootfind::{RootFindConfig, try_rootfind_1d};
 use std::fmt;
+use crate::dfb::GratingProfile;
 
 #[derive(Debug)]
 pub enum PicardError {

@@ -1,8 +1,7 @@
 use crate::plotter::Plotter;
 use crate::{LaserApp, Points, timed};
-use laser_solver::dfb::dfb_solve;
+use laser_solver::dfb::{dfb_solve, GratingProfile};
 use laser_solver::error::SolverError;
-use laser_solver::lase::GratingProfile;
 use laser_solver::rootfind::BisectionConfig;
 use laser_solver::utils::linspace;
 use std::time::Duration;

@@ -12,11 +12,12 @@ use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::error::SolverError;
-use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump};
+use laser_solver::lase::{FibreParams, GridPoints, Pump};
 use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::BisectionConfig;
 use std::time::Duration;
 use web_time::Instant;
+use laser_solver::dfb::GratingProfile;
 
 #[derive(PartialEq, Default, Copy, Clone)]
 pub enum View {

@@ -1,11 +1,48 @@
 use crate::error::SolverError;
 use crate::lase::{
-    FibreParams, FieldProfile, FieldState, GratingProfile, GridPoints, OutputPower, Pump, PumpScan,
+    FibreParams, FieldProfile, FieldState, GridPoints, OutputPower, Pump, PumpScan,
     find_threshold_and_slope, gain, pump_scan,
 };
 use crate::picard::{PicardConfig, PicardDfbSolver, dfb_output_power_picard, dfb_solve_picard};
 use crate::rootfind::{RootFindConfig, rootfind_1d};
 use crate::utils::IterationConfig;
+
+pub struct DfbLaser {
+    fibre: FibreParams,
+    grating: GratingProfile
+}
+
+#[derive(Copy, Clone)]
+pub struct GratingProfile {
+    pub kappa_left: f64,
+    pub kappa_right: f64,
+    pub pi_shift_position: f64,
+}
+
+impl Default for GratingProfile {
+    fn default() -> Self {
+        Self {
+            kappa_left: 1.0,
+            kappa_right: 1.0,
+            pi_shift_position: 0.45,
+        }
+    }
+}
+
+impl GratingProfile {
+    pub fn grid(self, n: usize) -> Vec<f64> {
+        (0..n)
+            .map(|j| {
+                let z = j as f64 / n as f64;
+                if z < self.pi_shift_position {
+                    self.kappa_left
+                } else {
+                    -self.kappa_right
+                }
+            })
+            .collect()
+    }
+}
 
 impl FieldState {
     pub fn propagate(self, fp: FibreParams, kappa: f64, dz: f64) -> Self {

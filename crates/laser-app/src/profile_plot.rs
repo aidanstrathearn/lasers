@@ -1,9 +1,9 @@
 use crate::plotter::Plotter;
 use crate::{LaserApp, Points, timed};
 use eframe::egui;
-use laser_solver::dfb::{dfb_solve, dfb_solve_shooting};
+use laser_solver::dfb::{dfb_solve, dfb_solve_shooting, GratingProfile};
 use laser_solver::error::SolverError;
-use laser_solver::lase::{FibreParams, FieldProfile, GratingProfile, GridPoints, Pump};
+use laser_solver::lase::{FibreParams, FieldProfile, GridPoints, Pump};
 use laser_solver::rootfind::{BisectionConfig, Newton1dConfig};
 use laser_solver::utils::IterationConfig;
 use std::sync::mpsc;

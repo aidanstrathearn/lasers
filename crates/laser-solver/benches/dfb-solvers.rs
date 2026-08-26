@@ -1,6 +1,6 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use laser_solver::dfb::dfb_solve_shooting;
-use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump};
+use laser_solver::dfb::{dfb_solve_shooting, GratingProfile};
+use laser_solver::lase::{FibreParams, GridPoints, Pump};
 use laser_solver::picard::{PicardConfig, dfb_solve_picard};
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::IterationConfig;
