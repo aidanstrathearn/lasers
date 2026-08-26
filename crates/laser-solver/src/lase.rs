@@ -199,27 +199,13 @@ pub fn gain(fs: FieldState, fp: FibreParams) -> (f64, f64) {
     )
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Pump {
-    pub forward: f64,
-    pub backward: f64,
-}
-
-impl Default for Pump {
-    fn default() -> Self {
-        Self {
-            forward: 10.0,
-            backward: 0.0,
-        }
-    }
-}
-
-pub struct PumpParam {
     pub total: f64,
     pub balance: f64,
 }
 
-impl Default for PumpParam {
+impl Default for Pump {
     fn default() -> Self {
         Self {
             total: 100.0,
@@ -229,13 +215,24 @@ impl Default for PumpParam {
 }
 
 impl Pump {
-    pub fn from_total_and_balance(total: f64, balance: f64) -> Self {
-        assert!(balance >= -1.0 && balance <= 1.0 && total >= 0.0);
-        let p = (balance + 1.0) * 0.5;
-        Self {
-            forward: (p * total).sqrt(),
-            backward: ((1.0 - p) * total).sqrt(),
-        }
+    pub fn amplitudes(self) -> (f64, f64) {
+        assert!(
+            self.total >= 0.0 && (-1.0..=1.0).contains(&self.balance),
+            "pump total must be non-negative and balance must be between -1 and 1"
+        );
+        let forward_fraction = (self.balance + 1.0) * 0.5;
+        (
+            (forward_fraction * self.total).sqrt(),
+            ((1.0 - forward_fraction) * self.total).sqrt(),
+        )
+    }
+
+    pub fn forward_amplitude(self) -> f64 {
+        self.amplitudes().0
+    }
+
+    pub fn backward_amplitude(self) -> f64 {
+        self.amplitudes().1
     }
 }
 
@@ -310,6 +307,62 @@ mod tests {
         let (a, b, c, d) = transfer(1.0, 0.0, 1.0);
         println!("Transfer {:?}", (a, b, c, d));
         assert_eq!(a, (0.5_f64).exp());
+    }
+
+    #[test]
+    fn pump_converts_power_and_balance_to_amplitudes() {
+        for (pump, expected) in [
+            (
+                Pump {
+                    total: 100.0,
+                    balance: 1.0,
+                },
+                (10.0, 0.0),
+            ),
+            (
+                Pump {
+                    total: 100.0,
+                    balance: -1.0,
+                },
+                (0.0, 10.0),
+            ),
+            (
+                Pump {
+                    total: 100.0,
+                    balance: 0.0,
+                },
+                (50.0_f64.sqrt(), 50.0_f64.sqrt()),
+            ),
+            (
+                Pump {
+                    total: 0.0,
+                    balance: 0.25,
+                },
+                (0.0, 0.0),
+            ),
+        ] {
+            assert_eq!(pump.amplitudes(), expected);
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "pump total must be non-negative")]
+    fn pump_rejects_negative_total_power() {
+        Pump {
+            total: -1.0,
+            balance: 0.0,
+        }
+        .amplitudes();
+    }
+
+    #[test]
+    #[should_panic(expected = "balance must be between -1 and 1")]
+    fn pump_rejects_out_of_range_balance() {
+        Pump {
+            total: 1.0,
+            balance: 2.0,
+        }
+        .amplitudes();
     }
 
     #[test]

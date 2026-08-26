@@ -15,9 +15,19 @@ use myplotlib::Plotter;
 use plots::show_field_profile;
 use std::time::Instant;
 
+const PUMP_FORWARD_AMPLITUDE: f64 = 100.0;
+const PUMP_BACKWARD_AMPLITUDE: f64 = 10.0;
 const PUMP: Pump = Pump {
-    forward: 100.0,
-    backward: 10.0,
+    total: PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE
+        + PUMP_BACKWARD_AMPLITUDE * PUMP_BACKWARD_AMPLITUDE,
+    balance: (PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE
+        - PUMP_BACKWARD_AMPLITUDE * PUMP_BACKWARD_AMPLITUDE)
+        / (PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE
+            + PUMP_BACKWARD_AMPLITUDE * PUMP_BACKWARD_AMPLITUDE),
+};
+const FORWARD_PUMP: Pump = Pump {
+    total: PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE,
+    balance: 1.0,
 };
 
 const FIBRE: FibreParams = FibreParams {
@@ -52,14 +62,14 @@ const PICARD: PicardConfig = PicardConfig {
 
 const BISECTION: BisectionConfig = BisectionConfig {
     iteration: ITERATION,
-    upper: PUMP.forward,
+    upper: PUMP_FORWARD_AMPLITUDE,
     lower: 1e-8,
     midpoint: Midpoint::Geometric,
 };
 
 const NEWTON: Newton1dConfig = Newton1dConfig {
     iteration: ITERATION,
-    initial: PUMP.forward,
+    initial: PUMP_FORWARD_AMPLITUDE,
     dx: 1e-6,
 };
 
@@ -83,7 +93,7 @@ fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
         sgnl_f: 0.0,
         sgnl_b: sgnl_b,
         pump_f: 2.0,
-        pump_b: 0.0, // shooting method requires pump.backward = 0
+        pump_b: 0.0, // shooting method requires zero backward pump amplitude
     };
     let f = |sgnl_b| out_field(trial(sgnl_b), FIBRE, dz, &kappas).sgnl_b / sgnl_b;
     let root = rootfind_1d(f, BISECTION).expect("root not found");
@@ -101,7 +111,8 @@ fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
     Ok(())
 }
 fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
-    let result = dfb_solve_shooting(PUMP, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON).unwrap();
+    let result =
+        dfb_solve_shooting(FORWARD_PUMP, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON).unwrap();
     show_field_profile(&result, show_plots)?;
 
     let profile = initial_profile(PUMP, FIBRE, GRID);
@@ -173,9 +184,11 @@ fn plot_pump_scan_derivatives(show_plot: bool) -> eframe::Result {
 
     let threshold_config = IterationConfig { tol: 1e-3, max: 20 };
     let (forward_slope, backward_slope, threshold) = dfb_find_threshold_and_slope(
-        2.0,
+        Pump {
+            total: 2.0,
+            balance,
+        },
         1.0,
-        balance,
         threshold_config,
         FIBRE,
         GRID,
@@ -219,16 +232,13 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
 }
 
 fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
-    let comparison_pump = Pump {
-        backward: 0.0,
-        ..PUMP
-    };
+    let comparison_pump = FORWARD_PUMP;
     let comparison_sgnl_b = 1.0;
     let comparison_kappas = GRATING.grid(GRID.0);
     let comparison_boundary = FieldState {
         sgnl_f: 0.0,
         sgnl_b: comparison_sgnl_b,
-        pump_f: comparison_pump.forward,
+        pump_f: comparison_pump.forward_amplitude(),
         pump_b: 0.0,
     };
 
@@ -271,10 +281,7 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
 }
 
 fn compare_dfb_solvers(show_plots: bool) -> eframe::Result {
-    let comparison_pump = Pump {
-        backward: 0.0,
-        ..PUMP
-    };
+    let comparison_pump = FORWARD_PUMP;
 
     let start = Instant::now();
     let shooting_profile =

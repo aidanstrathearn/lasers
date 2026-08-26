@@ -6,9 +6,10 @@ use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
 use laser_solver::utils::IterationConfig;
 use std::hint::black_box;
 
-const PUMP: Pump = Pump {
-    forward: 100.0,
-    backward: 10.0,
+const PUMP_FORWARD_AMPLITUDE: f64 = 100.0;
+const FORWARD_PUMP: Pump = Pump {
+    total: PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE,
+    balance: 1.0,
 };
 
 const FIBRE: FibreParams = FibreParams {
@@ -43,15 +44,16 @@ const PICARD: PicardConfig = PicardConfig {
 
 const NEWTON: Newton1dConfig = Newton1dConfig {
     iteration: ITERATION,
-    initial: PUMP.forward,
+    initial: PUMP_FORWARD_AMPLITUDE,
     dx: 1e-6,
 };
 
 fn benchmark_dfb_solver(c: &mut Criterion) {
     c.bench_function("dfb/shooting", |b| {
         b.iter(|| {
-            let result = dfb_solve_shooting(PUMP, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON)
-                .expect("shooting DFB solve failed");
+            let result =
+                dfb_solve_shooting(FORWARD_PUMP, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON)
+                    .expect("shooting DFB solve failed");
             black_box(result);
         });
     });
@@ -76,15 +78,21 @@ fn benchmark_bisection_midpoints(c: &mut Criterion) {
                         max: 100_000,
                         ..ITERATION
                     },
-                    upper: PUMP.forward,
+                    upper: PUMP_FORWARD_AMPLITUDE,
                     lower: 1e-8,
                     midpoint,
                 };
 
                 b.iter(|| {
-                    let result =
-                        dfb_solve_shooting(PUMP, FIBRE, GRID, GRATING, FULL_PROFILE, config)
-                            .expect("shooting DFB solve failed");
+                    let result = dfb_solve_shooting(
+                        FORWARD_PUMP,
+                        FIBRE,
+                        GRID,
+                        GRATING,
+                        FULL_PROFILE,
+                        config,
+                    )
+                    .expect("shooting DFB solve failed");
                     black_box(result);
                 });
             },
@@ -95,9 +103,14 @@ fn benchmark_bisection_midpoints(c: &mut Criterion) {
 }
 
 fn benchmark_picard_solvers(c: &mut Criterion) {
+    let backward_amplitude = 20.0;
     let pump = Pump {
-        backward: 20.0,
-        ..PUMP
+        total: PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE
+            + backward_amplitude * backward_amplitude,
+        balance: (PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE
+            - backward_amplitude * backward_amplitude)
+            / (PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE
+                + backward_amplitude * backward_amplitude),
     };
     let mut group = c.benchmark_group("dfb/picard");
 

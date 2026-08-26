@@ -12,7 +12,7 @@ use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::error::SolverError;
-use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump, PumpParam};
+use laser_solver::lase::{FibreParams, GratingProfile, GridPoints, Pump};
 use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::BisectionConfig;
 use std::time::Duration;
@@ -86,7 +86,7 @@ fn timed<T>(compute: impl FnOnce() -> T) -> (T, Duration) {
 #[derive(Default)]
 pub struct LaserApp {
     view: View,
-    pump: PumpParam,
+    pump: Pump,
     fibre_params: FibreParams,
     grid_points: GridPoints,
     grating: GratingProfile,
@@ -100,7 +100,7 @@ pub struct LaserApp {
 impl LaserApp {
     fn strong_coupling() -> Self {
         Self {
-            pump: PumpParam {
+            pump: Pump {
                 total: 50.0,
                 balance: 1.0,
             },
@@ -130,7 +130,7 @@ impl LaserApp {
 
     fn clear_physics() -> Self {
         Self {
-            pump: PumpParam {
+            pump: Pump {
                 total: 10.0,
                 balance: 1.0,
             },
@@ -242,7 +242,7 @@ impl LaserApp {
             });
             ui.vertical(|ui| {
                 ui.heading("Pump");
-                changed |= pump_param_slider_grid(&mut self.pump, ui);
+                changed |= pump_slider_grid(&mut self.pump, ui);
             });
             ui.vertical(|ui| {
                 ui.heading("Solver");
@@ -373,7 +373,7 @@ fn grating_slider_grid(grating: &mut GratingProfile, ui: &mut Ui) -> bool {
     changed
 }
 
-fn pump_param_slider_grid(pump: &mut PumpParam, ui: &mut Ui) -> bool {
+fn pump_slider_grid(pump: &mut Pump, ui: &mut Ui) -> bool {
     let mut changed = false;
 
     egui::Grid::new("pumpp").show(ui, |ui| {

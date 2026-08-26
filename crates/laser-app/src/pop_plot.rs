@@ -2,7 +2,7 @@ use crate::plotter::Plotter;
 use crate::{LaserApp, Points, timed};
 use laser_solver::dfb::dfb_solve;
 use laser_solver::error::SolverError;
-use laser_solver::lase::{Pump, pops};
+use laser_solver::lase::pops;
 use laser_solver::rootfind::BisectionConfig;
 
 impl LaserApp {
@@ -13,10 +13,9 @@ impl LaserApp {
             ..self.config
         };
 
-        let pu = Pump::from_total_and_balance(self.pump.total, self.pump.balance);
         let (result, compute_time) = timed(|| {
             dfb_solve(
-                pu,
+                self.pump,
                 self.fibre_params,
                 self.grid_points,
                 self.grating,

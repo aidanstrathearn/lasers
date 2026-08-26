@@ -61,20 +61,25 @@ pub fn out_field(fs: FieldState, fp: FibreParams, dz: f64, kappas: &[f64]) -> Fi
 }
 
 pub fn dfb_solve_shooting(
-    pu: Pump,
+    pump: Pump,
     fp: FibreParams,
     gp: GridPoints,
     kp: GratingProfile,
     full_profile: bool,
     config: impl Into<RootFindConfig>,
 ) -> Result<FieldProfile, SolverError> {
+    let (pump_forward, pump_backward) = pump.amplitudes();
+    assert_eq!(
+        pump_backward, 0.0,
+        "shooting solver requires a forward-only pump"
+    );
     let kappas = kp.grid(gp.0);
     let dz = gp.dz(fp.length);
     let trial = |sgnl_b| FieldState {
         sgnl_f: 0.0,
         sgnl_b: sgnl_b,
-        pump_f: pu.forward,
-        pump_b: 0.0, // shooting method requires pump.backward = 0
+        pump_f: pump_forward,
+        pump_b: 0.0, // shooting method requires zero backward pump amplitude
     };
     let f = |sgnl_b| out_field(trial(sgnl_b), fp, dz, &kappas).sgnl_b / sgnl_b;
     let sgnl_b = rootfind_1d(f, config)?;
@@ -92,25 +97,19 @@ pub fn dfb_solve_shooting(
 }
 
 pub fn dfb_output_power_shooting(
-    pump_power: f64,
+    pump: Pump,
     fp: FibreParams,
     gp: GridPoints,
     kp: GratingProfile,
     config: impl Into<RootFindConfig> + Copy,
 ) -> Result<OutputPower, SolverError> {
-    let pu = Pump {
-        forward: pump_power.sqrt(),
-        backward: 0.0,
-    };
-
-    let profile = dfb_solve_shooting(pu, fp, gp, kp, false, config)?;
+    let profile = dfb_solve_shooting(pump, fp, gp, kp, false, config)?;
     Ok(profile.output_powers())
 }
 
 pub fn dfb_find_threshold_and_slope(
-    pump_start: f64,
+    pump_start: Pump,
     pump_step: f64,
-    balance: f64,
     ip: IterationConfig,
     fp: FibreParams,
     gp: GridPoints,
@@ -118,16 +117,39 @@ pub fn dfb_find_threshold_and_slope(
     config: impl Into<RootFindConfig> + Copy,
     picard_config: PicardConfig,
 ) -> Result<(f64, f64, f64), SolverError> {
-    let use_picard = balance != 1.0;
+    pump_start.amplitudes();
+    let use_picard = pump_start.balance != 1.0;
     if use_picard {
-        let mut solver =
-            PicardDfbSolver::new(Pump::from_total_and_balance(pump_start, balance), fp, gp);
-        let f =
-            |p| dfb_output_power_picard(p, balance, fp, gp, kp, config, &mut solver, picard_config);
-        find_threshold_and_slope(pump_start, pump_step, ip, f)
+        let mut solver = PicardDfbSolver::new(pump_start, fp, gp);
+        let f = |total| {
+            dfb_output_power_picard(
+                Pump {
+                    total,
+                    ..pump_start
+                },
+                fp,
+                gp,
+                kp,
+                config,
+                &mut solver,
+                picard_config,
+            )
+        };
+        find_threshold_and_slope(pump_start.total, pump_step, ip, f)
     } else {
-        let f = |p| dfb_output_power_shooting(p, fp, gp, kp, config);
-        find_threshold_and_slope(pump_start, pump_step, ip, f)
+        let f = |total| {
+            dfb_output_power_shooting(
+                Pump {
+                    total,
+                    ..pump_start
+                },
+                fp,
+                gp,
+                kp,
+                config,
+            )
+        };
+        find_threshold_and_slope(pump_start.total, pump_step, ip, f)
     }
 }
 
@@ -146,12 +168,17 @@ pub fn dfb_pump_scan(
 
     let use_picard = balance != 1.0;
     if use_picard {
-        let mut solver =
-            PicardDfbSolver::new(Pump::from_total_and_balance(pump_start, balance), fp, gp);
-        pump_scan(pumps, |pump| {
-            dfb_output_power_picard(
-                pump,
+        let mut solver = PicardDfbSolver::new(
+            Pump {
+                total: pump_start,
                 balance,
+            },
+            fp,
+            gp,
+        );
+        pump_scan(pumps, |total| {
+            dfb_output_power_picard(
+                Pump { total, balance },
                 fp,
                 gp,
                 kp,
@@ -161,14 +188,14 @@ pub fn dfb_pump_scan(
             )
         })
     } else {
-        pump_scan(pumps, |pump| {
-            dfb_output_power_shooting(pump, fp, gp, kp, config)
+        pump_scan(pumps, |total| {
+            dfb_output_power_shooting(Pump { total, balance }, fp, gp, kp, config)
         })
     }
 }
 
 pub fn dfb_solve(
-    pu: Pump,
+    pump: Pump,
     fp: FibreParams,
     gp: GridPoints,
     kp: GratingProfile,
@@ -176,10 +203,10 @@ pub fn dfb_solve(
     config: impl Into<RootFindConfig>,
     picard_config: PicardConfig,
 ) -> Result<FieldProfile, SolverError> {
-    let use_picard = pu.backward.abs() > 0.0;
+    let use_picard = pump.backward_amplitude() > 0.0;
     if use_picard {
-        dfb_solve_picard(pu, fp, gp, kp, full_profile, config, picard_config)
+        dfb_solve_picard(pump, fp, gp, kp, full_profile, config, picard_config)
     } else {
-        dfb_solve_shooting(pu, fp, gp, kp, full_profile, config)
+        dfb_solve_shooting(pump, fp, gp, kp, full_profile, config)
     }
 }

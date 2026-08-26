@@ -50,10 +50,9 @@ impl LaserApp {
             ..self.config
         };
 
-        let pu = Pump::from_total_and_balance(self.pump.total, self.pump.balance);
         let (result, compute_time) = timed(|| {
             dfb_solve(
-                pu,
+                self.pump,
                 self.fibre_params,
                 self.grid_points,
                 self.grating,
@@ -98,7 +97,7 @@ impl ProfilePlot {
         let full_profile = true;
         let nc = Newton1dConfig {
             iteration: IterationConfig::default(),
-            initial: self.pump.forward,
+            initial: self.pump.forward_amplitude(),
             dx: 1e-6,
         };
         let pump = self.pump;

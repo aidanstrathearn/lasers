@@ -67,10 +67,11 @@ impl PicardDfbSolver {
         dz: f64,
     ) -> Result<&[FieldState], PicardError> {
         assert_eq!(kappas.len() + 1, self.current.len());
+        let (pump_forward, _) = pump.amplitudes();
         let boundary = FieldState {
             sgnl_f: 0.0,
             sgnl_b: sgnl_b,
-            pump_f: pump.forward,
+            pump_f: pump_forward,
             pump_b: 0.0,
         };
         for _ in 0..config.max_iterations {
@@ -127,6 +128,7 @@ pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProf
     let g = 0.5 * (-fp.pump_ab + fp.pump_em) * fp.density; // ground and excited populations are equal
     let zs = gp.grid(fp.length);
     let end_factor = (0.5 * g * fp.length).exp();
+    let (pump_forward, pump_backward) = pump.amplitudes();
 
     let fields = zs
         .iter()
@@ -137,8 +139,8 @@ pub fn initial_profile(pump: Pump, fp: FibreParams, gp: GridPoints) -> FieldProf
             FieldState {
                 sgnl_f: 0.0,
                 sgnl_b: 0.0,
-                pump_f: f * pump.forward,
-                pump_b: b * pump.backward,
+                pump_f: f * pump_forward,
+                pump_b: b * pump_backward,
             }
         })
         .collect();
@@ -153,11 +155,11 @@ pub fn find_pump_b(pump: Pump, profile: &Vec<FieldState>, fp: FibreParams, dz: f
         })
         .sum::<f64>() // dont know why it couldnt infer f64 here
         .exp();
-    pump.backward * expg
+    pump.backward_amplitude() * expg
 }
 
 pub fn dfb_solve_from_picard_solver(
-    pu: Pump,
+    pump: Pump,
     fp: FibreParams,
     gp: GridPoints,
     kp: GratingProfile,
@@ -169,7 +171,7 @@ pub fn dfb_solve_from_picard_solver(
     let kappas = kp.grid(gp.0);
     let dz = gp.dz(fp.length);
     let f = |sgnl_b| -> Result<f64, SolverError> {
-        let fields = solver.solve_profile_picard(sgnl_b, pu, fp, picard_config, &kappas, dz)?;
+        let fields = solver.solve_profile_picard(sgnl_b, pump, fp, picard_config, &kappas, dz)?;
         Ok(fields.last().unwrap().sgnl_b / sgnl_b)
     };
     // try_rootfind_1d muts the solver which leaves the lasing solution in the 'current' buffer
@@ -188,7 +190,7 @@ pub fn dfb_solve_from_picard_solver(
 }
 
 pub fn dfb_solve_picard(
-    pu: Pump,
+    pump: Pump,
     fp: FibreParams,
     gp: GridPoints,
     kp: GratingProfile,
@@ -196,9 +198,9 @@ pub fn dfb_solve_picard(
     config: impl Into<RootFindConfig>,
     picard_config: PicardConfig,
 ) -> Result<FieldProfile, SolverError> {
-    let mut solver = PicardDfbSolver::new(pu, fp, gp);
+    let mut solver = PicardDfbSolver::new(pump, fp, gp);
     dfb_solve_from_picard_solver(
-        pu,
+        pump,
         fp,
         gp,
         kp,
@@ -210,8 +212,7 @@ pub fn dfb_solve_picard(
 }
 
 pub fn dfb_output_power_picard(
-    pump_power: f64,
-    balance: f64,
+    pump: Pump,
     fp: FibreParams,
     gp: GridPoints,
     kp: GratingProfile,
@@ -219,9 +220,8 @@ pub fn dfb_output_power_picard(
     solver: &mut PicardDfbSolver,
     picard_config: PicardConfig,
 ) -> Result<OutputPower, SolverError> {
-    let pu = Pump::from_total_and_balance(pump_power, balance);
     let profile =
-        dfb_solve_from_picard_solver(pu, fp, gp, kp, false, config, solver, picard_config)?;
+        dfb_solve_from_picard_solver(pump, fp, gp, kp, false, config, solver, picard_config)?;
     Ok(profile.output_powers())
 }
 

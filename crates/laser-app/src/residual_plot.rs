@@ -39,7 +39,7 @@ impl LaserApp {
         let trial = |sgnl_b| FieldState {
             sgnl_f: 0.0,
             sgnl_b: sgnl_b,
-            pump_f: self.pump.total.sqrt(),
+            pump_f: self.pump.forward_amplitude(),
             pump_b: 0.0,
         }; //todo: use picard for backward pump
         let f = |sgnl_b| out_field(trial(sgnl_b), self.fibre_params, dz, &kappas).sgnl_b / sgnl_b;
