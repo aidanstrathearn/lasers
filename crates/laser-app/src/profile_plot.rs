@@ -1,7 +1,7 @@
 use crate::plotter::Plotter;
 use crate::{LaserApp, Points, timed};
 use eframe::egui;
-use laser_solver::dfb::{dfb_solve, dfb_solve_shooting, Grating};
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, dfb_solve};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{Fibre, FieldProfile, GridPoints, Pump};
 use laser_solver::rootfind::{BisectionConfig, Newton1dConfig};
@@ -105,8 +105,19 @@ impl ProfilePlot {
         let grid_points = self.grid_points;
         let grating = self.grating;
         let compute_fn = move || {
-            let result =
-                dfb_solve_shooting(pump, fibre_params, grid_points, grating, full_profile, nc)?;
+            let laser = DfbLaser {
+                fibre: fibre_params,
+                grating,
+            };
+            let result = laser.solve_shooting(
+                pump,
+                DfbSolveConfig {
+                    grid_points,
+                    root_find: nc.into(),
+                    picard: Default::default(),
+                },
+                full_profile,
+            )?;
             Ok([
                 result.plotpoints("sgnl_f"),
                 result.plotpoints("sgnl_b"),

@@ -1,9 +1,9 @@
-use laser_solver::dfb::{dfb_solve_shooting, solve_profile, Grating};
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, solve_profile};
 use laser_solver::lase::{
     Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff,
 };
 use laser_solver::picard::{PicardConfig, PicardDfbSolver, dfb_solve_picard};
-use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
+use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
 use laser_solver::utils::IterationConfig;
 
 const PUMP_FORWARD_AMPLITUDE: f64 = 100.0;
@@ -39,6 +39,16 @@ const SYMMETRIC_GRATING: Grating = Grating {
     pi_shift_position: 0.5,
 };
 
+const DFB_LASER: DfbLaser = DfbLaser {
+    fibre: FIBRE,
+    grating: GRATING,
+};
+
+const SYMMETRIC_DFB_LASER: DfbLaser = DfbLaser {
+    fibre: FIBRE,
+    grating: SYMMETRIC_GRATING,
+};
+
 const ITERATION: IterationConfig = IterationConfig {
     max: 500,
     tol: 1e-10,
@@ -69,6 +79,18 @@ const BISECTION: BisectionConfig = BisectionConfig {
     upper: PUMP_FORWARD_AMPLITUDE,
     lower: 1e-8,
     midpoint: Midpoint::Geometric,
+};
+
+const NEWTON_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
+    grid_points: GRID,
+    root_find: RootFindConfig::Newton1d(NEWTON),
+    picard: PICARD,
+};
+
+const BISECTION_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
+    grid_points: GRID,
+    root_find: RootFindConfig::Bisection(BISECTION),
+    picard: PICARD,
 };
 
 const MAX_RELATIVE_DIFFERENCE: f64 = 1e-16;
@@ -110,7 +132,8 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
 fn shooting_and_picard_dfb_solvers_agree_newton() {
     let pump = FORWARD_PUMP;
 
-    let shooting_profile = dfb_solve_shooting(pump, FIBRE, GRID, GRATING, true, NEWTON)
+    let shooting_profile = DFB_LASER
+        .solve_shooting(pump, NEWTON_SOLVE_CONFIG, true)
         .expect("shooting DFB solve failed");
     let picard_profile = dfb_solve_picard(pump, FIBRE, GRID, GRATING, true, NEWTON, PICARD)
         .expect("Picard DFB solve failed");
@@ -149,7 +172,8 @@ fn assert_profiles_agree(label: &str, left: &FieldProfile, right: &FieldProfile)
 fn shooting_and_picard_dfb_solvers_agree_bisection() {
     let pump = FORWARD_PUMP;
 
-    let shooting_profile = dfb_solve_shooting(pump, FIBRE, GRID, GRATING, true, BISECTION)
+    let shooting_profile = DFB_LASER
+        .solve_shooting(pump, BISECTION_SOLVE_CONFIG, true)
         .expect("shooting DFB solve failed");
     let picard_profile = dfb_solve_picard(pump, FIBRE, GRID, GRATING, true, BISECTION, PICARD)
         .expect("Picard DFB solve failed");
@@ -172,13 +196,14 @@ fn backward_pumped_picard_is_reverse_of_forward_pumped_shooting() {
         balance: -1.0,
     };
 
-    let shooting_profile = dfb_solve_shooting(
+    let shooting_profile = SYMMETRIC_DFB_LASER.solve_shooting(
         shooting_pump,
-        FIBRE,
-        SYMMETRY_GRID,
-        SYMMETRIC_GRATING,
+        DfbSolveConfig {
+            grid_points: SYMMETRY_GRID,
+            root_find: RootFindConfig::Bisection(BISECTION),
+            picard: SYMMETRY_PICARD,
+        },
         true,
-        BISECTION,
     )
     .expect("forward-pumped shooting DFB solve failed");
     let picard_profile = dfb_solve_picard(

@@ -3,13 +3,16 @@ mod plots;
 
 use crate::plots::plot_profile_diff;
 use laser_solver::dfb::{
-    dfb_find_threshold_and_slope, dfb_pump_scan, dfb_solve_shooting, out_field, solve_profile, Grating,
+    DfbLaser, DfbSolveConfig, Grating, dfb_find_threshold_and_slope, dfb_pump_scan, out_field,
+    solve_profile,
 };
 use laser_solver::lase::{
     Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff,
 };
 use laser_solver::picard::{PicardConfig, PicardDfbSolver, dfb_solve_picard, initial_profile};
-use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, rootfind_1d};
+use laser_solver::rootfind::{
+    BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig, rootfind_1d,
+};
 use laser_solver::utils::{IterationConfig, linspace};
 use myplotlib::Plotter;
 use plots::show_field_profile;
@@ -49,6 +52,11 @@ const GRATING: Grating = Grating {
     pi_shift_position: 0.45,
 };
 
+const DFB_LASER: DfbLaser = DfbLaser {
+    fibre: FIBRE,
+    grating: GRATING,
+};
+
 const ITERATION: IterationConfig = IterationConfig {
     max: 500,
     tol: 1e-10,
@@ -71,6 +79,12 @@ const NEWTON: Newton1dConfig = Newton1dConfig {
     iteration: ITERATION,
     initial: PUMP_FORWARD_AMPLITUDE,
     dx: 1e-6,
+};
+
+const NEWTON_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
+    grid_points: GRID,
+    root_find: RootFindConfig::Newton1d(NEWTON),
+    picard: PICARD,
 };
 
 const SHOW_PLOTS: bool = true;
@@ -111,8 +125,9 @@ fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
     Ok(())
 }
 fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
-    let result =
-        dfb_solve_shooting(FORWARD_PUMP, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON).unwrap();
+    let result = DFB_LASER
+        .solve_shooting(FORWARD_PUMP, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
+        .unwrap();
     show_field_profile(&result, show_plots)?;
 
     let profile = initial_profile(PUMP, FIBRE, GRID);
@@ -284,9 +299,9 @@ fn compare_dfb_solvers(show_plots: bool) -> eframe::Result {
     let comparison_pump = FORWARD_PUMP;
 
     let start = Instant::now();
-    let shooting_profile =
-        dfb_solve_shooting(comparison_pump, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON)
-            .expect("shooting DFB solve failed");
+    let shooting_profile = DFB_LASER
+        .solve_shooting(comparison_pump, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
+        .expect("shooting DFB solve failed");
     let shooting_elapsed = start.elapsed();
 
     let start = Instant::now();

@@ -2,7 +2,6 @@ pub mod picard;
 mod shooting;
 
 use self::picard::{PicardConfig, PicardDfbSolver, dfb_output_power_picard, dfb_solve_picard};
-pub use self::shooting::{dfb_output_power_shooting, dfb_solve_shooting};
 use crate::error::SolverError;
 use crate::lase::{
     Fibre, FieldProfile, FieldState, GridPoints, Pump, PumpScan, find_threshold_and_slope, gain,
@@ -163,16 +162,22 @@ pub fn dfb_find_threshold_and_slope(
         };
         find_threshold_and_slope(pump_start.total, pump_step, ip, f)
     } else {
+        let laser = DfbLaser {
+            fibre: fp,
+            grating: kp,
+        };
+        let solve_config = DfbSolveConfig {
+            grid_points: gp,
+            root_find: config.into(),
+            picard: picard_config,
+        };
         let f = |total| {
-            dfb_output_power_shooting(
+            laser.output_power_shooting(
                 Pump {
                     total,
                     ..pump_start
                 },
-                fp,
-                gp,
-                kp,
-                config,
+                solve_config,
             )
         };
         find_threshold_and_slope(pump_start.total, pump_step, ip, f)
@@ -214,8 +219,17 @@ pub fn dfb_pump_scan(
             )
         })
     } else {
+        let laser = DfbLaser {
+            fibre: fp,
+            grating: kp,
+        };
+        let solve_config = DfbSolveConfig {
+            grid_points: gp,
+            root_find: config.into(),
+            picard: picard_config,
+        };
         pump_scan(pumps, |total| {
-            dfb_output_power_shooting(Pump { total, balance }, fp, gp, kp, config)
+            laser.output_power_shooting(Pump { total, balance }, solve_config)
         })
     }
 }
@@ -233,6 +247,18 @@ pub fn dfb_solve(
     if use_picard {
         dfb_solve_picard(pump, fp, gp, kp, full_profile, config, picard_config)
     } else {
-        dfb_solve_shooting(pump, fp, gp, kp, full_profile, config)
+        DfbLaser {
+            fibre: fp,
+            grating: kp,
+        }
+        .solve_shooting(
+            pump,
+            DfbSolveConfig {
+                grid_points: gp,
+                root_find: config.into(),
+                picard: picard_config,
+            },
+            full_profile,
+        )
     }
 }

@@ -1,10 +1,10 @@
-use super::{DfbLaser, DfbSolveConfig, Grating, out_field, solve_profile};
+use super::{DfbLaser, DfbSolveConfig, out_field, solve_profile};
 use crate::error::SolverError;
-use crate::lase::{Fibre, FieldProfile, FieldState, GridPoints, OutputPower, Pump};
-use crate::rootfind::{RootFindConfig, rootfind_1d};
+use crate::lase::{FieldProfile, FieldState, OutputPower, Pump};
+use crate::rootfind::rootfind_1d;
 
 impl DfbLaser {
-    pub(crate) fn solve_shooting(
+    pub fn solve_shooting(
         &self,
         pump: Pump,
         config: DfbSolveConfig,
@@ -47,48 +47,4 @@ impl DfbLaser {
         let profile = self.solve_shooting(pump, config, false)?;
         Ok(profile.output_powers())
     }
-}
-
-pub fn dfb_solve_shooting(
-    pump: Pump,
-    fp: Fibre,
-    gp: GridPoints,
-    kp: Grating,
-    full_profile: bool,
-    config: impl Into<RootFindConfig>,
-) -> Result<FieldProfile, SolverError> {
-    DfbLaser {
-        fibre: fp,
-        grating: kp,
-    }
-    .solve_shooting(
-        pump,
-        DfbSolveConfig {
-            grid_points: gp,
-            root_find: config.into(),
-            picard: Default::default(),
-        },
-        full_profile,
-    )
-}
-
-pub fn dfb_output_power_shooting(
-    pump: Pump,
-    fp: Fibre,
-    gp: GridPoints,
-    kp: Grating,
-    config: impl Into<RootFindConfig> + Copy,
-) -> Result<OutputPower, SolverError> {
-    DfbLaser {
-        fibre: fp,
-        grating: kp,
-    }
-    .output_power_shooting(
-        pump,
-        DfbSolveConfig {
-            grid_points: gp,
-            root_find: config.into(),
-            picard: Default::default(),
-        },
-    )
 }

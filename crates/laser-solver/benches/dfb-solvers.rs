@@ -1,8 +1,8 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use laser_solver::dfb::{dfb_solve_shooting, Grating};
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::lase::{Fibre, GridPoints, Pump};
 use laser_solver::picard::{PicardConfig, dfb_solve_picard};
-use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig};
+use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
 use laser_solver::utils::IterationConfig;
 use std::hint::black_box;
 
@@ -31,6 +31,11 @@ const GRATING: Grating = Grating {
     pi_shift_position: 0.45,
 };
 
+const DFB_LASER: DfbLaser = DfbLaser {
+    fibre: FIBRE,
+    grating: GRATING,
+};
+
 const ITERATION: IterationConfig = IterationConfig {
     max: 500,
     tol: 1e-10,
@@ -48,12 +53,18 @@ const NEWTON: Newton1dConfig = Newton1dConfig {
     dx: 1e-6,
 };
 
+const NEWTON_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
+    grid_points: GRID,
+    root_find: RootFindConfig::Newton1d(NEWTON),
+    picard: PICARD,
+};
+
 fn benchmark_dfb_solver(c: &mut Criterion) {
     c.bench_function("dfb/shooting", |b| {
         b.iter(|| {
-            let result =
-                dfb_solve_shooting(FORWARD_PUMP, FIBRE, GRID, GRATING, FULL_PROFILE, NEWTON)
-                    .expect("shooting DFB solve failed");
+            let result = DFB_LASER
+                .solve_shooting(FORWARD_PUMP, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
+                .expect("shooting DFB solve failed");
             black_box(result);
         });
     });
@@ -84,13 +95,14 @@ fn benchmark_bisection_midpoints(c: &mut Criterion) {
                 };
 
                 b.iter(|| {
-                    let result = dfb_solve_shooting(
+                    let result = DFB_LASER.solve_shooting(
                         FORWARD_PUMP,
-                        FIBRE,
-                        GRID,
-                        GRATING,
+                        DfbSolveConfig {
+                            grid_points: GRID,
+                            root_find: RootFindConfig::Bisection(config),
+                            picard: PICARD,
+                        },
                         FULL_PROFILE,
-                        config,
                     )
                     .expect("shooting DFB solve failed");
                     black_box(result);
