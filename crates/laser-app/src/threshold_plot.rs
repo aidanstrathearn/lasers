@@ -2,7 +2,7 @@ use crate::plotter::Plotter;
 use crate::{LaserApp, Points, timed};
 use eframe::egui;
 use eframe::egui::Ui;
-use laser_solver::dfb::dfb_pump_scan;
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig};
 use laser_solver::error::SolverError;
 use laser_solver::rootfind::BisectionConfig;
 use laser_solver::utils::linspace;
@@ -41,14 +41,18 @@ impl LaserApp {
             self.threshold_range.num,
         );
         let (threshold, compute_time) = timed(|| {
-            dfb_pump_scan(
+            DfbLaser {
+                fibre: self.fibre_params,
+                grating: self.grating,
+            }
+            .pump_scan(
                 &pumps,
                 self.pump.balance,
-                self.fibre_params,
-                self.grid_points,
-                self.grating,
-                bc,
-                self.picard_config,
+                DfbSolveConfig {
+                    grid_points: self.grid_points,
+                    root_find: bc.into(),
+                    picard: self.picard_config,
+                },
             )
         });
         let threshold = threshold?;

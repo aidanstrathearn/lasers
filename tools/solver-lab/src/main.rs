@@ -3,8 +3,7 @@ mod plots;
 
 use crate::plots::plot_profile_diff;
 use laser_solver::dfb::{
-    DfbLaser, DfbSolveConfig, Grating, dfb_find_threshold_and_slope, dfb_pump_scan, out_field,
-    solve_profile,
+    DfbLaser, DfbSolveConfig, Grating, out_field, solve_profile,
 };
 use laser_solver::lase::{
     Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff,
@@ -87,6 +86,12 @@ const NEWTON_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
     picard: PICARD,
 };
 
+const BISECTION_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
+    grid_points: GRID,
+    root_find: RootFindConfig::Bisection(BISECTION),
+    picard: PICARD,
+};
+
 const SHOW_PLOTS: bool = true;
 
 fn main() -> eframe::Result {
@@ -139,7 +144,8 @@ fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
 fn run_pump_scan(show_plots: bool) -> eframe::Result {
     let pumps = linspace(0.0, 10.0, 200);
     let start = Instant::now();
-    let threshold = dfb_pump_scan(&pumps, 1.0, FIBRE, GRID, GRATING, BISECTION, PICARD)
+    let threshold = DFB_LASER
+        .pump_scan(&pumps, 1.0, BISECTION_SOLVE_CONFIG)
         .expect("pump scan failed");
     let elapsed = start.elapsed();
     println!("pump sweep {:.3}", elapsed.as_secs_f64());
@@ -175,7 +181,12 @@ fn plot_pump_scan_derivatives(show_plot: bool) -> eframe::Result {
     };
     let pumps = linspace(0.0, 10.0, 200);
     let balance = 0.95;
-    let outputs = dfb_pump_scan(&pumps, balance, FIBRE, GRID, GRATING, BISECTION, pc)
+    let solve_config = DfbSolveConfig {
+        picard: pc,
+        ..BISECTION_SOLVE_CONFIG
+    };
+    let outputs = DFB_LASER
+        .pump_scan(&pumps, balance, solve_config)
         .expect("pump scan failed");
     let outputs: Vec<(f64, f64)> = outputs
         .into_iter()
@@ -198,20 +209,17 @@ fn plot_pump_scan_derivatives(show_plot: bool) -> eframe::Result {
         .collect();
 
     let threshold_config = IterationConfig { tol: 1e-3, max: 20 };
-    let (forward_slope, backward_slope, threshold) = dfb_find_threshold_and_slope(
-        Pump {
-            total: 2.0,
-            balance,
-        },
-        1.0,
-        threshold_config,
-        FIBRE,
-        GRID,
-        GRATING,
-        BISECTION,
-        pc,
-    )
-    .expect("threshold not found");
+    let (forward_slope, backward_slope, threshold) = DFB_LASER
+        .find_threshold_and_slope(
+            Pump {
+                total: 2.0,
+                balance,
+            },
+            1.0,
+            threshold_config,
+            solve_config,
+        )
+        .expect("threshold not found");
 
     println!(
         "forward slope {forward_slope}, backward slope {backward_slope}, threshold {threshold}"
