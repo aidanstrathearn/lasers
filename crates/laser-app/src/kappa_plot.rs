@@ -1,8 +1,8 @@
 use crate::plotter::Plotter;
-use crate::{LaserApp, timed};
+use crate::{dfb::DfbMode, timed};
 use laser_solver::error::SolverError;
 
-impl LaserApp {
+impl DfbMode {
     pub fn kappa_plot(&self) -> Result<Plotter, SolverError> {
         let ((z, kappas), compute_time) = timed(|| {
             (

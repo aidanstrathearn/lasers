@@ -1,10 +1,10 @@
 use crate::plotter::Plotter;
-use crate::{LaserApp, Points, timed};
+use crate::{Points, dfb::DfbMode, timed};
 use laser_solver::error::SolverError;
 use laser_solver::lase::pops;
 use laser_solver::rootfind::BisectionConfig;
 
-impl LaserApp {
+impl DfbMode {
     pub fn pops_plot(&mut self) -> Result<Plotter, SolverError> {
         let full_profile = true;
         let bc = BisectionConfig {

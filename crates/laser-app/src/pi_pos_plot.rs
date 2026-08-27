@@ -1,5 +1,5 @@
 use crate::plotter::Plotter;
-use crate::{LaserApp, Points, timed};
+use crate::{Points, dfb::DfbMode, timed};
 use laser_solver::dfb::{DfbLaser, Grating};
 use laser_solver::error::SolverError;
 use laser_solver::rootfind::BisectionConfig;
@@ -8,7 +8,7 @@ use std::time::Duration;
 
 const PI_POSITION_INTERVALS: usize = 40;
 
-impl LaserApp {
+impl DfbMode {
     pub fn pi_pos_plot(&mut self) -> Result<Plotter, SolverError> {
         let bc = BisectionConfig {
             upper: 2.0 * self.pump.total.sqrt(),

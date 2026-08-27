@@ -1,5 +1,5 @@
 use crate::plotter::Plotter;
-use crate::{LaserApp, Points, timed};
+use crate::{Points, dfb::DfbMode, timed};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::error::SolverError;
@@ -23,7 +23,7 @@ impl Default for ThresholdRange {
     }
 }
 
-impl LaserApp {
+impl DfbMode {
     pub fn threshold_plot(&mut self) -> Result<Plotter, SolverError> {
         let bc = BisectionConfig {
             upper: self.threshold_range.upper.sqrt(),

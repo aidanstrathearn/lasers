@@ -1,5 +1,5 @@
 use crate::plotter::Plotter;
-use crate::{LaserApp, Points, timed};
+use crate::{Points, dfb::DfbMode, timed};
 use eframe::egui;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::error::SolverError;
@@ -42,7 +42,7 @@ impl FieldProfileExt for FieldProfile {
     }
 }
 
-impl LaserApp {
+impl DfbMode {
     pub fn profile_plot(&mut self) -> Result<Plotter, SolverError> {
         let full_profile = true;
         let bc = BisectionConfig {
