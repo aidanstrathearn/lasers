@@ -7,6 +7,7 @@ mod pop_plot;
 mod profile_plot;
 mod residual_plot;
 mod threshold_plot;
+mod amplifier;
 
 use crate::dfb::DfbMode;
 use crate::plotter::Plotter;
@@ -15,6 +16,7 @@ use eframe::egui::Ui;
 use laser_solver::lase::FieldProfile;
 use std::time::Duration;
 use web_time::Instant;
+use crate::amplifier::AmplifierMode;
 
 type Points = Vec<[f64; 2]>;
 
@@ -59,11 +61,15 @@ trait ModeUi {
 enum Mode {
     #[default]
     Dfb,
+    Amplifier
 }
 
 impl Mode {
     fn selectors(&mut self, ui: &mut Ui) -> bool {
-        ui.selectable_value(self, Self::Dfb, "DFB").changed()
+        let mut changed = false;
+        changed |= ui.selectable_value(self, Self::Dfb, "DFB").changed();
+        changed |=ui.selectable_value(self, Self::Amplifier, "Amplifier").changed();
+        changed
     }
 }
 
@@ -71,6 +77,7 @@ impl Mode {
 pub struct LaserApp {
     selected_mode: Mode,
     dfb: DfbMode,
+    amplifier: AmplifierMode
 }
 
 impl LaserApp {
@@ -84,6 +91,7 @@ impl LaserApp {
     fn active_mode_mut(&mut self) -> &mut dyn ModeUi {
         match self.selected_mode {
             Mode::Dfb => &mut self.dfb,
+            Mode::Amplifier => &mut self.amplifier
         }
     }
 
