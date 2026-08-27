@@ -12,9 +12,10 @@ use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{Fibre, GridPoints, Pump};
 use laser_solver::picard::PicardConfig;
-use laser_solver::rootfind::{BisectionConfig, RootFindConfig};
+use laser_solver::rootfind::{BisectionConfig, Midpoint, RootFindConfig};
 use std::time::Duration;
 use laser_solver::amplifier::{Amplifier, AmplifierSolveConfig};
+use laser_solver::rootfind::Midpoint::Arithmetic;
 
 #[derive(PartialEq, Default, Copy, Clone)]
 pub(crate) enum AmplifierView {
@@ -131,7 +132,9 @@ impl AmplifierMode {
     fn profile_plot(&mut self) -> Result<Plotter, SolverError> {
         let full_profile = true;
         let bc = BisectionConfig {
-            upper: 2.0 * self.pump.total.sqrt(),
+            upper: self.pump.total.sqrt(),
+            lower: 0.0,
+            midpoint: Arithmetic,
             ..self.config
         };
 
