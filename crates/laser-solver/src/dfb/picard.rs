@@ -1,6 +1,6 @@
 use super::{DfbLaser, DfbSolveConfig};
 use crate::error::SolverError;
-use crate::lase::{Fibre, FieldProfile, FieldState, GridPoints, OutputPower, Pump, gain};
+use crate::lase::{Fibre, FieldProfile, FieldState, OutputPower, Pump, gain};
 use crate::rootfind::try_rootfind_1d;
 use std::fmt;
 
@@ -50,10 +50,6 @@ impl PicardSolver {
             current: initial,
             new: vec![FieldState::default(); n],
         }
-    }
-
-    pub fn new(pump: Pump, fp: Fibre, gp: GridPoints) -> Self {
-        Self::from_initial(initial_profile(pump, fp, gp).fields)
     }
 
     pub fn solve_profile_picard(
@@ -127,28 +123,6 @@ pub fn profile_convergence_error(
         .max(max_dif_s / (config.absolute_tolerance + config.relative_tolerance * max_mag_s))
 }
 
-pub fn initial_profile(pump: Pump, fp: Fibre, gp: GridPoints) -> FieldProfile {
-    let g = 0.5 * (-fp.pump_ab + fp.pump_em) * fp.density; // ground and excited populations are equal
-    let zs = gp.grid(fp.length);
-    let end_factor = (0.5 * g * fp.length).exp();
-    let (pump_forward, pump_backward) = pump.amplitudes();
-
-    let fields = zs
-        .iter()
-        .map(|z| {
-            let f = (0.5 * g * z).exp(); // &f64 * f64 -> f64 apparently, so no need to deref
-            let b = end_factor / f;
-
-            FieldState {
-                sgnl_f: 0.0,
-                sgnl_b: 0.0,
-                pump_f: f * pump_forward,
-                pump_b: b * pump_backward,
-            }
-        })
-        .collect();
-    FieldProfile::new(zs, fields)
-}
 pub fn find_pump_b(pump: Pump, profile: &[FieldState], fp: Fibre, dz: f64) -> f64 {
     let expg: f64 = profile[..profile.len() - 1]
         .iter()
@@ -160,6 +134,11 @@ pub fn find_pump_b(pump: Pump, profile: &[FieldState], fp: Fibre, dz: f64) -> f6
         .exp();
     pump.backward_amplitude() * expg
 }
+
+
+
+
+
 
 impl DfbLaser {
     fn solve_with_picard_solver(
@@ -204,7 +183,7 @@ impl DfbLaser {
         config: DfbSolveConfig,
         full_profile: bool,
     ) -> Result<FieldProfile, SolverError> {
-        let mut solver = PicardSolver::new(pump, self.fibre, config.grid_points);
+        let mut solver = self.initial_picard_solver(pump, config.grid_points);
         self.solve_with_picard_solver(pump, config, full_profile, &mut solver)
     }
 

@@ -22,7 +22,35 @@ pub struct DfbLaser {
     pub grating: Grating,
 }
 
+pub fn initial_profile(pump: Pump, fp: Fibre, gp: GridPoints) -> FieldProfile {
+    let g = 0.5 * (-fp.pump_ab + fp.pump_em) * fp.density; // ground and excited populations are equal
+    let zs = gp.grid(fp.length);
+    let end_factor = (0.5 * g * fp.length).exp();
+    let (pump_forward, pump_backward) = pump.amplitudes();
+
+    let fields = zs
+        .iter()
+        .map(|z| {
+            let f = (0.5 * g * z).exp(); // &f64 * f64 -> f64 apparently, so no need to deref
+            let b = end_factor / f;
+
+            FieldState {
+                sgnl_f: 0.0,
+                sgnl_b: 0.0,
+                pump_f: f * pump_forward,
+                pump_b: b * pump_backward,
+            }
+        })
+        .collect();
+    FieldProfile::new(zs, fields)
+}
+
 impl DfbLaser {
+    fn initial_picard_solver(&self, pump: Pump, grid_points: GridPoints) -> PicardSolver {
+        let initial = initial_profile(pump, self.fibre, grid_points);
+        PicardSolver::from_initial(initial.fields)
+    }
+
     pub fn solve(
         &self,
         pump: Pump,
@@ -47,7 +75,7 @@ impl DfbLaser {
         pump_start.amplitudes();
         let use_picard = pump_start.balance != 1.0;
         if use_picard {
-            let mut solver = PicardSolver::new(pump_start, self.fibre, solve_config.grid_points);
+            let mut solver = self.initial_picard_solver(pump_start, solve_config.grid_points);
             let f = |total| {
                 self.output_power_picard(
                     Pump {
@@ -85,12 +113,11 @@ impl DfbLaser {
 
         let use_picard = balance != 1.0;
         if use_picard {
-            let mut solver = PicardSolver::new(
+            let mut solver = self.initial_picard_solver(
                 Pump {
                     total: pump_start,
                     balance,
                 },
-                self.fibre,
                 solve_config.grid_points,
             );
             scan_pump_totals(pump_totals, |total| {

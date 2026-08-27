@@ -2,9 +2,9 @@ mod myplotlib;
 mod plots;
 
 use crate::plots::plot_profile_diff;
-use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, initial_profile};
 use laser_solver::lase::{Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff};
-use laser_solver::picard::{PicardConfig, PicardSolver, initial_profile};
+use laser_solver::picard::{PicardConfig, PicardSolver};
 use laser_solver::propagation::{out_field_coupled, solve_profile_coupled};
 use laser_solver::rootfind::{
     BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig, rootfind_1d,
@@ -272,7 +272,8 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
         ),
     );
 
-    let mut picard_solver = PicardSolver::new(comparison_pump, FIBRE, GRID);
+    let initial = initial_profile(comparison_pump, FIBRE, GRID);
+    let mut picard_solver = PicardSolver::from_initial(initial.fields);
     let picard_fields = picard_solver
         .solve_profile_picard(
             comparison_sgnl_b,

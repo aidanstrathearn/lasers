@@ -1,4 +1,4 @@
-use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, initial_profile};
 use laser_solver::lase::{Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff};
 use laser_solver::picard::{PicardConfig, PicardSolver};
 use laser_solver::propagation::solve_profile_coupled;
@@ -113,7 +113,8 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
         GRID.grid(FIBRE.length),
         solve_profile_coupled(boundary, FIBRE, GRID.dz(FIBRE.length), &kappas),
     );
-    let mut picard_solver = PicardSolver::new(pump, FIBRE, GRID);
+    let initial = initial_profile(pump, FIBRE, GRID);
+    let mut picard_solver = PicardSolver::from_initial(initial.fields);
     let picard_fields = picard_solver
         .solve_profile_picard(sgnl_b, pump, FIBRE, PICARD, &kappas, GRID.dz(FIBRE.length))
         .expect("buffered Picard profile solve failed")
