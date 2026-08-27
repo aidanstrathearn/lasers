@@ -1,4 +1,3 @@
-use crate::{timed, ModeUi, field_profile_plot};
 use crate::controls::{
     bisection_slider_grid, fibre_params_slider_grid, grating_slider_grid, gridpoints_slider,
     pump_slider_grid,
@@ -6,16 +5,17 @@ use crate::controls::{
 use crate::plotter::Plotter;
 use crate::residual_plot::{ResidualRange, residual_slider_grid};
 use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
+use crate::{ModeUi, field_profile_plot, timed};
 use eframe::egui;
 use eframe::egui::Ui;
+use laser_solver::amplifier::{Amplifier, AmplifierSolveConfig, Signal};
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{Fibre, GridPoints, Pump};
 use laser_solver::picard::PicardConfig;
+use laser_solver::rootfind::Midpoint::Arithmetic;
 use laser_solver::rootfind::{BisectionConfig, Midpoint, RootFindConfig};
 use std::time::Duration;
-use laser_solver::amplifier::{Amplifier, AmplifierSolveConfig, Signal};
-use laser_solver::rootfind::Midpoint::Arithmetic;
 
 #[derive(PartialEq, Default, Copy, Clone)]
 pub(crate) enum AmplifierView {
@@ -23,9 +23,8 @@ pub(crate) enum AmplifierView {
     Profile,
 }
 
-const VIEW_OPTIONS: [(AmplifierView, &str, egui::Key); 1] = [
-    (AmplifierView::Profile, "[1] Profile", egui::Key::Num1),
-];
+const VIEW_OPTIONS: [(AmplifierView, &str, egui::Key); 1] =
+    [(AmplifierView::Profile, "[1] Profile", egui::Key::Num1)];
 
 impl AmplifierView {
     fn plot_id(self) -> &'static str {
@@ -118,16 +117,22 @@ pub(crate) fn signal_slider_grid(signal: &mut Signal, ui: &mut Ui) -> bool {
 
 impl AmplifierMode {
     pub(crate) fn amplifier(&self) -> Amplifier {
-        Amplifier {
-            fibre: self.fibre,
-        }
+        Amplifier { fibre: self.fibre }
     }
 
-    pub(crate) fn amplifier_solve_config(&self, root_find: impl Into<RootFindConfig>) -> AmplifierSolveConfig {
+    pub(crate) fn amplifier_solve_config(
+        &self,
+        root_find: impl Into<RootFindConfig>,
+    ) -> AmplifierSolveConfig {
         AmplifierSolveConfig {
             grid_points: self.grid_points,
             root_find: root_find.into(),
-            picard: PicardConfig{ max_iterations: 2000, ..PicardConfig::default()}
+            picard: PicardConfig {
+                max_iterations: 2000,
+                relative_tolerance: 1e-3, // need higher tolerance than dfb?
+                absolute_tolerance: 1e-3,
+                ..PicardConfig::default()
+            },
         }
     }
 
@@ -149,14 +154,17 @@ impl AmplifierMode {
         };
 
         let (result, compute_time) = timed(|| {
-            self.amplifier()
-                .solve(self.signal, self.pump, self.amplifier_solve_config(bc), full_profile)
+            self.amplifier().solve(
+                self.signal,
+                self.pump,
+                self.amplifier_solve_config(bc),
+                full_profile,
+            )
         });
         self.compute_time = Some(compute_time);
         Ok(field_profile_plot(&result?))
     }
 }
-
 
 impl ModeUi for AmplifierMode {
     fn draw_view_selector(&mut self, ui: &mut Ui) -> bool {

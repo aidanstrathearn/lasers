@@ -100,7 +100,7 @@ pub fn profile_convergence_error(
         {
             return f64::INFINITY;
         }
-        max_dif_s = max_dif_s.max((current_powers[0] - new_powers[0]).abs().sqrt());
+        max_dif_s = max_dif_s.max((current_powers[0] - new_powers[0]).abs().sqrt()); // check scaling and tolerance
         max_dif_p = max_dif_p.max((current_powers[1] - new_powers[1]).abs().sqrt());
         max_mag_s = max_mag_s.max(current_powers[0].max(new_powers[0]).sqrt());
         max_mag_p = max_mag_p.max(current_powers[1].max(new_powers[1]).sqrt());
