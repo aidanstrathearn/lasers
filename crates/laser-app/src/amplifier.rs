@@ -126,7 +126,8 @@ impl AmplifierMode {
     pub(crate) fn amplifier_solve_config(&self, root_find: impl Into<RootFindConfig>) -> AmplifierSolveConfig {
         AmplifierSolveConfig {
             grid_points: self.grid_points,
-            root_find: root_find.into()
+            root_find: root_find.into(),
+            picard: PicardConfig{ max_iterations: 2000, ..PicardConfig::default()}
         }
     }
 
