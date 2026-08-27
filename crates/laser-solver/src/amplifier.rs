@@ -1,45 +1,10 @@
 use crate::error::SolverError;
-use crate::lase::{Fibre, FieldProfile, FieldState, GridPoints, OutputPower, Pump, gain};
+use crate::lase::{gain, Fibre, FieldProfile, FieldState, GridPoints, OutputPower, Pump, Signal};
 use crate::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::propagation::{out_field_uncoupled, solve_profile_uncoupled};
 use crate::rootfind::{RootFindConfig, rootfind_1d};
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Signal {
-    pub total: f64,
-    pub balance: f64,
-}
 
-impl Default for Signal {
-    fn default() -> Self {
-        Self {
-            total: 1.0,
-            balance: 1.0,
-        }
-    }
-}
-
-impl Signal {
-    pub fn amplitudes(self) -> (f64, f64) {
-        assert!(
-            self.total >= 0.0 && (-1.0..=1.0).contains(&self.balance),
-            "signal total must be non-negative and balance must be between -1 and 1"
-        );
-        let forward_fraction = (self.balance + 1.0) * 0.5;
-        (
-            (forward_fraction * self.total).sqrt(),
-            ((1.0 - forward_fraction) * self.total).sqrt(),
-        )
-    }
-
-    pub fn forward_amplitude(self) -> f64 {
-        self.amplitudes().0
-    }
-
-    pub fn backward_amplitude(self) -> f64 {
-        self.amplitudes().1
-    }
-}
 
 #[derive(Copy, Clone)]
 pub struct AmplifierSolveConfig {

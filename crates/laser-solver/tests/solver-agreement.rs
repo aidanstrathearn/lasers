@@ -1,7 +1,7 @@
-use laser_solver::amplifier::{AmplifierSolveConfig, Signal, solve_amp_picard, solve_shooting};
+use laser_solver::amplifier::{AmplifierSolveConfig, solve_amp_picard, solve_shooting};
 use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, initial_profile};
-use laser_solver::lase::{Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff};
+use laser_solver::lase::{profile_max_diff, Fibre, FieldProfile, FieldState, GridPoints, Pump, Signal};
 use laser_solver::picard::{PicardConfig, PicardSolver};
 use laser_solver::propagation::solve_profile_coupled;
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
