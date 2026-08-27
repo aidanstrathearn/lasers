@@ -6,6 +6,8 @@ mod profile_plot;
 mod residual_plot;
 mod threshold_plot;
 mod controls;
+mod dfbmode;
+mod amplifiermode;
 
 use crate::plotter::Plotter;
 use crate::residual_plot::{ResidualRange, residual_slider_grid};
@@ -19,7 +21,29 @@ use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::{BisectionConfig, RootFindConfig};
 use std::time::Duration;
 use web_time::Instant;
+use crate::amplifiermode::AmplifierMode;
 use crate::controls::{bisection_slider_grid, fibre_params_slider_grid, grating_slider_grid, gridpoints_slider, pump_slider_grid};
+use crate::dfbmode::DfbMode;
+
+trait ModeUi {
+    fn draw_view_selector(&mut self, ui: &mut egui::Ui) -> bool;
+    fn draw_controls(&mut self, ui: &mut egui::Ui) -> bool;
+    fn compute_plot(&self) -> Result<Plotter, SolverError>;
+    fn cached_plot(&self) -> Result<Plotter, SolverError>;
+    fn reset(&mut self);
+}
+
+struct App {
+    selected_mode: Mode,
+    dfb: DfbMode,
+    amplifier: AmplifierMode
+}
+
+enum Mode {
+    Dfb,
+    Amplifier,
+}
+
 
 #[derive(PartialEq, Default, Copy, Clone)]
 pub enum View {
