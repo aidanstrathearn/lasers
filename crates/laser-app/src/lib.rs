@@ -9,8 +9,10 @@ mod residual_plot;
 mod threshold_plot;
 
 use crate::dfb::DfbMode;
+use crate::plotter::Plotter;
 use eframe::egui;
 use eframe::egui::Ui;
+use laser_solver::lase::FieldProfile;
 use std::time::Duration;
 use web_time::Instant;
 
@@ -20,6 +22,28 @@ fn timed<T>(compute: impl FnOnce() -> T) -> (T, Duration) {
     let start = Instant::now();
     let result = compute();
     (result, start.elapsed())
+}
+
+fn power_points(z: impl Iterator<Item = f64>, amplitude: impl Iterator<Item = f64>) -> Points {
+    z.zip(amplitude)
+        .map(|(z, amplitude)| [z, amplitude.powi(2)])
+        .collect()
+}
+
+fn field_profile_plot(profile: &FieldProfile, compute_time: Duration) -> Plotter {
+    let mut plot = Plotter::new();
+    plot.add_points(power_points(profile.z(), profile.sgnl_f()))
+        .label("Forward signal");
+    plot.add_points(power_points(profile.z(), profile.sgnl_b()))
+        .label("Backward signal");
+    plot.add_points(power_points(profile.z(), profile.pump_f()))
+        .label("Forward pump");
+    plot.add_points(power_points(profile.z(), profile.pump_b()))
+        .label("Backward pump");
+    plot.xlabel("z");
+    plot.ylabel("Power");
+    plot.set_compute_time(compute_time);
+    plot
 }
 
 trait ModeUi {

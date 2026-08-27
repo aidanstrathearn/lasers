@@ -1,46 +1,14 @@
 use crate::plotter::Plotter;
-use crate::{Points, dfb::DfbMode, timed};
+use crate::{Points, dfb::DfbMode, field_profile_plot, power_points, timed};
 use eframe::egui;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::error::SolverError;
-use laser_solver::lase::{Fibre, FieldProfile, GridPoints, Pump};
+use laser_solver::lase::{Fibre, GridPoints, Pump};
 use laser_solver::rootfind::{BisectionConfig, Newton1dConfig};
 use laser_solver::utils::IterationConfig;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::thread;
-
-trait FieldProfileExt {
-    fn plotpoints(&self, field: &str) -> Vec<[f64; 2]>;
-}
-
-impl FieldProfileExt for FieldProfile {
-    fn plotpoints(&self, field: &str) -> Vec<[f64; 2]> {
-        let z = self.z();
-        match field {
-            "sgnl_b" => {
-                let field = self.sgnl_b();
-                z.zip(field).map(|(x, y)| [x, y.powi(2)]).collect()
-            }
-
-            "sgnl_f" => {
-                let field = self.sgnl_f();
-                z.zip(field).map(|(x, y)| [x, y.powi(2)]).collect()
-            }
-
-            "pump_f" => {
-                let field = self.pump_f();
-                z.zip(field).map(|(x, y)| [x, y.powi(2)]).collect()
-            }
-
-            "pump_b" => {
-                let field = self.pump_b();
-                z.zip(field).map(|(x, y)| [x, y.powi(2)]).collect()
-            }
-            _ => panic!(),
-        }
-    }
-}
 
 impl DfbMode {
     pub fn profile_plot(&mut self) -> Result<Plotter, SolverError> {
@@ -54,21 +22,7 @@ impl DfbMode {
             self.dfb_laser()
                 .solve(self.pump, self.dfb_solve_config(bc), full_profile)
         });
-        let result = result?;
-        let sgnl_f = result.plotpoints("sgnl_f");
-        let sgnl_b = result.plotpoints("sgnl_b");
-        let pump_f = result.plotpoints("pump_f");
-        let pump_b = result.plotpoints("pump_b");
-
-        let mut plt = Plotter::new();
-        plt.add_points(sgnl_f).label("Forward signal");
-        plt.add_points(sgnl_b).label("Backward signal");
-        plt.add_points(pump_f).label("Forward pump");
-        plt.add_points(pump_b).label("Backward pump");
-        plt.xlabel("z");
-        plt.ylabel("Power");
-        plt.set_compute_time(compute_time);
-        Ok(plt)
+        Ok(field_profile_plot(&result?, compute_time))
     }
 }
 
@@ -112,10 +66,10 @@ impl ProfilePlot {
                 full_profile,
             )?;
             Ok([
-                result.plotpoints("sgnl_f"),
-                result.plotpoints("sgnl_b"),
-                result.plotpoints("pump_f"),
-                result.plotpoints("pump_f"),
+                power_points(result.z(), result.sgnl_f()),
+                power_points(result.z(), result.sgnl_b()),
+                power_points(result.z(), result.pump_f()),
+                power_points(result.z(), result.pump_f()),
             ])
         };
 
