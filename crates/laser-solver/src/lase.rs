@@ -5,6 +5,54 @@ use crate::utils::{IterationConfig, linspace, relative_diff};
 pub type OutputPower = (f64, f64);
 pub type PumpScan = Vec<Option<OutputPower>>;
 
+#[derive(Clone, Copy)]
+pub struct TwoLevelDopant {
+    pub density: f64,
+    pub lifetime: f64,
+    pub pump_ab: f64,
+    pub pump_em: f64,
+    pub sgnl_ab: f64,
+    pub sgnl_em: f64,
+}
+
+impl TwoLevelDopant {
+    pub fn pops(&self, fs: FieldState) -> (f64, f64) {
+        let pump_flux = fs.pump_f * fs.pump_f + fs.pump_b * fs.pump_b;
+        let sgnl_flux = fs.sgnl_f * fs.sgnl_f + fs.sgnl_b * fs.sgnl_b;
+        let gamma_up = pump_flux * self.pump_ab + sgnl_flux * self.sgnl_ab;
+        let gamma_dn = pump_flux * self.pump_em + sgnl_flux * self.sgnl_em + 1.0 / self.lifetime;
+        let denom = gamma_up + gamma_dn;
+        (gamma_dn / denom, gamma_up / denom)
+    }
+}
+impl GainModel for TwoLevelDopant {
+    fn gain(&self, fs: FieldState) -> Gain {
+        let (g, e) = self.pops(fs);
+        Gain {
+            pump: self.density * (-g * self.pump_ab + e * self.pump_em),
+            signal: self.density * (-g * self.sgnl_ab + e * self.sgnl_em),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Gain {
+    pub pump: f64,
+    pub signal: f64,
+}
+
+pub trait GainModel {
+    fn gain(&self, fs: FieldState) -> Gain;
+}
+
+pub struct Fibre2<D>
+where
+    D: GainModel,
+{
+    pub length: f64,
+    pub dopant: D,
+}
+
 #[derive(Copy, Clone)]
 pub struct Fibre {
     pub density: f64,
