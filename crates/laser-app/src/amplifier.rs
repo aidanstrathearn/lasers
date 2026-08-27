@@ -14,7 +14,7 @@ use laser_solver::lase::{Fibre, GridPoints, Pump};
 use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::{BisectionConfig, Midpoint, RootFindConfig};
 use std::time::Duration;
-use laser_solver::amplifier::{Amplifier, AmplifierSolveConfig};
+use laser_solver::amplifier::{Amplifier, AmplifierSolveConfig, Signal};
 use laser_solver::rootfind::Midpoint::Arithmetic;
 
 #[derive(PartialEq, Default, Copy, Clone)]
@@ -61,7 +61,7 @@ impl AmplifierView {
 
 pub(crate) struct AmplifierMode {
     pub(crate) view: AmplifierView,
-    pub(crate) input_signal: f64,
+    pub(crate) signal: Signal,
     pub(crate) pump: Pump,
     pub(crate) fibre: Fibre,
     pub(crate) grid_points: GridPoints,
@@ -78,7 +78,7 @@ impl Default for AmplifierMode {
                 total: 10.0,
                 balance: 1.0,
             },
-            input_signal: 1.0,
+            signal: Signal::default(),
             fibre: Fibre {
                 density: 0.50,
                 lifetime: 1.0,
@@ -96,15 +96,24 @@ impl Default for AmplifierMode {
     }
 }
 
-fn input_signal_slider(signal: &mut f64, ui: &mut Ui) -> bool {
+pub(crate) fn signal_slider_grid(signal: &mut Signal, ui: &mut Ui) -> bool {
     let mut changed = false;
-    egui::Grid::new("amp-signal").show(ui, |ui| {
-        ui.label("Input signal");
+
+    egui::Grid::new("signal").show(ui, |ui| {
+        ui.label("Total power");
         changed |= ui
-            .add(egui::Slider::new(signal, 0.0..=10.0).step_by(0.01))
+            .add(egui::Slider::new(&mut signal.total, 0.0..=100.0).step_by(0.01))
             .changed();
-        ui.end_row();});
-        changed
+        ui.end_row();
+
+        ui.label("Balance");
+        changed |= ui
+            .add(egui::Slider::new(&mut signal.balance, -1.0..=1.0).step_by(0.01))
+            .changed();
+        ui.end_row();
+    });
+
+    changed
 }
 
 impl AmplifierMode {
@@ -140,7 +149,7 @@ impl AmplifierMode {
 
         let (result, compute_time) = timed(|| {
             self.amplifier()
-                .solve(self.input_signal, self.pump, self.amplifier_solve_config(bc), full_profile)
+                .solve(self.signal, self.pump, self.amplifier_solve_config(bc), full_profile)
         });
         self.compute_time = Some(compute_time);
         Ok(field_profile_plot(&result?))
@@ -164,7 +173,8 @@ impl ModeUi for AmplifierMode {
             ui.vertical(|ui| {
                 ui.heading("Pump");
                 changed |= pump_slider_grid(&mut self.pump, ui);
-                changed |= input_signal_slider(&mut self.input_signal, ui)
+                ui.heading("Signal");
+                changed |= signal_slider_grid(&mut self.signal, ui)
             });
             ui.vertical(|ui| {
                 ui.heading("Solver");

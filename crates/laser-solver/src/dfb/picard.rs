@@ -57,15 +57,19 @@ pub fn solve_profile_picard<'a>(
         pump_b: 0.0,
     };
 
+    let set_boundary = |current: &[FieldState]| FieldState {
+        pump_b: find_pump_b(pump, current, fp, dz),
+        ..boundary
+    };
+    
+    let step = |new_previous: FieldState, old_current: FieldState, i| {
+        new_previous.coupled_step_general(old_current, fp, kappas[i], dz)
+    };
+    
     solver.solve(
         config,
-        |current| FieldState {
-            pump_b: find_pump_b(pump, current, fp, dz),
-            ..boundary
-        },
-        |new_previous, old_current, i| {
-            new_previous.coupled_step_general(old_current, fp, kappas[i], dz)
-        },
+        set_boundary,
+        step,
     )
 }
 

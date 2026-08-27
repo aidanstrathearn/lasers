@@ -83,7 +83,7 @@ pub(crate) fn grating_slider_grid(grating: &mut Grating, ui: &mut Ui) -> bool {
 pub(crate) fn pump_slider_grid(pump: &mut Pump, ui: &mut Ui) -> bool {
     let mut changed = false;
 
-    egui::Grid::new("pumpp").show(ui, |ui| {
+    egui::Grid::new("pump").show(ui, |ui| {
         ui.label("Total power");
         changed |= ui
             .add(egui::Slider::new(&mut pump.total, 0.0..=100.0).step_by(0.01))
