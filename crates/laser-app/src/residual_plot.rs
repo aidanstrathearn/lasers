@@ -50,12 +50,12 @@ impl DfbMode {
                 [s, residual.abs().log10()]
             })
             .collect::<Points>();
+        self.compute_time = Some(compute_time);
 
         let mut plt = Plotter::new();
         plt.xlabel("Input");
         plt.ylabel("log(|residual|)");
         plt.add_points(residuals);
-        plt.set_compute_time(compute_time);
         Ok(plt)
     }
 }

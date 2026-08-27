@@ -30,7 +30,7 @@ fn power_points(z: impl Iterator<Item = f64>, amplitude: impl Iterator<Item = f6
         .collect()
 }
 
-fn field_profile_plot(profile: &FieldProfile, compute_time: Duration) -> Plotter {
+fn field_profile_plot(profile: &FieldProfile) -> Plotter {
     let mut plot = Plotter::new();
     plot.add_points(power_points(profile.z(), profile.sgnl_f()))
         .label("Forward signal");
@@ -42,7 +42,6 @@ fn field_profile_plot(profile: &FieldProfile, compute_time: Duration) -> Plotter
         .label("Backward pump");
     plot.xlabel("z");
     plot.ylabel("Power");
-    plot.set_compute_time(compute_time);
     plot
 }
 

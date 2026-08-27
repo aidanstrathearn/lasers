@@ -22,7 +22,8 @@ impl DfbMode {
             self.dfb_laser()
                 .solve(self.pump, self.dfb_solve_config(bc), full_profile)
         });
-        Ok(field_profile_plot(&result?, compute_time))
+        self.compute_time = Some(compute_time);
+        Ok(field_profile_plot(&result?))
     }
 }
 

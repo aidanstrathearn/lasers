@@ -16,6 +16,7 @@ impl DfbMode {
             self.dfb_laser()
                 .solve(self.pump, self.dfb_solve_config(bc), full_profile)
         });
+        self.compute_time = Some(compute_time);
         let result = result?;
 
         let (ground, excited): (Points, Points) = result
@@ -33,7 +34,6 @@ impl DfbMode {
         plot.add_points(excited).label("Excited state");
         plot.xlabel("z");
         plot.ylabel("Population fraction");
-        plot.set_compute_time(compute_time);
         Ok(plot)
     }
 }

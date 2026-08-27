@@ -43,6 +43,7 @@ impl DfbMode {
             self.dfb_laser()
                 .pump_scan(&pumps, self.pump.balance, self.dfb_solve_config(bc))
         });
+        self.compute_time = Some(compute_time);
         let threshold = threshold?;
         let sgnl_f = threshold
             .iter()
@@ -69,7 +70,6 @@ impl DfbMode {
         plt.add_points(sgnl_b_points).label("Backward");
         plt.axvline(self.pump.total).label("Current pump");
         plt.xlim(self.threshold_range.lower, self.threshold_range.upper);
-        plt.set_compute_time(compute_time);
         Ok(plt)
     }
 }

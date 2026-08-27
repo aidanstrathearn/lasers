@@ -40,6 +40,7 @@ impl DfbMode {
                 backward_output.push([pi_position, backward]);
             }
         }
+        self.compute_time = Some(compute_time);
 
         let mut plot = Plotter::new();
         plot.add_points(forward_output).label("Forward");
@@ -49,7 +50,6 @@ impl DfbMode {
         plot.xlabel("Pi shift position");
         plot.ylabel("Output power");
         plot.xlim(0.0, 1.0);
-        plot.set_compute_time(compute_time);
         Ok(plot)
     }
 }

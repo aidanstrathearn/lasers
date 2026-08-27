@@ -83,6 +83,7 @@ pub(crate) struct DfbMode {
     pub(crate) threshold_range: ThresholdRange,
     pub(crate) residual_range: ResidualRange,
     cached_plotter: Option<Result<Plotter, SolverError>>,
+    pub(crate) compute_time: Option<Duration>,
 }
 
 impl Default for DfbMode {
@@ -117,6 +118,7 @@ impl Default for DfbMode {
             threshold_range: ThresholdRange::default(),
             residual_range: ResidualRange::default(),
             cached_plotter: None,
+            compute_time: None,
         }
     }
 }
@@ -214,10 +216,7 @@ impl ModeUi for DfbMode {
     }
 
     fn compute_time(&self) -> Option<Duration> {
-        self.cached_plotter
-            .as_ref()
-            .and_then(|result| result.as_ref().ok())
-            .map(Plotter::compute_time)
+        self.compute_time
     }
 
     fn draw_plot(&self, ui: &mut Ui) {
