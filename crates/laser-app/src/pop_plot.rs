@@ -23,7 +23,7 @@ impl LaserApp {
             .into_iter()
             .zip(result.fields)
             .map(|(z, field)| {
-                let (g, e) = pops(field, self.fibre_params);
+                let (g, e) = pops(field, self.fibre);
                 ([z, g], [z, e])
             })
             .unzip();

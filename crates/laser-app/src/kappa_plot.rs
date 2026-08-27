@@ -6,7 +6,7 @@ impl LaserApp {
     pub fn kappa_plot(&self) -> Result<Plotter, SolverError> {
         let ((z, kappas), compute_time) = timed(|| {
             (
-                self.grid_points.grid(self.fibre_params.length),
+                self.grid_points.grid(self.fibre.length),
                 self.grating.grid(self.grid_points.0),
             )
         });

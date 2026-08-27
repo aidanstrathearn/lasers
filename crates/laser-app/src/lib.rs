@@ -90,7 +90,7 @@ fn timed<T>(compute: impl FnOnce() -> T) -> (T, Duration) {
 pub struct LaserApp {
     view: View,
     pump: Pump,
-    fibre_params: Fibre,
+    fibre: Fibre,
     grid_points: GridPoints,
     grating: Grating,
     config: BisectionConfig,
@@ -103,7 +103,7 @@ pub struct LaserApp {
 impl LaserApp {
     fn dfb_laser(&self) -> DfbLaser {
         DfbLaser {
-            fibre: self.fibre_params,
+            fibre: self.fibre,
             grating: self.grating,
         }
     }
@@ -122,7 +122,7 @@ impl LaserApp {
                 total: 10.0,
                 balance: 1.0,
             },
-            fibre_params: Fibre {
+            fibre: Fibre {
                 density: 0.50,
                 lifetime: 1.0,
                 pump_ab: 1.0,
@@ -222,7 +222,7 @@ impl LaserApp {
         egui::Grid::new("global-params").show(ui, |ui| {
             ui.vertical(|ui| {
                 ui.heading("Fibre");
-                changed |= fibre_params_slider_grid(&mut self.fibre_params, ui);
+                changed |= fibre_params_slider_grid(&mut self.fibre, ui);
             });
             ui.vertical(|ui| {
                 ui.heading("Bragg");
