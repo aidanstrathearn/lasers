@@ -1,3 +1,4 @@
 /target
 .idea/
 /scratch/
+/crates/laser-solver/src/sketches.rs

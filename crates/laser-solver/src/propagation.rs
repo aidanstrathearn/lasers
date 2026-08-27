@@ -1,4 +1,4 @@
-use crate::lase::{gain, Fibre, FieldState, Gain};
+use crate::lase::{gain, Fibre, FieldState};
 
 impl FieldState {
     pub fn coupled_step_shooting(self, fp: Fibre, kappa: f64, dz: f64) -> Self {
@@ -9,19 +9,6 @@ impl FieldState {
         let (gp, gs) = gain(other, fp);
         let (a, b, c, d) = transfer(gs, kappa, dz);
         let expg = (0.5 * gp * dz).exp();
-
-        FieldState {
-            sgnl_f: a * self.sgnl_f + b * self.sgnl_b,
-            sgnl_b: c * self.sgnl_f + d * self.sgnl_b,
-            pump_f: self.pump_f * expg,
-            pump_b: self.pump_b / expg,
-        }
-    }
-
-    pub fn coupled_step_general2(self, other: Self, gain: impl Fn(FieldState) -> Gain, kappa: f64, dz: f64) -> Self {
-        let gain = gain(other);
-        let (a, b, c, d) = transfer(gain.signal, kappa, dz);
-        let expg = (0.5 * gain.pump * dz).exp();
 
         FieldState {
             sgnl_f: a * self.sgnl_f + b * self.sgnl_b,
