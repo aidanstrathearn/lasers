@@ -1,3 +1,4 @@
+use laser_solver::amplifier::{AmplifierSolveConfig, Signal, solve_amp_picard, solve_shooting};
 use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, initial_profile};
 use laser_solver::lase::{Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff};
@@ -97,6 +98,36 @@ const MAX_RELATIVE_DIFFERENCE: f64 = 1e-16;
 const MIRRORED_PUMP: f64 = PUMP_FORWARD_AMPLITUDE;
 const SYMMETRY_ABSOLUTE_TOLERANCE: f64 = 1e-8;
 const SYMMETRY_RELATIVE_TOLERANCE: f64 = 5e-3;
+const AMPLIFIER_PROFILE_TOLERANCE: f64 = 1e-8;
+
+#[test]
+fn shooting_and_picard_amplifier_profiles_agree() {
+    let signal = Signal {
+        total: 1.0,
+        balance: 1.0,
+    };
+    let pump = Pump {
+        total: 1.0,
+        balance: 0.0,
+    };
+    let config = AmplifierSolveConfig {
+        grid_points: GRID,
+        root_find: RootFindConfig::Bisection(BISECTION),
+        picard: SYMMETRY_PICARD,
+    };
+
+    let shooting_profile = solve_shooting(FIBRE, signal.forward_amplitude(), pump, config, true)
+        .expect("shooting amplifier solve failed");
+    let picard_profile =
+        solve_amp_picard(FIBRE, signal, pump, config, true).expect("Picard amplifier solve failed");
+
+    assert_eq!(shooting_profile.z, picard_profile.z);
+    let max_diff = profile_max_diff(&shooting_profile.fields, &picard_profile.fields);
+    assert!(
+        max_diff <= AMPLIFIER_PROFILE_TOLERANCE,
+        "shooting and Picard amplifier profiles differ by {max_diff:e}, exceeding {AMPLIFIER_PROFILE_TOLERANCE:e}"
+    );
+}
 
 #[test]
 fn direct_and_buffered_picard_profile_solvers_agree() {
