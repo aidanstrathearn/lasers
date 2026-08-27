@@ -2,6 +2,7 @@ mod myplotlib;
 mod plots;
 
 use crate::plots::plot_profile_diff;
+use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, initial_profile};
 use laser_solver::lase::{Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff};
 use laser_solver::picard::{PicardConfig, PicardSolver};
@@ -274,17 +275,17 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
 
     let initial = initial_profile(comparison_pump, FIBRE, GRID);
     let mut picard_solver = PicardSolver::from_initial(initial.fields);
-    let picard_fields = picard_solver
-        .solve_profile_picard(
-            comparison_sgnl_b,
-            comparison_pump,
-            FIBRE,
-            PICARD,
-            &comparison_kappas,
-            GRID.dz(FIBRE.length),
-        )
-        .expect("Picard profile comparison did not converge")
-        .to_vec();
+    let picard_fields = solve_profile_picard(
+        &mut picard_solver,
+        comparison_sgnl_b,
+        comparison_pump,
+        FIBRE,
+        PICARD,
+        &comparison_kappas,
+        GRID.dz(FIBRE.length),
+    )
+    .expect("Picard profile comparison did not converge")
+    .to_vec();
     let picard_profile = FieldProfile::new(direct_profile.z.clone(), picard_fields);
 
     let max_diff = profile_max_diff(&direct_profile.fields, &picard_profile.fields);

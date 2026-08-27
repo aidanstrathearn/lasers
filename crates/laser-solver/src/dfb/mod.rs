@@ -1,12 +1,12 @@
 pub mod picard;
 mod shooting;
 
-use self::picard::{PicardConfig, PicardSolver};
 use crate::error::SolverError;
 use crate::lase::{
     Fibre, FieldProfile, FieldState, GridPoints, Pump, PumpScan,
     find_threshold_and_slope as scan_for_threshold, pump_scan as scan_pump_totals,
 };
+use crate::picard::{PicardConfig, PicardSolver};
 use crate::rootfind::RootFindConfig;
 use crate::utils::IterationConfig;
 

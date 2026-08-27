@@ -1,3 +1,4 @@
+use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, initial_profile};
 use laser_solver::lase::{Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff};
 use laser_solver::picard::{PicardConfig, PicardSolver};
@@ -115,10 +116,17 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
     );
     let initial = initial_profile(pump, FIBRE, GRID);
     let mut picard_solver = PicardSolver::from_initial(initial.fields);
-    let picard_fields = picard_solver
-        .solve_profile_picard(sgnl_b, pump, FIBRE, PICARD, &kappas, GRID.dz(FIBRE.length))
-        .expect("buffered Picard profile solve failed")
-        .to_vec();
+    let picard_fields = solve_profile_picard(
+        &mut picard_solver,
+        sgnl_b,
+        pump,
+        FIBRE,
+        PICARD,
+        &kappas,
+        GRID.dz(FIBRE.length),
+    )
+    .expect("buffered Picard profile solve failed")
+    .to_vec();
     let picard_profile = FieldProfile::new(direct_profile.z.clone(), picard_fields);
 
     assert_profiles_agree(
