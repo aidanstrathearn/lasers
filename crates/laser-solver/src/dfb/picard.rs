@@ -59,7 +59,7 @@ pub fn solve_profile_picard<'a>(
     };
 
     let step = |new_previous: FieldState, old_current: FieldState, i| {
-        new_previous.coupled_step_general(old_current, fp, kappas[i], dz)
+        new_previous.coupled_step(fp.gain(old_current), kappas[i], dz)
     };
 
     solver.solve(config, set_boundary, step)

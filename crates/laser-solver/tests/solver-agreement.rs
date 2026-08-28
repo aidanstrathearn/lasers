@@ -164,7 +164,12 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
 
     let direct_profile = FieldProfile::new(
         GRID.grid(fibre.length()),
-        solve_profile_coupled(boundary, &fibre, GRID.dz(fibre.length()), &kappas),
+        solve_profile_coupled(
+            boundary,
+            |fields| fibre.gain(fields),
+            GRID.dz(fibre.length()),
+            &kappas,
+        ),
     );
     let initial = initial_profile(pump, &fibre, GRID);
     let mut picard_solver = PicardSolver::from_initial(initial.fields);

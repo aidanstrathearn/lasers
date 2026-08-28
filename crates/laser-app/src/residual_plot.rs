@@ -41,7 +41,10 @@ impl DfbMode {
             pump_f: self.pump.forward_amplitude(),
             pump_b: 0.0,
         }; //todo: use picard for backward pump
-        let f = |sgnl_b| out_field_coupled(trial(sgnl_b), &fibre, dz, &kappas).sgnl_b / sgnl_b;
+        let f = |sgnl_b| {
+            out_field_coupled(trial(sgnl_b), |fields| fibre.gain(fields), dz, &kappas).sgnl_b
+                / sgnl_b
+        };
         let mut compute_time = std::time::Duration::ZERO;
         let residuals = inputs
             .iter()

@@ -130,7 +130,9 @@ fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
         pump_f: 2.0,
         pump_b: 0.0, // shooting method requires zero backward pump amplitude
     };
-    let f = |sgnl_b| out_field_coupled(trial(sgnl_b), &fibre, dz, &kappas).sgnl_b / sgnl_b;
+    let f = |sgnl_b| {
+        out_field_coupled(trial(sgnl_b), |fields| fibre.gain(fields), dz, &kappas).sgnl_b / sgnl_b
+    };
     let root = rootfind_1d(f, BISECTION).expect("root not found");
     println!("root is at {}", root);
     println!("residual at 0 {}", f(0.0));
@@ -287,7 +289,7 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
         GRID.grid(fibre.length()),
         solve_profile_coupled(
             comparison_boundary,
-            &fibre,
+            |fields| fibre.gain(fields),
             GRID.dz(fibre.length()),
             &comparison_kappas,
         ),

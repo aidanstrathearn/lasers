@@ -65,19 +65,25 @@ pub fn solve_shooting(
         0.0
     } else {
         let f = |pump_b| {
-            out_field_uncoupled(trial(pump_b), fibre, dz, nsteps).pump_b / pump_backward - 1.0
+            out_field_uncoupled(trial(pump_b), |fields| fibre.gain(fields), dz, nsteps).pump_b
+                / pump_backward
+                - 1.0
         };
         rootfind_1d(f, config.root_find)?
     };
 
     if full_profile {
         let z = gp.grid(fibre.length());
-        let fields = solve_profile_uncoupled(trial(pump_b), fibre, dz, nsteps);
+        let fields =
+            solve_profile_uncoupled(trial(pump_b), |fields| fibre.gain(fields), dz, nsteps);
         Ok(FieldProfile::new(z, fields))
     } else {
         let z = vec![0.0_f64, fibre.length()];
         let out_left = trial(pump_b);
-        let fields = vec![out_left, out_field_uncoupled(out_left, fibre, dz, nsteps)];
+        let fields = vec![
+            out_left,
+            out_field_uncoupled(out_left, |fields| fibre.gain(fields), dz, nsteps),
+        ];
         Ok(FieldProfile::new(z, fields))
     }
 }
@@ -131,7 +137,7 @@ pub fn solve_amp_profile_picard<'a>(
     };
 
     let step = |new_previous: FieldState, old_current: FieldState, _i| {
-        new_previous.uncoupled_step_general(old_current, fp, dz)
+        new_previous.uncoupled_step(fp.gain(old_current), dz)
     };
 
     solver.solve(config, set_boundary, step)

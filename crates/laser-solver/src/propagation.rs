@@ -1,18 +1,7 @@
-use crate::lase::{FieldState, ResolvedFibre};
+use crate::lase::{FieldState, Gain};
 
 impl FieldState {
-    pub fn coupled_step_shooting(self, fp: &ResolvedFibre<'_>, kappa: f64, dz: f64) -> Self {
-        self.coupled_step_general(self, fp, kappa, dz)
-    }
-
-    pub fn coupled_step_general(
-        self,
-        other: Self,
-        fp: &ResolvedFibre<'_>,
-        kappa: f64,
-        dz: f64,
-    ) -> Self {
-        let gain = fp.gain(other);
+    pub fn coupled_step(self, gain: Gain, kappa: f64, dz: f64) -> Self {
         let (a, b, c, d) = transfer(gain.signal, kappa, dz);
         let expg = (0.5 * gain.pump * dz).exp();
 
@@ -24,13 +13,7 @@ impl FieldState {
         }
     }
 
-    pub fn uncoupled_step_shooting(self, fp: &ResolvedFibre<'_>, dz: f64) -> Self {
-        self.uncoupled_step_general(self, fp, dz)
-    }
-
-    pub fn uncoupled_step_general(self, other: Self, fibre: &ResolvedFibre<'_>, dz: f64) -> Self {
-        let gain = fibre.gain(other);
-
+    pub fn uncoupled_step(self, gain: Gain, dz: f64) -> Self {
         let pump_factor = (0.5 * gain.pump * dz).exp();
         let signal_factor = (0.5 * gain.signal * dz).exp();
 
@@ -60,7 +43,7 @@ pub fn transfer(gain: f64, kappa: f64, dz: f64) -> (f64, f64, f64, f64) {
 
 pub fn solve_profile_uncoupled(
     fs: FieldState,
-    fp: &ResolvedFibre<'_>,
+    gain: impl Fn(FieldState) -> Gain,
     dz: f64,
     nsteps: usize,
 ) -> Vec<FieldState> {
@@ -68,7 +51,7 @@ pub fn solve_profile_uncoupled(
     let mut result = Vec::with_capacity(nsteps + 1);
     result.push(current);
     for _ in 0..nsteps {
-        current = current.uncoupled_step_shooting(fp, dz);
+        current = current.uncoupled_step(gain(current), dz);
         result.push(current);
     }
     result
@@ -76,20 +59,20 @@ pub fn solve_profile_uncoupled(
 
 pub fn out_field_uncoupled(
     fs: FieldState,
-    fp: &ResolvedFibre<'_>,
+    gain: impl Fn(FieldState) -> Gain,
     dz: f64,
     nsteps: usize,
 ) -> FieldState {
     let mut current = fs;
     for _ in 0..nsteps {
-        current = current.uncoupled_step_shooting(fp, dz);
+        current = current.uncoupled_step(gain(current), dz);
     }
     current
 }
 
 pub fn solve_profile_coupled(
     fs: FieldState,
-    fp: &ResolvedFibre<'_>,
+    gain: impl Fn(FieldState) -> Gain,
     dz: f64,
     kappas: &[f64],
 ) -> Vec<FieldState> {
@@ -97,7 +80,7 @@ pub fn solve_profile_coupled(
     let mut result = Vec::with_capacity(kappas.len() + 1);
     result.push(current);
     for &kappa in kappas {
-        current = current.coupled_step_shooting(fp, kappa, dz);
+        current = current.coupled_step(gain(current), kappa, dz);
         result.push(current);
     }
     result
@@ -105,13 +88,67 @@ pub fn solve_profile_coupled(
 
 pub fn out_field_coupled(
     fs: FieldState,
-    fp: &ResolvedFibre<'_>,
+    gain: impl Fn(FieldState) -> Gain,
     dz: f64,
     kappas: &[f64],
 ) -> FieldState {
     let mut current = fs;
     for &kappa in kappas {
-        current = current.coupled_step_shooting(fp, kappa, dz);
+        current = current.coupled_step(gain(current), kappa, dz);
     }
     current
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::RefCell;
+
+    #[test]
+    fn uncoupled_step_applies_supplied_gain() {
+        let fields = FieldState {
+            sgnl_f: 2.0,
+            sgnl_b: 3.0,
+            pump_f: 5.0,
+            pump_b: 7.0,
+        };
+        let gain = Gain {
+            pump: 4.0,
+            signal: 2.0,
+        };
+
+        let stepped = fields.uncoupled_step(gain, 0.5);
+
+        assert_eq!(stepped.sgnl_f, 2.0 * 0.5_f64.exp());
+        assert_eq!(stepped.sgnl_b, 3.0 / 0.5_f64.exp());
+        assert_eq!(stepped.pump_f, 5.0 * 1.0_f64.exp());
+        assert_eq!(stepped.pump_b, 7.0 / 1.0_f64.exp());
+    }
+
+    #[test]
+    fn profile_gain_is_evaluated_from_each_current_field() {
+        let evaluated_at = RefCell::new(Vec::new());
+        let initial = FieldState {
+            pump_f: 2.0,
+            ..FieldState::default()
+        };
+
+        let profile = solve_profile_uncoupled(
+            initial,
+            |fields| {
+                evaluated_at.borrow_mut().push(fields.pump_f);
+                Gain {
+                    pump: 2.0,
+                    signal: 0.0,
+                }
+            },
+            1.0,
+            2,
+        );
+
+        assert_eq!(
+            evaluated_at.into_inner(),
+            vec![profile[0].pump_f, profile[1].pump_f]
+        );
+    }
 }
