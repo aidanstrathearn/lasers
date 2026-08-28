@@ -1,6 +1,10 @@
 pub mod amplifier;
+mod dbr;
 pub mod dfb;
+pub mod dopant;
 pub mod error;
+pub mod fibre;
 pub mod lase;
 pub mod maths;
 pub mod propagation;
+pub mod two_mode;
