@@ -1,6 +1,6 @@
 use super::{DfbLaser, DfbSolveConfig};
 use crate::error::SolverError;
-use crate::lase::{FieldProfile, FieldState, OutputPower, Pump};
+use crate::lase::{BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump};
 use crate::propagation::{out_field_coupled, solve_profile_coupled};
 use crate::maths::rootfind::rootfind_1d;
 
@@ -20,13 +20,19 @@ impl DfbLaser<'_> {
         let kappas = self.grating.grid(gp.0);
         let dz = gp.dz(self.fibre.length());
         let trial = |sgnl_b| FieldState {
-            sgnl_f: 0.0,
-            sgnl_b,
-            pump_f: pump_forward,
-            pump_b: 0.0, // shooting method requires zero backward pump amplitude
+            signal: BidirectionalAmplitude {
+                forward: 0.0,
+                backward: sgnl_b,
+            },
+            pump: BidirectionalAmplitude {
+                forward: pump_forward,
+                backward: 0.0, // shooting method requires zero backward pump amplitude
+            },
         };
         let f = |sgnl_b| {
-            out_field_coupled(trial(sgnl_b), |fields| self.fibre.gain(fields), dz, &kappas).sgnl_b
+            out_field_coupled(trial(sgnl_b), |fields| self.fibre.gain(fields), dz, &kappas)
+                .signal
+                .backward
                 / sgnl_b
         };
         let sgnl_b = rootfind_1d(f, config.root_find)?;

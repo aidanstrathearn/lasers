@@ -1,7 +1,7 @@
 use crate::error::SolverError;
 use crate::lase::{
-    FieldProfile, FieldState, GridPoints, OutputPower, Pump, ResolvedFibre, Signal,
-    profile_convergence_error,
+    BidirectionalAmplitude, FieldProfile, FieldState, GridPoints, OutputPower, Pump,
+    ResolvedFibre, Signal, profile_convergence_error,
 };
 use crate::maths::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::maths::rootfind::{RootFindConfig, rootfind_1d};
@@ -59,16 +59,22 @@ pub fn solve_shooting(
     let dz = gp.dz(fibre.length());
     let (pump_forward, pump_backward) = pump.amplitudes();
     let trial = |pump_b| FieldState {
-        sgnl_f: forward_signal,
-        sgnl_b: 0.0,
-        pump_f: pump_forward,
-        pump_b,
+        signal: BidirectionalAmplitude {
+            forward: forward_signal,
+            backward: 0.0,
+        },
+        pump: BidirectionalAmplitude {
+            forward: pump_forward,
+            backward: pump_b,
+        },
     };
     let pump_b = if pump_backward == 0.0 {
         0.0
     } else {
         let f = |pump_b| {
-            out_field_uncoupled(trial(pump_b), |fields| fibre.gain(fields), dz, nsteps).pump_b
+            out_field_uncoupled(trial(pump_b), |fields| fibre.gain(fields), dz, nsteps)
+                .pump
+                .backward
                 / pump_backward
                 - 1.0
         };
@@ -124,19 +130,22 @@ pub fn solve_amp_profile_picard<'a>(
     let (pump_forward, pump_backward) = pump.amplitudes();
     let (sgnl_forward, sgnl_backward) = signal.amplitudes();
     let boundary = FieldState {
-        sgnl_f: sgnl_forward,
-        sgnl_b: 0.0,
-        pump_f: pump_forward,
-        pump_b: 0.0,
+        signal: BidirectionalAmplitude {
+            forward: sgnl_forward,
+            backward: 0.0,
+        },
+        pump: BidirectionalAmplitude {
+            forward: pump_forward,
+            backward: 0.0,
+        },
     };
 
     let set_boundary = |current: &[FieldState]| {
         let (sgnl_b, pump_b) = find_b_fields(sgnl_backward, pump_backward, current, fp, dz);
-        FieldState {
-            sgnl_b,
-            pump_b,
-            ..boundary
-        }
+        let mut boundary = boundary;
+        boundary.signal.backward = sgnl_b;
+        boundary.pump.backward = pump_b;
+        boundary
     };
 
     let step = |new_previous: &FieldState, old_current: &FieldState, _i| {
@@ -177,10 +186,14 @@ pub fn initial_profile(
             let signal_factor = (0.5 * gsignal * z).exp();
 
             FieldState {
-                sgnl_f: signal_factor * signal_forward,
-                sgnl_b: signal_end_factor / signal_factor * signal_backward,
-                pump_f: pump_factor * pump_forward,
-                pump_b: pump_end_factor / pump_factor * pump_backward,
+                signal: BidirectionalAmplitude {
+                    forward: signal_factor * signal_forward,
+                    backward: signal_end_factor / signal_factor * signal_backward,
+                },
+                pump: BidirectionalAmplitude {
+                    forward: pump_factor * pump_forward,
+                    backward: pump_end_factor / pump_factor * pump_backward,
+                },
             }
         })
         .collect();
@@ -253,9 +266,9 @@ mod tests {
 
         let left = profile.fields.first().unwrap();
         let right = profile.fields.last().unwrap();
-        assert_eq!(left.sgnl_f, 1.0);
-        assert_eq!(left.pump_f, 1.0);
-        assert_eq!(right.sgnl_b, 1.0);
-        assert_eq!(right.pump_b, 1.0);
+        assert_eq!(left.signal.forward, 1.0);
+        assert_eq!(left.pump.forward, 1.0);
+        assert_eq!(right.signal.backward, 1.0);
+        assert_eq!(right.pump.backward, 1.0);
     }
 }

@@ -1,7 +1,8 @@
 use super::{DfbLaser, DfbSolveConfig};
 use crate::error::SolverError;
 use crate::lase::{
-    FieldProfile, FieldState, OutputPower, Pump, ResolvedFibre, profile_convergence_error,
+    BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump, ResolvedFibre,
+    profile_convergence_error,
 };
 use crate::maths::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::maths::rootfind::try_rootfind_1d;
@@ -50,10 +51,14 @@ pub fn solve_profile_picard<'a>(
     let (pump_forward, pump_backward) = pump.amplitudes();
 
     let set_boundary = |current: &[FieldState]| FieldState {
-        sgnl_f: 0.0,
-        sgnl_b,
-        pump_f: pump_forward,
-        pump_b: find_pump_b(pump_backward, current, fp, dz),
+        signal: BidirectionalAmplitude {
+            forward: 0.0,
+            backward: sgnl_b,
+        },
+        pump: BidirectionalAmplitude {
+            forward: pump_forward,
+            backward: find_pump_b(pump_backward, current, fp, dz),
+        },
     };
 
     let step = |new_previous: &FieldState, old_current: &FieldState, i| {
@@ -93,7 +98,7 @@ impl DfbLaser<'_> {
                 &kappas,
                 dz,
             )?;
-            Ok(fields.last().unwrap().sgnl_b / sgnl_b)
+            Ok(fields.last().unwrap().signal.backward / sgnl_b)
         };
         // try_rootfind_1d muts the solver which leaves the lasing solution in the 'current' buffer
         let _sgnl_b = try_rootfind_1d(f, config.root_find)?;

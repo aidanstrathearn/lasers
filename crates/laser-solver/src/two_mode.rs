@@ -1,5 +1,5 @@
 use crate::dopant::TwoLevelDopant;
-use crate::fibre::{Fibre, FieldMode};
+use crate::fibre::{BidirectionalAmplitude, Fibre, FieldMode};
 use crate::maths::utils::relative_diff;
 
 pub type OutputPower = (f64, f64);
@@ -68,8 +68,8 @@ impl ResolvedFibre<'_> {
 
     pub fn mode_fluxes(&self, fs: FieldState) -> (f64, f64) {
         (
-            (fs.pump_f * fs.pump_f + fs.pump_b * fs.pump_b) * self.pump_overlap,
-            (fs.sgnl_f * fs.sgnl_f + fs.sgnl_b * fs.sgnl_b) * self.sgnl_overlap,
+            fs.pump.total_power() * self.pump_overlap,
+            fs.signal.total_power() * self.sgnl_overlap,
         )
     }
 
@@ -97,18 +97,13 @@ impl ResolvedFibre<'_> {
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct FieldState {
-    pub sgnl_f: f64,
-    pub sgnl_b: f64,
-    pub pump_f: f64,
-    pub pump_b: f64,
+    pub signal: BidirectionalAmplitude,
+    pub pump: BidirectionalAmplitude,
 }
 
 impl FieldState {
     pub(crate) fn field_powers(self) -> [f64; 2] {
-        [
-            self.sgnl_f * self.sgnl_f + self.sgnl_b * self.sgnl_b,
-            self.pump_f * self.pump_f + self.pump_b * self.pump_b,
-        ]
+        [self.signal.total_power(), self.pump.total_power()]
     }
 }
 
@@ -145,10 +140,10 @@ pub fn profile_convergence_error(
 
 pub fn field_max_diff(f1: FieldState, f2: FieldState) -> f64 {
     let diffs = [
-        relative_diff(f1.pump_f, f2.pump_f),
-        relative_diff(f1.pump_b, f2.pump_b),
-        relative_diff(f1.sgnl_f, f2.sgnl_f),
-        relative_diff(f1.sgnl_b, f2.sgnl_b),
+        relative_diff(f1.pump.forward, f2.pump.forward),
+        relative_diff(f1.pump.backward, f2.pump.backward),
+        relative_diff(f1.signal.forward, f2.signal.forward),
+        relative_diff(f1.signal.backward, f2.signal.backward),
     ];
     diffs.into_iter().fold(0.0, f64::max)
 }
@@ -163,10 +158,10 @@ pub fn profile_max_diff(p1: &[FieldState], p2: &[FieldState]) -> f64 {
 
 pub fn field_avg_diff(f1: FieldState, f2: FieldState) -> f64 {
     let diffs = [
-        relative_diff(f1.pump_f, f2.pump_f),
-        relative_diff(f1.pump_b, f2.pump_b),
-        relative_diff(f1.sgnl_f, f2.sgnl_f),
-        relative_diff(f1.sgnl_b, f2.sgnl_b),
+        relative_diff(f1.pump.forward, f2.pump.forward),
+        relative_diff(f1.pump.backward, f2.pump.backward),
+        relative_diff(f1.signal.forward, f2.signal.forward),
+        relative_diff(f1.signal.backward, f2.signal.backward),
     ];
     diffs.into_iter().sum::<f64>() / 4.0
 }
@@ -194,19 +189,19 @@ impl FieldProfile {
     pub fn sgnl_f(&self) -> impl Iterator<Item = f64> + '_ {
         // borrows from self so '_ lifetime needs to match self
         // but looks like rust can infer this so doesnt need to be explicit
-        self.fields.iter().map(|x| x.sgnl_f)
+        self.fields.iter().map(|x| x.signal.forward)
     }
 
     pub fn sgnl_b(&self) -> impl Iterator<Item = f64> {
-        self.fields.iter().map(|x| x.sgnl_b)
+        self.fields.iter().map(|x| x.signal.backward)
     }
 
     pub fn pump_f(&self) -> impl Iterator<Item = f64> {
-        self.fields.iter().map(|x| x.pump_f)
+        self.fields.iter().map(|x| x.pump.forward)
     }
 
     pub fn pump_b(&self) -> impl Iterator<Item = f64> {
-        self.fields.iter().map(|x| x.pump_b)
+        self.fields.iter().map(|x| x.pump.backward)
     }
 
     pub fn z(&self) -> impl Iterator<Item = f64> {
@@ -218,7 +213,10 @@ impl FieldProfile {
     pub fn output_powers(&self) -> OutputPower {
         let left = self.fields.first().expect("field profile is empty");
         let right = self.fields.last().expect("field profile is empty");
-        (right.sgnl_f.powi(2), left.sgnl_b.powi(2))
+        (
+            right.signal.forward_power(),
+            left.signal.backward_power(),
+        )
     }
 }
 
@@ -315,10 +313,14 @@ mod tests {
     #[test]
     fn identical_profiles_have_zero_convergence_error() {
         let profile = vec![FieldState {
-            pump_f: 100.0,
-            pump_b: 10.0,
-            sgnl_f: 1.0,
-            sgnl_b: -1.0,
+            signal: BidirectionalAmplitude {
+                forward: 1.0,
+                backward: -1.0,
+            },
+            pump: BidirectionalAmplitude {
+                forward: 100.0,
+                backward: 10.0,
+            },
         }];
 
         assert_eq!(convergence_error(&profile, &profile), 0.0);
@@ -327,11 +329,17 @@ mod tests {
     #[test]
     fn tiny_zero_crossing_converges() {
         let current = vec![FieldState {
-            sgnl_b: 1e-12,
+            signal: BidirectionalAmplitude {
+                backward: 1e-12,
+                ..BidirectionalAmplitude::default()
+            },
             ..FieldState::default()
         }];
         let previous = vec![FieldState {
-            sgnl_b: -1e-12,
+            signal: BidirectionalAmplitude {
+                backward: -1e-12,
+                ..BidirectionalAmplitude::default()
+            },
             ..FieldState::default()
         }];
 
@@ -344,13 +352,16 @@ mod tests {
     fn localized_convergence_error_is_not_hidden() {
         let current = vec![
             FieldState {
-                pump_f: 1.0,
+                pump: BidirectionalAmplitude {
+                    forward: 1.0,
+                    ..BidirectionalAmplitude::default()
+                },
                 ..FieldState::default()
             };
             100
         ];
         let mut previous = current.clone();
-        previous[50].pump_f = 1.01;
+        previous[50].pump.forward = 1.01;
 
         let error = convergence_error(&current, &previous);
 
@@ -360,14 +371,24 @@ mod tests {
     #[test]
     fn convergence_fields_are_scaled_independently() {
         let current = vec![FieldState {
-            pump_f: 1e6,
-            sgnl_b: 1e-6,
-            ..FieldState::default()
+            signal: BidirectionalAmplitude {
+                backward: 1e-6,
+                ..BidirectionalAmplitude::default()
+            },
+            pump: BidirectionalAmplitude {
+                forward: 1e6,
+                ..BidirectionalAmplitude::default()
+            },
         }];
         let previous = vec![FieldState {
-            pump_f: 1e6,
-            sgnl_b: 2e-6,
-            ..FieldState::default()
+            signal: BidirectionalAmplitude {
+                backward: 2e-6,
+                ..BidirectionalAmplitude::default()
+            },
+            pump: BidirectionalAmplitude {
+                forward: 1e6,
+                ..BidirectionalAmplitude::default()
+            },
         }];
 
         let error = convergence_error(&current, &previous);
@@ -379,7 +400,10 @@ mod tests {
     fn non_finite_values_fail_convergence() {
         let current = vec![FieldState::default()];
         let previous = vec![FieldState {
-            pump_b: f64::NAN,
+            pump: BidirectionalAmplitude {
+                backward: f64::NAN,
+                ..BidirectionalAmplitude::default()
+            },
             ..FieldState::default()
         }];
 
@@ -465,11 +489,17 @@ mod tests {
             vec![0.0, 1.0],
             vec![
                 FieldState {
-                    sgnl_b: -3.0,
+                    signal: BidirectionalAmplitude {
+                        backward: -3.0,
+                        ..BidirectionalAmplitude::default()
+                    },
                     ..FieldState::default()
                 },
                 FieldState {
-                    sgnl_f: 2.0,
+                    signal: BidirectionalAmplitude {
+                        forward: 2.0,
+                        ..BidirectionalAmplitude::default()
+                    },
                     ..FieldState::default()
                 },
             ],

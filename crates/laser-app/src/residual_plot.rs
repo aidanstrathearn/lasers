@@ -3,7 +3,7 @@ use crate::{Points, dfb::DfbMode, timed};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::error::SolverError;
-use laser_solver::lase::FieldState;
+use laser_solver::lase::{BidirectionalAmplitude, FieldState};
 use laser_solver::propagation::out_field_coupled;
 use laser_solver::maths::utils::linspace;
 
@@ -36,13 +36,19 @@ impl DfbMode {
         let fibre = self.resolved_fibre();
         let dz = self.grid_points.dz(fibre.length());
         let trial = |sgnl_b| FieldState {
-            sgnl_f: 0.0,
-            sgnl_b,
-            pump_f: self.pump.forward_amplitude(),
-            pump_b: 0.0,
+            signal: BidirectionalAmplitude {
+                forward: 0.0,
+                backward: sgnl_b,
+            },
+            pump: BidirectionalAmplitude {
+                forward: self.pump.forward_amplitude(),
+                backward: 0.0,
+            },
         }; //todo: use picard for backward pump
         let f = |sgnl_b| {
-            out_field_coupled(trial(sgnl_b), |fields| fibre.gain(fields), dz, &kappas).sgnl_b
+            out_field_coupled(trial(sgnl_b), |fields| fibre.gain(fields), dz, &kappas)
+                .signal
+                .backward
                 / sgnl_b
         };
         let mut compute_time = std::time::Duration::ZERO;

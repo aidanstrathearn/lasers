@@ -38,6 +38,26 @@ impl Default for FieldMode {
     }
 }
 
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct BidirectionalAmplitude {
+    pub forward: f64,
+    pub backward: f64,
+}
+
+impl BidirectionalAmplitude {
+    pub fn forward_power(self) -> f64 {
+        self.forward * self.forward
+    }
+
+    pub fn backward_power(self) -> f64 {
+        self.backward * self.backward
+    }
+
+    pub fn total_power(self) -> f64 {
+        self.forward_power() + self.backward_power()
+    }
+}
+
 #[derive(Clone)]
 pub struct FibreGeometry {
     pub core_radius: f64,

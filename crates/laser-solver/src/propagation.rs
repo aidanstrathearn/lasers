@@ -1,27 +1,36 @@
-use crate::lase::{FieldState, Gain};
+use crate::fibre::BidirectionalAmplitude;
+use crate::two_mode::{FieldState, Gain};
+
+impl BidirectionalAmplitude {
+    pub fn coupled_step(self, gain: f64, kappa: f64, dz: f64) -> Self {
+        let (a, b, c, d) = transfer(gain, kappa, dz);
+        Self {
+            forward: a * self.forward + b * self.backward,
+            backward: c * self.forward + d * self.backward,
+        }
+    }
+
+    pub fn uncoupled_step(self, gain: f64, dz: f64) -> Self {
+        let factor = (0.5 * gain * dz).exp();
+        Self {
+            forward: self.forward * factor,
+            backward: self.backward / factor,
+        }
+    }
+}
 
 impl FieldState {
     pub fn coupled_step(self, gain: Gain, kappa: f64, dz: f64) -> Self {
-        let (a, b, c, d) = transfer(gain.signal, kappa, dz);
-        let expg = (0.5 * gain.pump * dz).exp();
-
-        FieldState {
-            sgnl_f: a * self.sgnl_f + b * self.sgnl_b,
-            sgnl_b: c * self.sgnl_f + d * self.sgnl_b,
-            pump_f: self.pump_f * expg,
-            pump_b: self.pump_b / expg,
+        Self {
+            signal: self.signal.coupled_step(gain.signal, kappa, dz),
+            pump: self.pump.uncoupled_step(gain.pump, dz),
         }
     }
 
     pub fn uncoupled_step(self, gain: Gain, dz: f64) -> Self {
-        let pump_factor = (0.5 * gain.pump * dz).exp();
-        let signal_factor = (0.5 * gain.signal * dz).exp();
-
         Self {
-            sgnl_f: self.sgnl_f * signal_factor,
-            sgnl_b: self.sgnl_b / signal_factor,
-            pump_f: self.pump_f * pump_factor,
-            pump_b: self.pump_b / pump_factor,
+            signal: self.signal.uncoupled_step(gain.signal, dz),
+            pump: self.pump.uncoupled_step(gain.pump, dz),
         }
     }
 }
@@ -107,10 +116,14 @@ mod tests {
     #[test]
     fn uncoupled_step_applies_supplied_gain() {
         let fields = FieldState {
-            sgnl_f: 2.0,
-            sgnl_b: 3.0,
-            pump_f: 5.0,
-            pump_b: 7.0,
+            signal: BidirectionalAmplitude {
+                forward: 2.0,
+                backward: 3.0,
+            },
+            pump: BidirectionalAmplitude {
+                forward: 5.0,
+                backward: 7.0,
+            },
         };
         let gain = Gain {
             pump: 4.0,
@@ -119,24 +132,27 @@ mod tests {
 
         let stepped = fields.uncoupled_step(gain, 0.5);
 
-        assert_eq!(stepped.sgnl_f, 2.0 * 0.5_f64.exp());
-        assert_eq!(stepped.sgnl_b, 3.0 / 0.5_f64.exp());
-        assert_eq!(stepped.pump_f, 5.0 * 1.0_f64.exp());
-        assert_eq!(stepped.pump_b, 7.0 / 1.0_f64.exp());
+        assert_eq!(stepped.signal.forward, 2.0 * 0.5_f64.exp());
+        assert_eq!(stepped.signal.backward, 3.0 / 0.5_f64.exp());
+        assert_eq!(stepped.pump.forward, 5.0 * 1.0_f64.exp());
+        assert_eq!(stepped.pump.backward, 7.0 / 1.0_f64.exp());
     }
 
     #[test]
     fn profile_gain_is_evaluated_from_each_current_field() {
         let evaluated_at = RefCell::new(Vec::new());
         let initial = FieldState {
-            pump_f: 2.0,
+            pump: BidirectionalAmplitude {
+                forward: 2.0,
+                ..BidirectionalAmplitude::default()
+            },
             ..FieldState::default()
         };
 
         let profile = solve_profile_uncoupled(
             initial,
             |fields| {
-                evaluated_at.borrow_mut().push(fields.pump_f);
+                evaluated_at.borrow_mut().push(fields.pump.forward);
                 Gain {
                     pump: 2.0,
                     signal: 0.0,
@@ -148,7 +164,7 @@ mod tests {
 
         assert_eq!(
             evaluated_at.into_inner(),
-            vec![profile[0].pump_f, profile[1].pump_f]
+            vec![profile[0].pump.forward, profile[1].pump.forward]
         );
     }
 }

@@ -3,7 +3,7 @@ mod shooting;
 
 use crate::error::SolverError;
 use crate::lase::{
-    FieldProfile, FieldState, GridPoints, Pump, PumpScan, ResolvedFibre,
+    BidirectionalAmplitude, FieldProfile, FieldState, GridPoints, Pump, PumpScan, ResolvedFibre,
     find_threshold_and_slope as scan_for_threshold, pump_scan as scan_pump_totals,
 };
 use crate::maths::picard::{PicardConfig, PicardSolver};
@@ -35,10 +35,11 @@ pub fn initial_profile(pump: Pump, fp: &ResolvedFibre<'_>, gp: GridPoints) -> Fi
             let b = end_factor / f;
 
             FieldState {
-                sgnl_f: 0.0,
-                sgnl_b: 0.0,
-                pump_f: f * pump_forward,
-                pump_b: b * pump_backward,
+                signal: BidirectionalAmplitude::default(),
+                pump: BidirectionalAmplitude {
+                    forward: f * pump_forward,
+                    backward: b * pump_backward,
+                },
             }
         })
         .collect();

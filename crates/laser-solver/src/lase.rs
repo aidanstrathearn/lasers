@@ -3,7 +3,7 @@ use crate::maths::rootfind::RootFindError;
 use crate::maths::utils::{IterationConfig, linspace, relative_diff};
 
 pub use crate::dopant::TwoLevelDopant;
-pub use crate::fibre::{Fibre, FibreGeometry, FieldMode};
+pub use crate::fibre::{BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode};
 pub use crate::two_mode::{
     FieldProfile, FieldState, Gain, OutputPower, Pump, ResolvedFibre, Signal, field_avg_diff,
     field_max_diff, profile_avg_diff, profile_convergence_error, profile_max_diff,

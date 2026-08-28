@@ -2,8 +2,8 @@ use laser_solver::amplifier::{AmplifierSolveConfig, solve_amp_picard, solve_shoo
 use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, initial_profile};
 use laser_solver::lase::{
-    Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, GridPoints, Pump, ResolvedFibre,
-    Signal, TwoLevelDopant, profile_max_diff,
+    BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, GridPoints,
+    Pump, ResolvedFibre, Signal, TwoLevelDopant, profile_max_diff,
 };
 use laser_solver::maths::picard::{PicardConfig, PicardSolver};
 use laser_solver::maths::rootfind::{
@@ -157,10 +157,14 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
     let sgnl_b = 1.0;
     let kappas = GRATING.grid(GRID.0);
     let boundary = FieldState {
-        sgnl_f: 0.0,
-        sgnl_b,
-        pump_f: pump.forward_amplitude(),
-        pump_b: 0.0,
+        signal: BidirectionalAmplitude {
+            forward: 0.0,
+            backward: sgnl_b,
+        },
+        pump: BidirectionalAmplitude {
+            forward: pump.forward_amplitude(),
+            backward: 0.0,
+        },
     };
     let fibre = resolved_fibre();
 
@@ -300,7 +304,7 @@ fn assert_nontrivial_signal(label: &str, profile: &FieldProfile) {
     let max_signal = profile
         .fields
         .iter()
-        .flat_map(|field| [field.sgnl_f.abs(), field.sgnl_b.abs()])
+        .flat_map(|field| [field.signal.forward.abs(), field.signal.backward.abs()])
         .fold(0.0_f64, f64::max);
     assert!(
         max_signal > BISECTION.lower,
@@ -329,32 +333,32 @@ fn assert_mirrored_profiles_agree(picard: &FieldProfile, shooting: &FieldProfile
         assert_close(
             index,
             "sgnl_f",
-            picard_field.sgnl_f,
-            shooting_field.sgnl_b,
+            picard_field.signal.forward,
+            shooting_field.signal.backward,
             SYMMETRY_ABSOLUTE_TOLERANCE,
             SYMMETRY_RELATIVE_TOLERANCE,
         );
         assert_close(
             index,
             "sgnl_b",
-            picard_field.sgnl_b,
-            shooting_field.sgnl_f,
+            picard_field.signal.backward,
+            shooting_field.signal.forward,
             SYMMETRY_ABSOLUTE_TOLERANCE,
             SYMMETRY_RELATIVE_TOLERANCE,
         );
         assert_close(
             index,
             "pump_f",
-            picard_field.pump_f,
-            shooting_field.pump_b,
+            picard_field.pump.forward,
+            shooting_field.pump.backward,
             SYMMETRY_ABSOLUTE_TOLERANCE,
             SYMMETRY_RELATIVE_TOLERANCE,
         );
         assert_close(
             index,
             "pump_b",
-            picard_field.pump_b,
-            shooting_field.pump_f,
+            picard_field.pump.backward,
+            shooting_field.pump.forward,
             SYMMETRY_ABSOLUTE_TOLERANCE,
             SYMMETRY_RELATIVE_TOLERANCE,
         );

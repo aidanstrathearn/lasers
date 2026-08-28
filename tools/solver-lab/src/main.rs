@@ -5,8 +5,8 @@ use crate::plots::plot_profile_diff;
 use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, initial_profile};
 use laser_solver::lase::{
-    Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, GridPoints, Pump, ResolvedFibre,
-    TwoLevelDopant, profile_max_diff,
+    BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, GridPoints,
+    Pump, ResolvedFibre, TwoLevelDopant, profile_max_diff,
 };
 use laser_solver::maths::picard::{PicardConfig, PicardSolver};
 use laser_solver::maths::rootfind::{
@@ -125,13 +125,20 @@ fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
     let fibre = resolved_fibre();
     let dz = GRID.dz(fibre.length());
     let trial = |sgnl_b| FieldState {
-        sgnl_f: 0.0,
-        sgnl_b,
-        pump_f: 2.0,
-        pump_b: 0.0, // shooting method requires zero backward pump amplitude
+        signal: BidirectionalAmplitude {
+            forward: 0.0,
+            backward: sgnl_b,
+        },
+        pump: BidirectionalAmplitude {
+            forward: 2.0,
+            backward: 0.0, // shooting method requires zero backward pump amplitude
+        },
     };
     let f = |sgnl_b| {
-        out_field_coupled(trial(sgnl_b), |fields| fibre.gain(fields), dz, &kappas).sgnl_b / sgnl_b
+        out_field_coupled(trial(sgnl_b), |fields| fibre.gain(fields), dz, &kappas)
+            .signal
+            .backward
+            / sgnl_b
     };
     let root = rootfind_1d(f, BISECTION).expect("root not found");
     println!("root is at {}", root);
@@ -278,10 +285,14 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
     let comparison_sgnl_b = 1.0;
     let comparison_kappas = GRATING.grid(GRID.0);
     let comparison_boundary = FieldState {
-        sgnl_f: 0.0,
-        sgnl_b: comparison_sgnl_b,
-        pump_f: comparison_pump.forward_amplitude(),
-        pump_b: 0.0,
+        signal: BidirectionalAmplitude {
+            forward: 0.0,
+            backward: comparison_sgnl_b,
+        },
+        pump: BidirectionalAmplitude {
+            forward: comparison_pump.forward_amplitude(),
+            backward: 0.0,
+        },
     };
     let fibre = resolved_fibre();
 
