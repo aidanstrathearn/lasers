@@ -14,9 +14,9 @@ use laser_solver::error::SolverError;
 use laser_solver::lase::{
     Fibre, FibreGeometry, FieldMode, GridPoints, Pump, Signal, TwoLevelDopant,
 };
-use laser_solver::picard::PicardConfig;
-use laser_solver::rootfind::Midpoint::Arithmetic;
-use laser_solver::rootfind::{BisectionConfig, Midpoint, RootFindConfig};
+use laser_solver::maths::picard::PicardConfig;
+use laser_solver::maths::rootfind::Midpoint::Arithmetic;
+use laser_solver::maths::rootfind::{BisectionConfig, Midpoint, RootFindConfig};
 use std::time::Duration;
 
 #[derive(PartialEq, Default, Copy, Clone)]

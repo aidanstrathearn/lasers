@@ -2,8 +2,8 @@ use crate::plotter::Plotter;
 use crate::{Points, dfb::DfbMode, timed};
 use laser_solver::dfb::{DfbLaser, Grating};
 use laser_solver::error::SolverError;
-use laser_solver::rootfind::BisectionConfig;
-use laser_solver::utils::linspace;
+use laser_solver::maths::rootfind::BisectionConfig;
+use laser_solver::maths::utils::linspace;
 use std::time::Duration;
 
 const PI_POSITION_INTERVALS: usize = 40;

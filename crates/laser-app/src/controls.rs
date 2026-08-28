@@ -2,7 +2,7 @@ use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::dfb::Grating;
 use laser_solver::lase::{Fibre, GridPoints, Pump};
-use laser_solver::rootfind::BisectionConfig;
+use laser_solver::maths::rootfind::BisectionConfig;
 
 pub(crate) fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) -> bool {
     let mut changed = false;

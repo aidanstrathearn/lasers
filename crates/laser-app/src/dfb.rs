@@ -13,8 +13,8 @@ use laser_solver::error::SolverError;
 use laser_solver::lase::{
     Fibre, FibreGeometry, FieldMode, GridPoints, Pump, ResolvedFibre, TwoLevelDopant,
 };
-use laser_solver::picard::PicardConfig;
-use laser_solver::rootfind::{BisectionConfig, RootFindConfig};
+use laser_solver::maths::picard::PicardConfig;
+use laser_solver::maths::rootfind::{BisectionConfig, RootFindConfig};
 use std::time::Duration;
 
 #[derive(PartialEq, Default, Copy, Clone)]

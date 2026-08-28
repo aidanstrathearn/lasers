@@ -5,7 +5,7 @@ use eframe::egui::Ui;
 use laser_solver::error::SolverError;
 use laser_solver::lase::FieldState;
 use laser_solver::propagation::out_field_coupled;
-use laser_solver::utils::linspace;
+use laser_solver::maths::utils::linspace;
 
 #[derive(Copy, Clone)]
 pub struct ResidualRange {

@@ -2,7 +2,7 @@ use super::{DfbLaser, DfbSolveConfig};
 use crate::error::SolverError;
 use crate::lase::{FieldProfile, FieldState, OutputPower, Pump};
 use crate::propagation::{out_field_coupled, solve_profile_coupled};
-use crate::rootfind::rootfind_1d;
+use crate::maths::rootfind::rootfind_1d;
 
 impl DfbLaser<'_> {
     pub fn solve_shooting(

@@ -1,6 +1,6 @@
 use crate::error::SolverError;
-use crate::rootfind::RootFindError;
-use crate::utils::{IterationConfig, linspace, relative_diff};
+use crate::maths::rootfind::RootFindError;
+use crate::maths::utils::{IterationConfig, linspace, relative_diff};
 
 pub type OutputPower = (f64, f64);
 pub type PumpScan = Vec<Option<OutputPower>>;
@@ -500,7 +500,7 @@ pub fn find_threshold_and_slope(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::picard::PicardError;
+    use crate::maths::picard::PicardError;
     use crate::propagation::transfer;
 
     const CONVERGENCE_RELATIVE_TOLERANCE: f64 = 1e-6;

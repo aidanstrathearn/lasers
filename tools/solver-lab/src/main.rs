@@ -8,12 +8,12 @@ use laser_solver::lase::{
     Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, GridPoints, Pump, ResolvedFibre,
     TwoLevelDopant, profile_max_diff,
 };
-use laser_solver::picard::{PicardConfig, PicardSolver};
-use laser_solver::propagation::{out_field_coupled, solve_profile_coupled};
-use laser_solver::rootfind::{
+use laser_solver::maths::picard::{PicardConfig, PicardSolver};
+use laser_solver::maths::rootfind::{
     BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig, rootfind_1d,
 };
-use laser_solver::utils::{IterationConfig, linspace};
+use laser_solver::maths::utils::{IterationConfig, linspace};
+use laser_solver::propagation::{out_field_coupled, solve_profile_coupled};
 use myplotlib::Plotter;
 use plots::show_field_profile;
 use std::time::Instant;

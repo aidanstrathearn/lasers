@@ -6,9 +6,9 @@ use crate::lase::{
     FieldProfile, FieldState, GridPoints, Pump, PumpScan, ResolvedFibre,
     find_threshold_and_slope as scan_for_threshold, pump_scan as scan_pump_totals,
 };
-use crate::picard::{PicardConfig, PicardSolver};
-use crate::rootfind::RootFindConfig;
-use crate::utils::IterationConfig;
+use crate::maths::picard::{PicardConfig, PicardSolver};
+use crate::maths::rootfind::RootFindConfig;
+use crate::maths::utils::IterationConfig;
 
 #[derive(Copy, Clone)]
 pub struct DfbSolveConfig {

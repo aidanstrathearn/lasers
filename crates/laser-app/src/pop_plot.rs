@@ -1,7 +1,7 @@
 use crate::plotter::Plotter;
 use crate::{Points, dfb::DfbMode, timed};
 use laser_solver::error::SolverError;
-use laser_solver::rootfind::BisectionConfig;
+use laser_solver::maths::rootfind::BisectionConfig;
 
 impl DfbMode {
     pub fn pops_plot(&mut self) -> Result<Plotter, SolverError> {

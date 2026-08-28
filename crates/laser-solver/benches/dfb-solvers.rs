@@ -3,9 +3,11 @@ use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::lase::{
     Fibre, FibreGeometry, FieldMode, GridPoints, Pump, ResolvedFibre, TwoLevelDopant,
 };
-use laser_solver::picard::PicardConfig;
-use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
-use laser_solver::utils::IterationConfig;
+use laser_solver::maths::picard::PicardConfig;
+use laser_solver::maths::rootfind::{
+    BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig,
+};
+use laser_solver::maths::utils::IterationConfig;
 use std::hint::black_box;
 
 const PUMP_FORWARD_AMPLITUDE: f64 = 100.0;

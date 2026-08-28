@@ -1,5 +1,5 @@
-use crate::picard::PicardError;
-use crate::rootfind::RootFindError;
+use crate::maths::picard::PicardError;
+use crate::maths::rootfind::RootFindError;
 use std::fmt;
 
 #[derive(Debug)]

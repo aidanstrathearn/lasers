@@ -5,10 +5,12 @@ use laser_solver::lase::{
     Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, GridPoints, Pump, ResolvedFibre,
     Signal, TwoLevelDopant, profile_max_diff,
 };
-use laser_solver::picard::{PicardConfig, PicardSolver};
+use laser_solver::maths::picard::{PicardConfig, PicardSolver};
+use laser_solver::maths::rootfind::{
+    BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig,
+};
+use laser_solver::maths::utils::IterationConfig;
 use laser_solver::propagation::solve_profile_coupled;
-use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
-use laser_solver::utils::IterationConfig;
 
 const PUMP_FORWARD_AMPLITUDE: f64 = 100.0;
 const FORWARD_PUMP: Pump = Pump {

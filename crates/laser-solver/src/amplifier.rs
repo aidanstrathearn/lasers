@@ -3,9 +3,9 @@ use crate::lase::{
     FieldProfile, FieldState, GridPoints, OutputPower, Pump, ResolvedFibre, Signal,
     profile_convergence_error,
 };
-use crate::picard::{PicardConfig, PicardError, PicardSolver};
+use crate::maths::picard::{PicardConfig, PicardError, PicardSolver};
+use crate::maths::rootfind::{RootFindConfig, rootfind_1d};
 use crate::propagation::{out_field_uncoupled, solve_profile_uncoupled};
-use crate::rootfind::{RootFindConfig, rootfind_1d};
 
 #[derive(Copy, Clone)]
 pub struct AmplifierSolveConfig {
@@ -214,7 +214,7 @@ pub fn solve_amp_picard(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rootfind::BisectionConfig;
+    use crate::maths::rootfind::BisectionConfig;
 
     #[test]
     fn backward_signal_uses_picard_boundary_conditions() {

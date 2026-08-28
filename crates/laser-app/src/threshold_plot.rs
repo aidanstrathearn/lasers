@@ -3,8 +3,8 @@ use crate::{Points, dfb::DfbMode, timed};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::error::SolverError;
-use laser_solver::rootfind::BisectionConfig;
-use laser_solver::utils::linspace;
+use laser_solver::maths::rootfind::BisectionConfig;
+use laser_solver::maths::utils::linspace;
 
 #[derive(Copy, Clone)]
 pub struct ThresholdRange {
