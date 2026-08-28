@@ -1,21 +1,17 @@
 use super::{DfbLaser, DfbSolveConfig};
 use crate::error::SolverError;
-use crate::lase::{Fibre, FieldProfile, FieldState, OutputPower, Pump, gain};
+use crate::lase::{Fibre, FieldProfile, FieldState, OutputPower, Pump};
 use crate::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::rootfind::try_rootfind_1d;
 
-pub fn find_pump_b(pump: Pump, profile: &[FieldState], fp: Fibre, dz: f64) -> f64 {
+pub fn find_pump_b(pump: Pump, profile: &[FieldState], fp: &Fibre, dz: f64) -> f64 {
     let expg: f64 = profile[..profile.len() - 1]
         .iter()
-        .map(|&field| {
-            let (g, _) = gain(field, fp);
-            0.5 * g * dz
-        })
+        .map(|&field| 0.5 * fp.gain(field).pump * dz)
         .sum::<f64>() // dont know why it couldnt infer f64 here
         .exp();
     pump.backward_amplitude() * expg
 }
-
 
 // 0. if a function sig borrows nothing but returns a borrow &T
 // then it basically must be borrowing from static so 'a='static
@@ -43,7 +39,7 @@ pub fn solve_profile_picard<'a>(
     solver: &'a mut PicardSolver,
     sgnl_b: f64,
     pump: Pump,
-    fp: Fibre,
+    fp: &Fibre,
     config: PicardConfig,
     kappas: &[f64],
     dz: f64,
@@ -61,16 +57,12 @@ pub fn solve_profile_picard<'a>(
         pump_b: find_pump_b(pump, current, fp, dz),
         ..boundary
     };
-    
+
     let step = |new_previous: FieldState, old_current: FieldState, i| {
         new_previous.coupled_step_general(old_current, fp, kappas[i], dz)
     };
-    
-    solver.solve(
-        config,
-        set_boundary,
-        step,
-    )
+
+    solver.solve(config, set_boundary, step)
 }
 
 impl DfbLaser {
@@ -83,23 +75,30 @@ impl DfbLaser {
     ) -> Result<FieldProfile, SolverError> {
         let gp = config.grid_points;
         let kappas = self.grating.grid(gp.0);
-        let dz = gp.dz(self.fibre.length);
+        let dz = gp.dz(self.fibre.length());
         let f = |sgnl_b| -> Result<f64, SolverError> {
-            let fields =
-                solve_profile_picard(solver, sgnl_b, pump, self.fibre, config.picard, &kappas, dz)?;
+            let fields = solve_profile_picard(
+                solver,
+                sgnl_b,
+                pump,
+                &self.fibre,
+                config.picard,
+                &kappas,
+                dz,
+            )?;
             Ok(fields.last().unwrap().sgnl_b / sgnl_b)
         };
         // try_rootfind_1d muts the solver which leaves the lasing solution in the 'current' buffer
         let _sgnl_b = try_rootfind_1d(f, config.root_find)?;
         if full_profile {
             Ok(FieldProfile::new(
-                gp.grid(self.fibre.length),
+                gp.grid(self.fibre.length()),
                 solver.profile().to_vec(),
             ))
         } else {
             let fields = solver.profile();
             Ok(FieldProfile::new(
-                vec![0.0_f64, self.fibre.length],
+                vec![0.0_f64, self.fibre.length()],
                 vec![fields[0], fields.last().copied().unwrap()],
             ))
         }

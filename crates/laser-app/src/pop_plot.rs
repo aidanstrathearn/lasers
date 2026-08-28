@@ -1,7 +1,6 @@
 use crate::plotter::Plotter;
 use crate::{Points, dfb::DfbMode, timed};
 use laser_solver::error::SolverError;
-use laser_solver::lase::pops;
 use laser_solver::rootfind::BisectionConfig;
 
 impl DfbMode {
@@ -24,7 +23,7 @@ impl DfbMode {
             .into_iter()
             .zip(result.fields)
             .map(|(z, field)| {
-                let (g, e) = pops(field, self.fibre);
+                let (g, e) = self.fibre.populations(field);
                 ([z, g], [z, e])
             })
             .unzip();

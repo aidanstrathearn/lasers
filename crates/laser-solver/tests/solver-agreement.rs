@@ -1,7 +1,10 @@
 use laser_solver::amplifier::{AmplifierSolveConfig, solve_amp_picard, solve_shooting};
 use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, initial_profile};
-use laser_solver::lase::{profile_max_diff, Fibre, FieldProfile, FieldState, GridPoints, Pump, Signal};
+use laser_solver::lase::{
+    Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, GridPoints, Pump, Signal,
+    TwoLevelDopant, profile_max_diff,
+};
 use laser_solver::picard::{PicardConfig, PicardSolver};
 use laser_solver::propagation::solve_profile_coupled;
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
@@ -14,13 +17,21 @@ const FORWARD_PUMP: Pump = Pump {
 };
 
 const FIBRE: Fibre = Fibre {
-    density: 1.0,
-    lifetime: 1.0,
-    pump_ab: 0.01 * 100.0,
-    pump_em: 0.0,
-    sgnl_ab: 0.0,
-    sgnl_em: 1.0,
-    length: 10.0,
+    geometry: FibreGeometry {
+        core_radius: 1.0,
+        numerical_aperture: 0.1,
+        length: 10.0,
+    },
+    dopant: TwoLevelDopant {
+        density: 1.0,
+        lifetime: 1.0,
+        pump_ab: 0.01 * 100.0,
+        pump_em: 0.0,
+        sgnl_ab: 0.0,
+        sgnl_em: 1.0,
+    },
+    pump_mode: FieldMode::new(1.0),
+    sgnl_mode: FieldMode::new(1.0),
 };
 
 const GRID: GridPoints = GridPoints(500);
@@ -116,10 +127,10 @@ fn shooting_and_picard_amplifier_profiles_agree() {
         picard: SYMMETRY_PICARD,
     };
 
-    let shooting_profile = solve_shooting(FIBRE, signal.forward_amplitude(), pump, config, true)
+    let shooting_profile = solve_shooting(&FIBRE, signal.forward_amplitude(), pump, config, true)
         .expect("shooting amplifier solve failed");
-    let picard_profile =
-        solve_amp_picard(FIBRE, signal, pump, config, true).expect("Picard amplifier solve failed");
+    let picard_profile = solve_amp_picard(&FIBRE, signal, pump, config, true)
+        .expect("Picard amplifier solve failed");
 
     assert_eq!(shooting_profile.z, picard_profile.z);
     let max_diff = profile_max_diff(&shooting_profile.fields, &picard_profile.fields);
@@ -142,19 +153,19 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
     };
 
     let direct_profile = FieldProfile::new(
-        GRID.grid(FIBRE.length),
-        solve_profile_coupled(boundary, FIBRE, GRID.dz(FIBRE.length), &kappas),
+        GRID.grid(FIBRE.length()),
+        solve_profile_coupled(boundary, &FIBRE, GRID.dz(FIBRE.length()), &kappas),
     );
-    let initial = initial_profile(pump, FIBRE, GRID);
+    let initial = initial_profile(pump, &FIBRE, GRID);
     let mut picard_solver = PicardSolver::from_initial(initial.fields);
     let picard_fields = solve_profile_picard(
         &mut picard_solver,
         sgnl_b,
         pump,
-        FIBRE,
+        &FIBRE,
         PICARD,
         &kappas,
-        GRID.dz(FIBRE.length),
+        GRID.dz(FIBRE.length()),
     )
     .expect("buffered Picard profile solve failed")
     .to_vec();
@@ -287,7 +298,14 @@ fn assert_mirrored_profiles_agree(picard: &FieldProfile, shooting: &FieldProfile
         .zip(shooting.z.iter().rev().zip(shooting.fields.iter().rev()))
         .enumerate()
     {
-        assert_close(index, "z", picard_z, FIBRE.length - shooting_z, 1e-12, 0.0);
+        assert_close(
+            index,
+            "z",
+            picard_z,
+            FIBRE.length() - shooting_z,
+            1e-12,
+            0.0,
+        );
         assert_close(
             index,
             "sgnl_f",

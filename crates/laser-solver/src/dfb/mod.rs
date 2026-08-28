@@ -22,10 +22,11 @@ pub struct DfbLaser {
     pub grating: Grating,
 }
 
-pub fn initial_profile(pump: Pump, fp: Fibre, gp: GridPoints) -> FieldProfile {
-    let g = 0.5 * (-fp.pump_ab + fp.pump_em) * fp.density; // ground and excited populations are equal
-    let zs = gp.grid(fp.length);
-    let end_factor = (0.5 * g * fp.length).exp();
+pub fn initial_profile(pump: Pump, fp: &Fibre, gp: GridPoints) -> FieldProfile {
+    let dopant = &fp.dopant;
+    let g = 0.5 * (-dopant.pump_ab + dopant.pump_em) * dopant.density; // ground and excited populations are equal
+    let zs = gp.grid(fp.length());
+    let end_factor = (0.5 * g * fp.length()).exp();
     let (pump_forward, pump_backward) = pump.amplitudes();
 
     let fields = zs
@@ -47,7 +48,7 @@ pub fn initial_profile(pump: Pump, fp: Fibre, gp: GridPoints) -> FieldProfile {
 
 impl DfbLaser {
     fn initial_picard_solver(&self, pump: Pump, grid_points: GridPoints) -> PicardSolver {
-        let initial = initial_profile(pump, self.fibre, grid_points);
+        let initial = initial_profile(pump, &self.fibre, grid_points);
         PicardSolver::from_initial(initial.fields)
     }
 

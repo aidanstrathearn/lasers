@@ -49,7 +49,7 @@ impl ProfilePlot {
             dx: 1e-6,
         };
         let pump = self.pump;
-        let fibre_params = self.fibre_params;
+        let fibre_params = self.fibre_params.clone();
         let grid_points = self.grid_points;
         let grating = self.grating;
         let compute_fn = move || {

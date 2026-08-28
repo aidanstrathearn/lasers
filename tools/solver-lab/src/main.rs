@@ -4,7 +4,10 @@ mod plots;
 use crate::plots::plot_profile_diff;
 use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, initial_profile};
-use laser_solver::lase::{Fibre, FieldProfile, FieldState, GridPoints, Pump, profile_max_diff};
+use laser_solver::lase::{
+    Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, GridPoints, Pump, TwoLevelDopant,
+    profile_max_diff,
+};
 use laser_solver::picard::{PicardConfig, PicardSolver};
 use laser_solver::propagation::{out_field_coupled, solve_profile_coupled};
 use laser_solver::rootfind::{
@@ -31,13 +34,21 @@ const FORWARD_PUMP: Pump = Pump {
 };
 
 const FIBRE: Fibre = Fibre {
-    density: 1.0,
-    lifetime: 1.0,
-    pump_ab: 0.01 * 100.0,
-    pump_em: 0.0,
-    sgnl_ab: 0.0,
-    sgnl_em: 1.0,
-    length: 10.0,
+    geometry: FibreGeometry {
+        core_radius: 1.0,
+        numerical_aperture: 0.1,
+        length: 10.0,
+    },
+    dopant: TwoLevelDopant {
+        density: 1.0,
+        lifetime: 1.0,
+        pump_ab: 0.01 * 100.0,
+        pump_em: 0.0,
+        sgnl_ab: 0.0,
+        sgnl_em: 1.0,
+    },
+    pump_mode: FieldMode::new(1.0),
+    sgnl_mode: FieldMode::new(1.0),
 };
 
 const GRID: GridPoints = GridPoints(500);
@@ -105,14 +116,14 @@ fn main() -> eframe::Result {
 }
 fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
     let kappas = GRATING.grid(GRID.0);
-    let dz = GRID.dz(FIBRE.length);
+    let dz = GRID.dz(FIBRE.length());
     let trial = |sgnl_b| FieldState {
         sgnl_f: 0.0,
         sgnl_b,
         pump_f: 2.0,
         pump_b: 0.0, // shooting method requires zero backward pump amplitude
     };
-    let f = |sgnl_b| out_field_coupled(trial(sgnl_b), FIBRE, dz, &kappas).sgnl_b / sgnl_b;
+    let f = |sgnl_b| out_field_coupled(trial(sgnl_b), &FIBRE, dz, &kappas).sgnl_b / sgnl_b;
     let root = rootfind_1d(f, BISECTION).expect("root not found");
     println!("root is at {}", root);
     println!("residual at 0 {}", f(0.0));
@@ -133,7 +144,7 @@ fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
         .unwrap();
     show_field_profile(&result, show_plots)?;
 
-    let profile = initial_profile(PUMP, FIBRE, GRID);
+    let profile = initial_profile(PUMP, &FIBRE, GRID);
     show_field_profile(&profile, show_plots)?;
 
     Ok(())
@@ -242,7 +253,7 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
         return Ok(());
     }
 
-    let z = GRID.grid(FIBRE.length);
+    let z = GRID.grid(FIBRE.length());
     let kappas = GRATING.grid(GRID.0 + 1);
     let mut plot = Plotter::new();
     plot.plot(&z, &kappas);
@@ -264,25 +275,25 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
     };
 
     let direct_profile = FieldProfile::new(
-        GRID.grid(FIBRE.length),
+        GRID.grid(FIBRE.length()),
         solve_profile_coupled(
             comparison_boundary,
-            FIBRE,
-            GRID.dz(FIBRE.length),
+            &FIBRE,
+            GRID.dz(FIBRE.length()),
             &comparison_kappas,
         ),
     );
 
-    let initial = initial_profile(comparison_pump, FIBRE, GRID);
+    let initial = initial_profile(comparison_pump, &FIBRE, GRID);
     let mut picard_solver = PicardSolver::from_initial(initial.fields);
     let picard_fields = solve_profile_picard(
         &mut picard_solver,
         comparison_sgnl_b,
         comparison_pump,
-        FIBRE,
+        &FIBRE,
         PICARD,
         &comparison_kappas,
-        GRID.dz(FIBRE.length),
+        GRID.dz(FIBRE.length()),
     )
     .expect("Picard profile comparison did not converge")
     .to_vec();

@@ -1,6 +1,6 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
-use laser_solver::lase::{Fibre, GridPoints, Pump};
+use laser_solver::lase::{Fibre, FibreGeometry, FieldMode, GridPoints, Pump, TwoLevelDopant};
 use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
 use laser_solver::utils::IterationConfig;
@@ -13,13 +13,21 @@ const FORWARD_PUMP: Pump = Pump {
 };
 
 const FIBRE: Fibre = Fibre {
-    density: 1.0,
-    lifetime: 1.0,
-    pump_ab: 0.01 * 100.0,
-    pump_em: 0.0,
-    sgnl_ab: 0.0,
-    sgnl_em: 1.0,
-    length: 10.0,
+    geometry: FibreGeometry {
+        core_radius: 1.0,
+        numerical_aperture: 0.1,
+        length: 10.0,
+    },
+    dopant: TwoLevelDopant {
+        density: 1.0,
+        lifetime: 1.0,
+        pump_ab: 0.01 * 100.0,
+        pump_em: 0.0,
+        sgnl_ab: 0.0,
+        sgnl_em: 1.0,
+    },
+    pump_mode: FieldMode::new(1.0),
+    sgnl_mode: FieldMode::new(1.0),
 };
 
 const GRID: GridPoints = GridPoints(500);

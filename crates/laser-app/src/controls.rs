@@ -102,30 +102,31 @@ pub(crate) fn pump_slider_grid(pump: &mut Pump, ui: &mut Ui) -> bool {
 
 pub(crate) fn fibre_params_slider_grid(params: &mut Fibre, ui: &mut Ui) -> bool {
     let mut changed = false;
+    let dopant = &mut params.dopant;
 
     egui::Grid::new("params").show(ui, |ui| {
         egui::Grid::new("params1").show(ui, |ui| {
             ui.label("Pump em.");
             changed |= ui
-                .add(egui::Slider::new(&mut params.pump_em, 0.0..=10.0).step_by(0.01))
+                .add(egui::Slider::new(&mut dopant.pump_em, 0.0..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
             ui.label("Pump abs.");
             changed |= ui
-                .add(egui::Slider::new(&mut params.pump_ab, 0.05..=10.0).step_by(0.01))
+                .add(egui::Slider::new(&mut dopant.pump_ab, 0.05..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
             ui.label("Signl em.");
             changed |= ui
-                .add(egui::Slider::new(&mut params.sgnl_em, 0.05..=10.0).step_by(0.01))
+                .add(egui::Slider::new(&mut dopant.sgnl_em, 0.05..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
             ui.label("Signl abs.");
             changed |= ui
-                .add(egui::Slider::new(&mut params.sgnl_ab, 0.0..=10.0).step_by(0.01))
+                .add(egui::Slider::new(&mut dopant.sgnl_ab, 0.0..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
         });
@@ -133,19 +134,19 @@ pub(crate) fn fibre_params_slider_grid(params: &mut Fibre, ui: &mut Ui) -> bool 
         egui::Grid::new("params2").show(ui, |ui| {
             ui.label("Dopant density");
             changed |= ui
-                .add(egui::Slider::new(&mut params.density, 0.1..=10.0).step_by(0.01))
+                .add(egui::Slider::new(&mut dopant.density, 0.1..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
             ui.label("Lifetime");
             changed |= ui
-                .add(egui::Slider::new(&mut params.lifetime, 0.1..=2.0).step_by(0.01))
+                .add(egui::Slider::new(&mut dopant.lifetime, 0.1..=2.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
             ui.label("Length");
             changed |= ui
-                .add(egui::Slider::new(&mut params.length, 0.1..=15.0).step_by(0.01))
+                .add(egui::Slider::new(&mut params.geometry.length, 0.1..=15.0).step_by(0.01))
                 .changed();
             ui.end_row();
         });

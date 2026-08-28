@@ -1,14 +1,14 @@
-use crate::lase::{gain, Fibre, FieldState};
+use crate::lase::{Fibre, FieldState};
 
 impl FieldState {
-    pub fn coupled_step_shooting(self, fp: Fibre, kappa: f64, dz: f64) -> Self {
+    pub fn coupled_step_shooting(self, fp: &Fibre, kappa: f64, dz: f64) -> Self {
         self.coupled_step_general(self, fp, kappa, dz)
     }
 
-    pub fn coupled_step_general(self, other: Self, fp: Fibre, kappa: f64, dz: f64) -> Self {
-        let (gp, gs) = gain(other, fp);
-        let (a, b, c, d) = transfer(gs, kappa, dz);
-        let expg = (0.5 * gp * dz).exp();
+    pub fn coupled_step_general(self, other: Self, fp: &Fibre, kappa: f64, dz: f64) -> Self {
+        let gain = fp.gain(other);
+        let (a, b, c, d) = transfer(gain.signal, kappa, dz);
+        let expg = (0.5 * gain.pump * dz).exp();
 
         FieldState {
             sgnl_f: a * self.sgnl_f + b * self.sgnl_b,
@@ -18,15 +18,15 @@ impl FieldState {
         }
     }
 
-    pub fn uncoupled_step_shooting(self, fp: Fibre, dz: f64) -> Self {
+    pub fn uncoupled_step_shooting(self, fp: &Fibre, dz: f64) -> Self {
         self.uncoupled_step_general(self, fp, dz)
     }
 
-    pub fn uncoupled_step_general(self, other: Self, fibre: Fibre, dz: f64) -> Self {
-        let (pump_gain, signal_gain) = gain(other, fibre);
+    pub fn uncoupled_step_general(self, other: Self, fibre: &Fibre, dz: f64) -> Self {
+        let gain = fibre.gain(other);
 
-        let pump_factor = (0.5 * pump_gain * dz).exp();
-        let signal_factor = (0.5 * signal_gain * dz).exp();
+        let pump_factor = (0.5 * gain.pump * dz).exp();
+        let signal_factor = (0.5 * gain.signal * dz).exp();
 
         Self {
             sgnl_f: self.sgnl_f * signal_factor,
@@ -54,7 +54,7 @@ pub fn transfer(gain: f64, kappa: f64, dz: f64) -> (f64, f64, f64, f64) {
 
 pub fn solve_profile_uncoupled(
     fs: FieldState,
-    fp: Fibre,
+    fp: &Fibre,
     dz: f64,
     nsteps: usize,
 ) -> Vec<FieldState> {
@@ -68,7 +68,7 @@ pub fn solve_profile_uncoupled(
     result
 }
 
-pub fn out_field_uncoupled(fs: FieldState, fp: Fibre, dz: f64, nsteps: usize) -> FieldState {
+pub fn out_field_uncoupled(fs: FieldState, fp: &Fibre, dz: f64, nsteps: usize) -> FieldState {
     let mut current = fs;
     for _ in 0..nsteps {
         current = current.uncoupled_step_shooting(fp, dz);
@@ -78,7 +78,7 @@ pub fn out_field_uncoupled(fs: FieldState, fp: Fibre, dz: f64, nsteps: usize) ->
 
 pub fn solve_profile_coupled(
     fs: FieldState,
-    fp: Fibre,
+    fp: &Fibre,
     dz: f64,
     kappas: &[f64],
 ) -> Vec<FieldState> {
@@ -92,7 +92,7 @@ pub fn solve_profile_coupled(
     result
 }
 
-pub fn out_field_coupled(fs: FieldState, fp: Fibre, dz: f64, kappas: &[f64]) -> FieldState {
+pub fn out_field_coupled(fs: FieldState, fp: &Fibre, dz: f64, kappas: &[f64]) -> FieldState {
     let mut current = fs;
     for &kappa in kappas {
         current = current.coupled_step_shooting(fp, kappa, dz);

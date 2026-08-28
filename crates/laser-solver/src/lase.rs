@@ -5,7 +5,7 @@ use crate::utils::{IterationConfig, linspace, relative_diff};
 pub type OutputPower = (f64, f64);
 pub type PumpScan = Vec<Option<OutputPower>>;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Gain {
     pub pump: f64,
     pub signal: f64,
@@ -38,24 +38,17 @@ impl TwoLevelDopant {
         self.steady_state(gamma_dn, gamma_up)
     }
 
-    pub fn gain(&self, fs: FieldState, pump_overlap: f64, sgnl_overlap: f64) -> (f64, f64) {
+    pub fn gain(&self, fs: FieldState, pump_overlap: f64, sgnl_overlap: f64) -> Gain {
         let (g, e) = self.pops(fs, pump_overlap, sgnl_overlap);
-        (
-            self.density * (-g * self.pump_ab + e * self.pump_em) * pump_overlap,
-            self.density * (-g * self.sgnl_ab + e * self.sgnl_em) * sgnl_overlap,
-        )
-
+        Gain {
+            pump: self.density * (-g * self.pump_ab + e * self.pump_em) * pump_overlap,
+            signal: self.density * (-g * self.sgnl_ab + e * self.sgnl_em) * sgnl_overlap,
+        }
     }
 }
 
-
-
-
-
-
 const TWO_PI: f64 = 2.0 * std::f64::consts::PI;
 const SPEED_OF_LIGHT_MS: f64 = 299_792_458.0;
-
 
 fn numerical_aperture(n_core: f64, n_cladding: f64) -> f64 {
     (n_core * n_core - n_cladding * n_cladding).sqrt()
@@ -71,13 +64,22 @@ fn dimensionless_marcuse_radius(v_number: f64) -> f64 {
     0.65 + 1.619 / v_number.powf(1.5) + 2.879 / v_number.powi(6)
 }
 
-
-
 #[derive(Copy, Clone)]
 pub struct FieldMode {
-    wavelength: f64
+    wavelength: f64,
 }
 
+impl FieldMode {
+    pub const fn new(wavelength: f64) -> Self {
+        Self { wavelength }
+    }
+
+    pub fn wavelength(self) -> f64 {
+        self.wavelength
+    }
+}
+
+#[derive(Clone)]
 pub struct FibreGeometry {
     pub core_radius: f64,
     pub numerical_aperture: f64,
@@ -98,51 +100,58 @@ impl FibreGeometry {
     }
 
     fn mode_overlap(&self, mode: FieldMode) -> f64 {
-        let v = self.v_number(mode);
-        let mode_over_core = dimensionless_marcuse_radius(v);
-        let gamma = 1.0 - f64::exp(- 2.0 / (mode_over_core * mode_over_core));
-        gamma * 0.0 + 1.0
+        // let v = self.v_number(mode);
+        // let mode_over_core = dimensionless_marcuse_radius(v);
+        // let gamma = 1.0 - f64::exp(-2.0 / (mode_over_core * mode_over_core));
+        // gamma * 0.0 + 1.0
+        1.0
     }
 }
 
-pub struct Fibre2 {
+#[derive(Clone)]
+pub struct Fibre {
     pub geometry: FibreGeometry,
     pub dopant: TwoLevelDopant,
     pub pump_mode: FieldMode,
-    pub sgnl_mode: FieldMode
+    pub sgnl_mode: FieldMode,
 }
 
-impl Fibre2 {
-    fn gain(&self, fs: FieldState) -> (f64, f64) {
+impl Fibre {
+    pub fn length(&self) -> f64 {
+        self.geometry.length
+    }
+
+    pub fn gain(&self, fs: FieldState) -> Gain {
         let pump_overlap = self.geometry.mode_overlap(self.pump_mode);
         let sgnl_overlap = self.geometry.mode_overlap(self.sgnl_mode);
         self.dopant.gain(fs, pump_overlap, sgnl_overlap)
     }
-}
 
-
-
-#[derive(Copy, Clone)]
-pub struct Fibre {
-    pub density: f64,
-    pub lifetime: f64,
-    pub pump_ab: f64,
-    pub pump_em: f64,
-    pub sgnl_ab: f64,
-    pub sgnl_em: f64,
-    pub length: f64,
+    pub fn populations(&self, fs: FieldState) -> (f64, f64) {
+        let pump_overlap = self.geometry.mode_overlap(self.pump_mode);
+        let sgnl_overlap = self.geometry.mode_overlap(self.sgnl_mode);
+        self.dopant.pops(fs, pump_overlap, sgnl_overlap)
+    }
 }
 
 impl Default for Fibre {
     fn default() -> Self {
         Self {
-            density: 1.0,
-            lifetime: 1.0,
-            pump_ab: 0.01,
-            pump_em: 0.0,
-            sgnl_ab: 0.0,
-            sgnl_em: 1.0,
-            length: 5.0,
+            geometry: FibreGeometry {
+                core_radius: 1.0,
+                numerical_aperture: 0.1,
+                length: 5.0,
+            },
+            dopant: TwoLevelDopant {
+                density: 1.0,
+                lifetime: 1.0,
+                pump_ab: 0.01,
+                pump_em: 0.0,
+                sgnl_ab: 0.0,
+                sgnl_em: 1.0,
+            },
+            pump_mode: FieldMode::new(1.0),
+            sgnl_mode: FieldMode::new(1.0),
         }
     }
 }
@@ -265,23 +274,6 @@ impl FieldProfile {
         let right = self.fields.last().expect("field profile is empty");
         (right.sgnl_f.powi(2), left.sgnl_b.powi(2))
     }
-}
-
-pub fn pops(fs: FieldState, fp: Fibre) -> (f64, f64) {
-    let pump_flux = fs.pump_f * fs.pump_f + fs.pump_b * fs.pump_b;
-    let sgnl_flux = fs.sgnl_f * fs.sgnl_f + fs.sgnl_b * fs.sgnl_b;
-    let gamma_up = pump_flux * fp.pump_ab + sgnl_flux * fp.sgnl_ab;
-    let gamma_dn = pump_flux * fp.pump_em + sgnl_flux * fp.sgnl_em + 1.0 / fp.lifetime;
-    let denom = gamma_up + gamma_dn;
-    (gamma_dn / denom, gamma_up / denom)
-}
-
-pub fn gain(fs: FieldState, fp: Fibre) -> (f64, f64) {
-    let (g, e) = pops(fs, fp);
-    (
-        fp.density * (-g * fp.pump_ab + e * fp.pump_em),
-        fp.density * (-g * fp.sgnl_ab + e * fp.sgnl_em),
-    )
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -429,6 +421,28 @@ mod tests {
         let (a, b, c, d) = transfer(1.0, 0.0, 1.0);
         println!("Transfer {:?}", (a, b, c, d));
         assert_eq!(a, (0.5_f64).exp());
+    }
+
+    #[test]
+    fn two_level_dopant_returns_named_modal_gain() {
+        let dopant = TwoLevelDopant {
+            density: 2.0,
+            lifetime: 1.0,
+            pump_ab: 3.0,
+            pump_em: 0.0,
+            sgnl_ab: 5.0,
+            sgnl_em: 0.0,
+        };
+
+        let gain = dopant.gain(FieldState::default(), 0.25, 0.5);
+
+        assert_eq!(
+            gain,
+            Gain {
+                pump: -1.5,
+                signal: -5.0,
+            }
+        );
     }
 
     #[test]

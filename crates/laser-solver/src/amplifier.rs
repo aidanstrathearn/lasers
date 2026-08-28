@@ -1,10 +1,8 @@
 use crate::error::SolverError;
-use crate::lase::{gain, Fibre, FieldProfile, FieldState, GridPoints, OutputPower, Pump, Signal};
+use crate::lase::{Fibre, FieldProfile, FieldState, GridPoints, OutputPower, Pump, Signal};
 use crate::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::propagation::{out_field_uncoupled, solve_profile_uncoupled};
 use crate::rootfind::{RootFindConfig, rootfind_1d};
-
-
 
 #[derive(Copy, Clone)]
 pub struct AmplifierSolveConfig {
@@ -13,7 +11,7 @@ pub struct AmplifierSolveConfig {
     pub picard: PicardConfig,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct Amplifier {
     pub fibre: Fibre,
 }
@@ -29,9 +27,9 @@ impl Amplifier {
         let (forward_signal, backward_signal) = signal.amplitudes();
 
         if backward_signal > 0.0 {
-            solve_amp_picard(self.fibre, signal, pump, config, full_profile)
+            solve_amp_picard(&self.fibre, signal, pump, config, full_profile)
         } else {
-            solve_shooting(self.fibre, forward_signal, pump, config, full_profile)
+            solve_shooting(&self.fibre, forward_signal, pump, config, full_profile)
         }
     }
 
@@ -47,7 +45,7 @@ impl Amplifier {
 }
 
 pub fn solve_shooting(
-    fibre: Fibre,
+    fibre: &Fibre,
     forward_signal: f64,
     pump: Pump,
     config: AmplifierSolveConfig,
@@ -55,7 +53,7 @@ pub fn solve_shooting(
 ) -> Result<FieldProfile, SolverError> {
     let gp = config.grid_points;
     let nsteps = gp.0;
-    let dz = gp.dz(fibre.length);
+    let dz = gp.dz(fibre.length());
     let (pump_forward, pump_backward) = pump.amplitudes();
     let trial = |pump_b| FieldState {
         sgnl_f: forward_signal,
@@ -73,11 +71,11 @@ pub fn solve_shooting(
     };
 
     if full_profile {
-        let z = gp.grid(fibre.length);
+        let z = gp.grid(fibre.length());
         let fields = solve_profile_uncoupled(trial(pump_b), fibre, dz, nsteps);
         Ok(FieldProfile::new(z, fields))
     } else {
-        let z = vec![0.0_f64, fibre.length];
+        let z = vec![0.0_f64, fibre.length()];
         let out_left = trial(pump_b);
         let fields = vec![out_left, out_field_uncoupled(out_left, fibre, dz, nsteps)];
         Ok(FieldProfile::new(z, fields))
@@ -88,15 +86,15 @@ pub fn find_b_fields(
     signal_b_right: f64,
     pump_b_right: f64,
     profile: &[FieldState],
-    fp: Fibre,
+    fp: &Fibre,
     dz: f64,
 ) -> (f64, f64) {
     let (pump_od, signal_od): (f64, f64) =
         profile[..profile.len() - 1]
             .iter()
             .fold((0.0, 0.0), |acc, &field| {
-                let (gp, gs) = gain(field, fp);
-                let new = (0.5 * gp * dz, 0.5 * gs * dz);
+                let gain = fp.gain(field);
+                let new = (0.5 * gain.pump * dz, 0.5 * gain.signal * dz);
                 (acc.0 + new.0, acc.1 + new.1)
             });
 
@@ -106,14 +104,14 @@ pub fn find_b_fields(
     )
 }
 
-pub fn solve_amp_profile_picard(
-    solver: &mut PicardSolver,
+pub fn solve_amp_profile_picard<'a>(
+    solver: &'a mut PicardSolver,
     signal: Signal,
     pump: Pump,
-    fp: Fibre,
+    fp: &Fibre,
     config: PicardConfig,
     dz: f64,
-) -> Result<&[FieldState], PicardError> {
+) -> Result<&'a [FieldState], PicardError> {
     let (pump_forward, pump_backward) = pump.amplitudes();
     let (sgnl_forward, sgnl_backward) = signal.amplitudes();
     let boundary = FieldState {
@@ -139,12 +137,13 @@ pub fn solve_amp_profile_picard(
     solver.solve(config, set_boundary, step)
 }
 
-pub fn initial_profile(signal: Signal, pump: Pump, fp: Fibre, gp: GridPoints) -> FieldProfile {
-    let gpump = 0.5 * (-fp.pump_ab + fp.pump_em) * fp.density;
-    let gsignal = 0.5 * (-fp.sgnl_ab + fp.sgnl_em) * fp.density;
-    let zs = gp.grid(fp.length);
-    let pump_end_factor = (0.5 * gpump * fp.length).exp();
-    let signal_end_factor = (0.5 * gsignal * fp.length).exp();
+pub fn initial_profile(signal: Signal, pump: Pump, fp: &Fibre, gp: GridPoints) -> FieldProfile {
+    let dopant = &fp.dopant;
+    let gpump = 0.5 * (-dopant.pump_ab + dopant.pump_em) * dopant.density;
+    let gsignal = 0.5 * (-dopant.sgnl_ab + dopant.sgnl_em) * dopant.density;
+    let zs = gp.grid(fp.length());
+    let pump_end_factor = (0.5 * gpump * fp.length()).exp();
+    let signal_end_factor = (0.5 * gsignal * fp.length()).exp();
     let (pump_forward, pump_backward) = pump.amplitudes();
     let (signal_forward, signal_backward) = signal.amplitudes();
 
@@ -166,24 +165,24 @@ pub fn initial_profile(signal: Signal, pump: Pump, fp: Fibre, gp: GridPoints) ->
 }
 
 pub fn solve_amp_picard(
-    fibre: Fibre,
+    fibre: &Fibre,
     signal: Signal,
     pump: Pump,
     config: AmplifierSolveConfig,
     full_profile: bool,
 ) -> Result<FieldProfile, SolverError> {
     let gp = config.grid_points;
-    let dz = gp.dz(fibre.length);
+    let dz = gp.dz(fibre.length());
     let initial = initial_profile(signal, pump, fibre, gp);
     let mut solver = PicardSolver::from_initial(initial.fields);
     solve_amp_profile_picard(&mut solver, signal, pump, fibre, config.picard, dz)?;
 
     let fields = solver.profile();
     if full_profile {
-        Ok(FieldProfile::new(gp.grid(fibre.length), fields.to_vec()))
+        Ok(FieldProfile::new(gp.grid(fibre.length()), fields.to_vec()))
     } else {
         Ok(FieldProfile::new(
-            vec![0.0, fibre.length],
+            vec![0.0, fibre.length()],
             vec![fields[0], fields.last().copied().unwrap()],
         ))
     }
@@ -197,13 +196,15 @@ mod tests {
     #[test]
     fn backward_signal_uses_picard_boundary_conditions() {
         let fibre = Fibre {
-            density: 0.0,
-            lifetime: 1.0,
-            pump_ab: 1.0,
-            pump_em: 0.0,
-            sgnl_ab: 0.0,
-            sgnl_em: 1.0,
-            length: 5.0,
+            dopant: crate::lase::TwoLevelDopant {
+                density: 0.0,
+                lifetime: 1.0,
+                pump_ab: 1.0,
+                pump_em: 0.0,
+                sgnl_ab: 0.0,
+                sgnl_em: 1.0,
+            },
+            ..Fibre::default()
         };
         let signal = Signal {
             total: 2.0,

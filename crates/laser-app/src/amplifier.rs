@@ -11,7 +11,9 @@ use eframe::egui::Ui;
 use laser_solver::amplifier::{Amplifier, AmplifierSolveConfig};
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::error::SolverError;
-use laser_solver::lase::{Fibre, GridPoints, Pump, Signal};
+use laser_solver::lase::{
+    Fibre, FibreGeometry, FieldMode, GridPoints, Pump, Signal, TwoLevelDopant,
+};
 use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::Midpoint::Arithmetic;
 use laser_solver::rootfind::{BisectionConfig, Midpoint, RootFindConfig};
@@ -79,13 +81,21 @@ impl Default for AmplifierMode {
             },
             signal: Signal::default(),
             fibre: Fibre {
-                density: 0.50,
-                lifetime: 1.0,
-                pump_ab: 1.0,
-                pump_em: 0.0,
-                sgnl_ab: 0.0,
-                sgnl_em: 1.0,
-                length: 5.0,
+                geometry: FibreGeometry {
+                    core_radius: 1.0,
+                    numerical_aperture: 0.1,
+                    length: 5.0,
+                },
+                dopant: TwoLevelDopant {
+                    density: 0.50,
+                    lifetime: 1.0,
+                    pump_ab: 1.0,
+                    pump_em: 0.0,
+                    sgnl_ab: 0.0,
+                    sgnl_em: 1.0,
+                },
+                pump_mode: FieldMode::new(1.0),
+                sgnl_mode: FieldMode::new(1.0),
             },
             grid_points: GridPoints::default(),
             config: BisectionConfig::default(),
@@ -117,7 +127,9 @@ pub(crate) fn signal_slider_grid(signal: &mut Signal, ui: &mut Ui) -> bool {
 
 impl AmplifierMode {
     pub(crate) fn amplifier(&self) -> Amplifier {
-        Amplifier { fibre: self.fibre }
+        Amplifier {
+            fibre: self.fibre.clone(),
+        }
     }
 
     pub(crate) fn amplifier_solve_config(

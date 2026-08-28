@@ -10,7 +10,7 @@ use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::error::SolverError;
-use laser_solver::lase::{Fibre, GridPoints, Pump};
+use laser_solver::lase::{Fibre, FibreGeometry, FieldMode, GridPoints, Pump, TwoLevelDopant};
 use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::{BisectionConfig, RootFindConfig};
 use std::time::Duration;
@@ -95,13 +95,21 @@ impl Default for DfbMode {
                 balance: 1.0,
             },
             fibre: Fibre {
-                density: 0.50,
-                lifetime: 1.0,
-                pump_ab: 1.0,
-                pump_em: 0.0,
-                sgnl_ab: 0.0,
-                sgnl_em: 1.0,
-                length: 5.0,
+                geometry: FibreGeometry {
+                    core_radius: 1.0,
+                    numerical_aperture: 0.1,
+                    length: 5.0,
+                },
+                dopant: TwoLevelDopant {
+                    density: 0.50,
+                    lifetime: 1.0,
+                    pump_ab: 1.0,
+                    pump_em: 0.0,
+                    sgnl_ab: 0.0,
+                    sgnl_em: 1.0,
+                },
+                pump_mode: FieldMode::new(1.0),
+                sgnl_mode: FieldMode::new(1.0),
             },
             grid_points: GridPoints::default(),
             grating: Grating {
@@ -126,7 +134,7 @@ impl Default for DfbMode {
 impl DfbMode {
     pub(crate) fn dfb_laser(&self) -> DfbLaser {
         DfbLaser {
-            fibre: self.fibre,
+            fibre: self.fibre.clone(),
             grating: self.grating,
         }
     }
