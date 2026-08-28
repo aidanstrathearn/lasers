@@ -101,7 +101,7 @@ impl FibreGeometry {
         let v = self.v_number(mode);
         let mode_over_core = dimensionless_marcuse_radius(v);
         let gamma = 1.0 - f64::exp(- 2.0 / (mode_over_core * mode_over_core));
-        gamma
+        gamma * 0.0 + 1.0
     }
 }
 
