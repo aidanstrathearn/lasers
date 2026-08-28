@@ -6,13 +6,13 @@ use crate::lase::{
 use crate::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::rootfind::try_rootfind_1d;
 
-pub fn find_pump_b(pump: Pump, profile: &[FieldState], fp: &ResolvedFibre<'_>, dz: f64) -> f64 {
+pub fn find_pump_b(pump_backward: f64, profile: &[FieldState], fp: &ResolvedFibre<'_>, dz: f64) -> f64 {
     let expg: f64 = profile[..profile.len() - 1]
         .iter()
         .map(|&field| 0.5 * fp.gain(field).pump * dz)
         .sum::<f64>() // dont know why it couldnt infer f64 here
         .exp();
-    pump.backward_amplitude() * expg
+    pump_backward * expg
 }
 
 // 0. if a function sig borrows nothing but returns a borrow &T
@@ -47,17 +47,13 @@ pub fn solve_profile_picard<'a>(
     dz: f64,
 ) -> Result<&'a [FieldState], PicardError> {
     assert_eq!(kappas.len() + 1, solver.profile().len());
-    let (pump_forward, _) = pump.amplitudes();
-    let boundary = FieldState {
+    let (pump_forward, pump_backward) = pump.amplitudes();
+
+    let set_boundary = |current: &[FieldState]| FieldState {
         sgnl_f: 0.0,
         sgnl_b,
         pump_f: pump_forward,
-        pump_b: 0.0,
-    };
-
-    let set_boundary = |current: &[FieldState]| FieldState {
-        pump_b: find_pump_b(pump, current, fp, dz),
-        ..boundary
+        pump_b: find_pump_b(pump_backward, current, fp, dz),
     };
 
     let step = |new_previous: &FieldState, old_current: &FieldState, i| {
