@@ -28,31 +28,21 @@ impl TwoLevelDopant {
         let denom = gamma_up + gamma_dn_total;
         (gamma_dn_total / denom, gamma_up / denom)
     }
-    pub fn pops(&self, fs: FieldState, pump_overlap: f64, sgnl_overlap: f64) -> (f64, f64) {
-        let pump_flux = (fs.pump_f * fs.pump_f + fs.pump_b * fs.pump_b) * pump_overlap;
-
-        let sgnl_flux = (fs.sgnl_f * fs.sgnl_f + fs.sgnl_b * fs.sgnl_b) * sgnl_overlap;
-
+    pub fn pops(&self, pump_flux: f64, sgnl_flux: f64) -> (f64, f64) {
         let gamma_up = pump_flux * self.pump_ab + sgnl_flux * self.sgnl_ab;
         let gamma_dn = pump_flux * self.pump_em + sgnl_flux * self.sgnl_em;
         self.steady_state(gamma_dn, gamma_up)
     }
 
-    pub fn gain(&self, fs: FieldState, pump_overlap: f64, sgnl_overlap: f64) -> Gain {
-        let (g, e) = self.pops(fs, pump_overlap, sgnl_overlap);
-        self.gain_from_populations(g, e, pump_overlap, sgnl_overlap)
+    pub fn gain(&self, pump_flux: f64, sgnl_flux: f64) -> Gain {
+        let (g, e) = self.pops(pump_flux, sgnl_flux);
+        self.gain_from_populations(g, e)
     }
 
-    fn gain_from_populations(
-        &self,
-        ground: f64,
-        excited: f64,
-        pump_overlap: f64,
-        sgnl_overlap: f64,
-    ) -> Gain {
+    fn gain_from_populations(&self, ground: f64, excited: f64) -> Gain {
         Gain {
-            pump: self.density * (-ground * self.pump_ab + excited * self.pump_em) * pump_overlap,
-            signal: self.density * (-ground * self.sgnl_ab + excited * self.sgnl_em) * sgnl_overlap,
+            pump: self.density * (-ground * self.pump_ab + excited * self.pump_em),
+            signal: self.density * (-ground * self.sgnl_ab + excited * self.sgnl_em),
         }
     }
 }
@@ -173,22 +163,32 @@ impl ResolvedFibre<'_> {
         self.sgnl_overlap
     }
 
+    pub fn mode_fluxes(&self, fs: FieldState) -> (f64, f64) {
+        (
+            (fs.pump_f * fs.pump_f + fs.pump_b * fs.pump_b) * self.pump_overlap,
+            (fs.sgnl_f * fs.sgnl_f + fs.sgnl_b * fs.sgnl_b) * self.sgnl_overlap,
+        )
+    }
+
     pub fn gain(&self, fs: FieldState) -> Gain {
-        self.fibre
-            .dopant
-            .gain(fs, self.pump_overlap, self.sgnl_overlap)
+        let (pump_flux, sgnl_flux) = self.mode_fluxes(fs);
+        let mut gain = self.fibre.dopant.gain(pump_flux, sgnl_flux);
+
+        gain.pump = gain.pump * self.pump_overlap;
+        gain.signal = gain.signal * self.sgnl_overlap;
+        gain
     }
 
     pub fn populations(&self, fs: FieldState) -> (f64, f64) {
-        self.fibre
-            .dopant
-            .pops(fs, self.pump_overlap, self.sgnl_overlap)
+        let (pump_flux, sgnl_flux) = self.mode_fluxes(fs);
+        self.fibre.dopant.pops(pump_flux, sgnl_flux)
     }
 
     pub fn initial_gain(&self) -> Gain {
-        self.fibre
-            .dopant
-            .gain_from_populations(0.5, 0.5, self.pump_overlap, self.sgnl_overlap)
+        let mut gain = self.fibre.dopant.gain_from_populations(0.5, 0.5);
+        gain.pump = gain.pump * self.pump_overlap;
+        gain.signal = gain.signal * self.sgnl_overlap;
+        gain
     }
 }
 
@@ -480,25 +480,20 @@ mod tests {
     }
 
     #[test]
-    fn two_level_dopant_returns_named_modal_gain() {
+    fn two_level_dopant_returns_material_gain() {
         let dopant = TwoLevelDopant {
             density: 2.0,
             lifetime: 1.0,
             pump_ab: 3.0,
             pump_em: 0.0,
-            sgnl_ab: 5.0,
+            sgnl_ab: 1.0,
             sgnl_em: 0.0,
         };
 
-        let gain = dopant.gain(FieldState::default(), 0.25, 0.5);
+        let gain = dopant.gain(2.0, 3.0);
 
-        assert_eq!(
-            gain,
-            Gain {
-                pump: -1.5,
-                signal: -5.0,
-            }
-        );
+        assert!((gain.pump - -0.6).abs() < 1e-12);
+        assert!((gain.signal - -0.2).abs() < 1e-12);
     }
 
     #[test]
