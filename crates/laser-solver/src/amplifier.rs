@@ -1,7 +1,7 @@
 use crate::error::SolverError;
 use crate::lase::{
-    BidirectionalAmplitude, FieldProfile, FieldState, GridPoints, OutputPower, Pump,
-    ResolvedFibre, Signal, profile_convergence_error,
+    BidirectionalAmplitude, FieldProfile, FieldState, GridPoints, OutputPower, Pump, ResolvedFibre,
+    Signal, profile_convergence_error,
 };
 use crate::maths::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::maths::rootfind::{RootFindConfig, rootfind_1d};
@@ -129,23 +129,20 @@ pub fn solve_amp_profile_picard<'a>(
 ) -> Result<&'a [FieldState], PicardError> {
     let (pump_forward, pump_backward) = pump.amplitudes();
     let (sgnl_forward, sgnl_backward) = signal.amplitudes();
-    let boundary = FieldState {
-        signal: BidirectionalAmplitude {
-            forward: sgnl_forward,
-            backward: 0.0,
-        },
-        pump: BidirectionalAmplitude {
-            forward: pump_forward,
-            backward: 0.0,
-        },
-    };
 
     let set_boundary = |current: &[FieldState]| {
-        let (sgnl_b, pump_b) = find_b_fields(sgnl_backward, pump_backward, current, fp, dz);
-        let mut boundary = boundary;
-        boundary.signal.backward = sgnl_b;
-        boundary.pump.backward = pump_b;
-        boundary
+        let (sgnl_backward, pump_backward) =
+            find_b_fields(sgnl_backward, pump_backward, current, fp, dz);
+        FieldState {
+            signal: BidirectionalAmplitude {
+                forward: sgnl_forward,
+                backward: sgnl_backward,
+            },
+            pump: BidirectionalAmplitude {
+                forward: pump_forward,
+                backward: pump_backward,
+            },
+        }
     };
 
     let step = |new_previous: &FieldState, old_current: &FieldState, _i| {
