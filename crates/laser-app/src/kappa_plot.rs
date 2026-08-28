@@ -6,7 +6,7 @@ impl DfbMode {
     pub fn kappa_plot(&mut self) -> Result<Plotter, SolverError> {
         let ((z, kappas), compute_time) = timed(|| {
             (
-                self.grid_points.grid(self.fibre.length()),
+                self.grid_points.grid(self.fibre.geometry.length),
                 self.grating.grid(self.grid_points.0),
             )
         });

@@ -65,6 +65,8 @@ pub(crate) struct AmplifierMode {
     pub(crate) signal: Signal,
     pub(crate) pump: Pump,
     pub(crate) fibre: Fibre,
+    pub(crate) pump_mode: FieldMode,
+    pub(crate) sgnl_mode: FieldMode,
     pub(crate) grid_points: GridPoints,
     pub(crate) config: BisectionConfig,
     cached_plotter: Option<Result<Plotter, SolverError>>,
@@ -94,9 +96,9 @@ impl Default for AmplifierMode {
                     sgnl_ab: 0.0,
                     sgnl_em: 1.0,
                 },
-                pump_mode: FieldMode::new(1.0),
-                sgnl_mode: FieldMode::new(1.0),
             },
+            pump_mode: FieldMode::new(1.0),
+            sgnl_mode: FieldMode::new(1.0),
             grid_points: GridPoints::default(),
             config: BisectionConfig::default(),
             cached_plotter: None,
@@ -126,9 +128,9 @@ pub(crate) fn signal_slider_grid(signal: &mut Signal, ui: &mut Ui) -> bool {
 }
 
 impl AmplifierMode {
-    pub(crate) fn amplifier(&self) -> Amplifier {
+    pub(crate) fn amplifier(&self) -> Amplifier<'_> {
         Amplifier {
-            fibre: self.fibre.clone(),
+            fibre: self.fibre.resolve(self.pump_mode, self.sgnl_mode),
         }
     }
 

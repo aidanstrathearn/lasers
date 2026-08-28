@@ -3,7 +3,7 @@ use crate::{Points, dfb::DfbMode, field_profile_plot, power_points, timed};
 use eframe::egui;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::error::SolverError;
-use laser_solver::lase::{Fibre, GridPoints, Pump};
+use laser_solver::lase::{Fibre, FieldMode, GridPoints, Pump};
 use laser_solver::rootfind::{BisectionConfig, Newton1dConfig};
 use laser_solver::utils::IterationConfig;
 use std::sync::mpsc;
@@ -32,6 +32,8 @@ impl DfbMode {
 pub struct ProfilePlot {
     pump: Pump,
     fibre_params: Fibre,
+    pump_mode: FieldMode,
+    sgnl_mode: FieldMode,
     grid_points: GridPoints,
     grating: Grating,
     pending: Option<Receiver<[Points; 4]>>,
@@ -50,13 +52,13 @@ impl ProfilePlot {
         };
         let pump = self.pump;
         let fibre_params = self.fibre_params.clone();
+        let pump_mode = self.pump_mode;
+        let sgnl_mode = self.sgnl_mode;
         let grid_points = self.grid_points;
         let grating = self.grating;
         let compute_fn = move || {
-            let laser = DfbLaser {
-                fibre: fibre_params,
-                grating,
-            };
+            let fibre = fibre_params.resolve(pump_mode, sgnl_mode);
+            let laser = DfbLaser { fibre, grating };
             let result = laser.solve_shooting(
                 pump,
                 DfbSolveConfig {

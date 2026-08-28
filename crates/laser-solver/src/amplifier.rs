@@ -1,5 +1,5 @@
 use crate::error::SolverError;
-use crate::lase::{Fibre, FieldProfile, FieldState, GridPoints, OutputPower, Pump, Signal};
+use crate::lase::{FieldProfile, FieldState, GridPoints, OutputPower, Pump, ResolvedFibre, Signal};
 use crate::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::propagation::{out_field_uncoupled, solve_profile_uncoupled};
 use crate::rootfind::{RootFindConfig, rootfind_1d};
@@ -12,11 +12,11 @@ pub struct AmplifierSolveConfig {
 }
 
 #[derive(Clone)]
-pub struct Amplifier {
-    pub fibre: Fibre,
+pub struct Amplifier<'a> {
+    pub fibre: ResolvedFibre<'a>,
 }
 
-impl Amplifier {
+impl Amplifier<'_> {
     pub fn solve(
         &self,
         signal: Signal,
@@ -45,7 +45,7 @@ impl Amplifier {
 }
 
 pub fn solve_shooting(
-    fibre: &Fibre,
+    fibre: &ResolvedFibre<'_>,
     forward_signal: f64,
     pump: Pump,
     config: AmplifierSolveConfig,
@@ -86,7 +86,7 @@ pub fn find_b_fields(
     signal_b_right: f64,
     pump_b_right: f64,
     profile: &[FieldState],
-    fp: &Fibre,
+    fp: &ResolvedFibre<'_>,
     dz: f64,
 ) -> (f64, f64) {
     let (pump_od, signal_od): (f64, f64) =
@@ -108,7 +108,7 @@ pub fn solve_amp_profile_picard<'a>(
     solver: &'a mut PicardSolver,
     signal: Signal,
     pump: Pump,
-    fp: &Fibre,
+    fp: &ResolvedFibre<'_>,
     config: PicardConfig,
     dz: f64,
 ) -> Result<&'a [FieldState], PicardError> {
@@ -137,10 +137,15 @@ pub fn solve_amp_profile_picard<'a>(
     solver.solve(config, set_boundary, step)
 }
 
-pub fn initial_profile(signal: Signal, pump: Pump, fp: &Fibre, gp: GridPoints) -> FieldProfile {
-    let dopant = &fp.dopant;
-    let gpump = 0.5 * (-dopant.pump_ab + dopant.pump_em) * dopant.density;
-    let gsignal = 0.5 * (-dopant.sgnl_ab + dopant.sgnl_em) * dopant.density;
+pub fn initial_profile(
+    signal: Signal,
+    pump: Pump,
+    fp: &ResolvedFibre<'_>,
+    gp: GridPoints,
+) -> FieldProfile {
+    let gain = fp.initial_gain();
+    let gpump = gain.pump;
+    let gsignal = gain.signal;
     let zs = gp.grid(fp.length());
     let pump_end_factor = (0.5 * gpump * fp.length()).exp();
     let signal_end_factor = (0.5 * gsignal * fp.length()).exp();
@@ -165,7 +170,7 @@ pub fn initial_profile(signal: Signal, pump: Pump, fp: &Fibre, gp: GridPoints) -
 }
 
 pub fn solve_amp_picard(
-    fibre: &Fibre,
+    fibre: &ResolvedFibre<'_>,
     signal: Signal,
     pump: Pump,
     config: AmplifierSolveConfig,
@@ -195,7 +200,7 @@ mod tests {
 
     #[test]
     fn backward_signal_uses_picard_boundary_conditions() {
-        let fibre = Fibre {
+        let fibre = crate::lase::Fibre {
             dopant: crate::lase::TwoLevelDopant {
                 density: 0.0,
                 lifetime: 1.0,
@@ -204,8 +209,12 @@ mod tests {
                 sgnl_ab: 0.0,
                 sgnl_em: 1.0,
             },
-            ..Fibre::default()
+            ..crate::lase::Fibre::default()
         };
+        let fibre = fibre.resolve(
+            crate::lase::FieldMode::new(1.0),
+            crate::lase::FieldMode::new(1.0),
+        );
         let signal = Signal {
             total: 2.0,
             balance: 0.0,

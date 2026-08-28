@@ -3,7 +3,7 @@ mod shooting;
 
 use crate::error::SolverError;
 use crate::lase::{
-    Fibre, FieldProfile, FieldState, GridPoints, Pump, PumpScan,
+    FieldProfile, FieldState, GridPoints, Pump, PumpScan, ResolvedFibre,
     find_threshold_and_slope as scan_for_threshold, pump_scan as scan_pump_totals,
 };
 use crate::picard::{PicardConfig, PicardSolver};
@@ -17,14 +17,13 @@ pub struct DfbSolveConfig {
     pub picard: PicardConfig,
 }
 
-pub struct DfbLaser {
-    pub fibre: Fibre,
+pub struct DfbLaser<'a> {
+    pub fibre: ResolvedFibre<'a>,
     pub grating: Grating,
 }
 
-pub fn initial_profile(pump: Pump, fp: &Fibre, gp: GridPoints) -> FieldProfile {
-    let dopant = &fp.dopant;
-    let g = 0.5 * (-dopant.pump_ab + dopant.pump_em) * dopant.density; // ground and excited populations are equal
+pub fn initial_profile(pump: Pump, fp: &ResolvedFibre<'_>, gp: GridPoints) -> FieldProfile {
+    let g = fp.initial_gain().pump; // ground and excited populations are equal
     let zs = gp.grid(fp.length());
     let end_factor = (0.5 * g * fp.length()).exp();
     let (pump_forward, pump_backward) = pump.amplitudes();
@@ -46,7 +45,7 @@ pub fn initial_profile(pump: Pump, fp: &Fibre, gp: GridPoints) -> FieldProfile {
     FieldProfile::new(zs, fields)
 }
 
-impl DfbLaser {
+impl DfbLaser<'_> {
     fn initial_picard_solver(&self, pump: Pump, grid_points: GridPoints) -> PicardSolver {
         let initial = initial_profile(pump, &self.fibre, grid_points);
         PicardSolver::from_initial(initial.fields)

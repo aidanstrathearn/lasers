@@ -4,7 +4,7 @@ use crate::lase::{FieldProfile, FieldState, OutputPower, Pump};
 use crate::propagation::{out_field_coupled, solve_profile_coupled};
 use crate::rootfind::rootfind_1d;
 
-impl DfbLaser {
+impl DfbLaser<'_> {
     pub fn solve_shooting(
         &self,
         pump: Pump,

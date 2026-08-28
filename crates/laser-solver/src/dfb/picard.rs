@@ -1,10 +1,10 @@
 use super::{DfbLaser, DfbSolveConfig};
 use crate::error::SolverError;
-use crate::lase::{Fibre, FieldProfile, FieldState, OutputPower, Pump};
+use crate::lase::{FieldProfile, FieldState, OutputPower, Pump, ResolvedFibre};
 use crate::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::rootfind::try_rootfind_1d;
 
-pub fn find_pump_b(pump: Pump, profile: &[FieldState], fp: &Fibre, dz: f64) -> f64 {
+pub fn find_pump_b(pump: Pump, profile: &[FieldState], fp: &ResolvedFibre<'_>, dz: f64) -> f64 {
     let expg: f64 = profile[..profile.len() - 1]
         .iter()
         .map(|&field| 0.5 * fp.gain(field).pump * dz)
@@ -39,7 +39,7 @@ pub fn solve_profile_picard<'a>(
     solver: &'a mut PicardSolver,
     sgnl_b: f64,
     pump: Pump,
-    fp: &Fibre,
+    fp: &ResolvedFibre<'_>,
     config: PicardConfig,
     kappas: &[f64],
     dz: f64,
@@ -65,7 +65,7 @@ pub fn solve_profile_picard<'a>(
     solver.solve(config, set_boundary, step)
 }
 
-impl DfbLaser {
+impl DfbLaser<'_> {
     fn solve_with_picard_solver(
         &self,
         pump: Pump,

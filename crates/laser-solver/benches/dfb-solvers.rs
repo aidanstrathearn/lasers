@@ -1,6 +1,8 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
-use laser_solver::lase::{Fibre, FibreGeometry, FieldMode, GridPoints, Pump, TwoLevelDopant};
+use laser_solver::lase::{
+    Fibre, FibreGeometry, FieldMode, GridPoints, Pump, ResolvedFibre, TwoLevelDopant,
+};
 use laser_solver::picard::PicardConfig;
 use laser_solver::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
 use laser_solver::utils::IterationConfig;
@@ -12,7 +14,7 @@ const FORWARD_PUMP: Pump = Pump {
     balance: 1.0,
 };
 
-const FIBRE: Fibre = Fibre {
+static FIBRE: Fibre = Fibre {
     geometry: FibreGeometry {
         core_radius: 1.0,
         numerical_aperture: 0.1,
@@ -26,9 +28,9 @@ const FIBRE: Fibre = Fibre {
         sgnl_ab: 0.0,
         sgnl_em: 1.0,
     },
-    pump_mode: FieldMode::new(1.0),
-    sgnl_mode: FieldMode::new(1.0),
 };
+const PUMP_MODE: FieldMode = FieldMode::new(1.0);
+const SGNL_MODE: FieldMode = FieldMode::new(1.0);
 
 const GRID: GridPoints = GridPoints(500);
 const FULL_PROFILE: bool = true;
@@ -39,10 +41,16 @@ const GRATING: Grating = Grating {
     pi_shift_position: 0.45,
 };
 
-const DFB_LASER: DfbLaser = DfbLaser {
-    fibre: FIBRE,
-    grating: GRATING,
-};
+fn resolved_fibre() -> ResolvedFibre<'static> {
+    FIBRE.resolve(PUMP_MODE, SGNL_MODE)
+}
+
+fn dfb_laser() -> DfbLaser<'static> {
+    DfbLaser {
+        fibre: resolved_fibre(),
+        grating: GRATING,
+    }
+}
 
 const ITERATION: IterationConfig = IterationConfig {
     max: 500,
@@ -70,7 +78,7 @@ const NEWTON_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
 fn benchmark_dfb_solver(c: &mut Criterion) {
     c.bench_function("dfb/shooting", |b| {
         b.iter(|| {
-            let result = DFB_LASER
+            let result = dfb_laser()
                 .solve_shooting(FORWARD_PUMP, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
                 .expect("shooting DFB solve failed");
             black_box(result);
@@ -103,7 +111,7 @@ fn benchmark_bisection_midpoints(c: &mut Criterion) {
                 };
 
                 b.iter(|| {
-                    let result = DFB_LASER
+                    let result = dfb_laser()
                         .solve_shooting(
                             FORWARD_PUMP,
                             DfbSolveConfig {
@@ -137,7 +145,7 @@ fn benchmark_picard_solvers(c: &mut Criterion) {
 
     group.bench_function("buffered", |b| {
         b.iter(|| {
-            let result = DFB_LASER
+            let result = dfb_laser()
                 .solve_picard(pump, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
                 .expect("buffered Picard DFB solve failed");
             black_box(result);

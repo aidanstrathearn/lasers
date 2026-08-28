@@ -40,9 +40,19 @@ impl TwoLevelDopant {
 
     pub fn gain(&self, fs: FieldState, pump_overlap: f64, sgnl_overlap: f64) -> Gain {
         let (g, e) = self.pops(fs, pump_overlap, sgnl_overlap);
+        self.gain_from_populations(g, e, pump_overlap, sgnl_overlap)
+    }
+
+    fn gain_from_populations(
+        &self,
+        ground: f64,
+        excited: f64,
+        pump_overlap: f64,
+        sgnl_overlap: f64,
+    ) -> Gain {
         Gain {
-            pump: self.density * (-g * self.pump_ab + e * self.pump_em) * pump_overlap,
-            signal: self.density * (-g * self.sgnl_ab + e * self.sgnl_em) * sgnl_overlap,
+            pump: self.density * (-ground * self.pump_ab + excited * self.pump_em) * pump_overlap,
+            signal: self.density * (-ground * self.sgnl_ab + excited * self.sgnl_em) * sgnl_overlap,
         }
     }
 }
@@ -79,6 +89,12 @@ impl FieldMode {
     }
 }
 
+impl Default for FieldMode {
+    fn default() -> Self {
+        Self::new(1.0)
+    }
+}
+
 #[derive(Clone)]
 pub struct FibreGeometry {
     pub core_radius: f64,
@@ -100,11 +116,12 @@ impl FibreGeometry {
     }
 
     fn mode_overlap(&self, mode: FieldMode) -> f64 {
-        // let v = self.v_number(mode);
-        // let mode_over_core = dimensionless_marcuse_radius(v);
-        // let gamma = 1.0 - f64::exp(-2.0 / (mode_over_core * mode_over_core));
-        // gamma * 0.0 + 1.0
-        1.0
+        //let _ = mode;
+        let v = self.v_number(mode);
+        let mode_over_core = dimensionless_marcuse_radius(v);
+        let gamma = 1.0 - f64::exp(-2.0 / (mode_over_core * mode_over_core));
+        gamma * 1e-10 + 1.0
+        //1.0
     }
 }
 
@@ -112,25 +129,66 @@ impl FibreGeometry {
 pub struct Fibre {
     pub geometry: FibreGeometry,
     pub dopant: TwoLevelDopant,
-    pub pump_mode: FieldMode,
-    pub sgnl_mode: FieldMode,
 }
 
 impl Fibre {
+    pub fn resolve(&self, pump_mode: FieldMode, sgnl_mode: FieldMode) -> ResolvedFibre<'_> {
+        ResolvedFibre {
+            fibre: self,
+            pump_mode,
+            sgnl_mode,
+            pump_overlap: self.geometry.mode_overlap(pump_mode),
+            sgnl_overlap: self.geometry.mode_overlap(sgnl_mode),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ResolvedFibre<'a> {
+    fibre: &'a Fibre,
+    pump_mode: FieldMode,
+    sgnl_mode: FieldMode,
+    pump_overlap: f64,
+    sgnl_overlap: f64,
+}
+
+impl ResolvedFibre<'_> {
     pub fn length(&self) -> f64 {
-        self.geometry.length
+        self.fibre.geometry.length
+    }
+
+    pub fn pump_mode(&self) -> FieldMode {
+        self.pump_mode
+    }
+
+    pub fn sgnl_mode(&self) -> FieldMode {
+        self.sgnl_mode
+    }
+
+    pub fn pump_overlap(&self) -> f64 {
+        self.pump_overlap
+    }
+
+    pub fn sgnl_overlap(&self) -> f64 {
+        self.sgnl_overlap
     }
 
     pub fn gain(&self, fs: FieldState) -> Gain {
-        let pump_overlap = self.geometry.mode_overlap(self.pump_mode);
-        let sgnl_overlap = self.geometry.mode_overlap(self.sgnl_mode);
-        self.dopant.gain(fs, pump_overlap, sgnl_overlap)
+        self.fibre
+            .dopant
+            .gain(fs, self.pump_overlap, self.sgnl_overlap)
     }
 
     pub fn populations(&self, fs: FieldState) -> (f64, f64) {
-        let pump_overlap = self.geometry.mode_overlap(self.pump_mode);
-        let sgnl_overlap = self.geometry.mode_overlap(self.sgnl_mode);
-        self.dopant.pops(fs, pump_overlap, sgnl_overlap)
+        self.fibre
+            .dopant
+            .pops(fs, self.pump_overlap, self.sgnl_overlap)
+    }
+
+    pub fn initial_gain(&self) -> Gain {
+        self.fibre
+            .dopant
+            .gain_from_populations(0.5, 0.5, self.pump_overlap, self.sgnl_overlap)
     }
 }
 
@@ -150,8 +208,6 @@ impl Default for Fibre {
                 sgnl_ab: 0.0,
                 sgnl_em: 1.0,
             },
-            pump_mode: FieldMode::new(1.0),
-            sgnl_mode: FieldMode::new(1.0),
         }
     }
 }

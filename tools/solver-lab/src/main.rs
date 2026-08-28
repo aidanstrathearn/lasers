@@ -5,8 +5,8 @@ use crate::plots::plot_profile_diff;
 use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, initial_profile};
 use laser_solver::lase::{
-    Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, GridPoints, Pump, TwoLevelDopant,
-    profile_max_diff,
+    Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, GridPoints, Pump, ResolvedFibre,
+    TwoLevelDopant, profile_max_diff,
 };
 use laser_solver::picard::{PicardConfig, PicardSolver};
 use laser_solver::propagation::{out_field_coupled, solve_profile_coupled};
@@ -33,7 +33,7 @@ const FORWARD_PUMP: Pump = Pump {
     balance: 1.0,
 };
 
-const FIBRE: Fibre = Fibre {
+static FIBRE: Fibre = Fibre {
     geometry: FibreGeometry {
         core_radius: 1.0,
         numerical_aperture: 0.1,
@@ -47,9 +47,9 @@ const FIBRE: Fibre = Fibre {
         sgnl_ab: 0.0,
         sgnl_em: 1.0,
     },
-    pump_mode: FieldMode::new(1.0),
-    sgnl_mode: FieldMode::new(1.0),
 };
+const PUMP_MODE: FieldMode = FieldMode::new(1.0);
+const SGNL_MODE: FieldMode = FieldMode::new(1.0);
 
 const GRID: GridPoints = GridPoints(500);
 const FULL_PROFILE: bool = true;
@@ -60,10 +60,16 @@ const GRATING: Grating = Grating {
     pi_shift_position: 0.45,
 };
 
-const DFB_LASER: DfbLaser = DfbLaser {
-    fibre: FIBRE,
-    grating: GRATING,
-};
+fn resolved_fibre() -> ResolvedFibre<'static> {
+    FIBRE.resolve(PUMP_MODE, SGNL_MODE)
+}
+
+fn dfb_laser() -> DfbLaser<'static> {
+    DfbLaser {
+        fibre: resolved_fibre(),
+        grating: GRATING,
+    }
+}
 
 const ITERATION: IterationConfig = IterationConfig {
     max: 500,
@@ -116,14 +122,15 @@ fn main() -> eframe::Result {
 }
 fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
     let kappas = GRATING.grid(GRID.0);
-    let dz = GRID.dz(FIBRE.length());
+    let fibre = resolved_fibre();
+    let dz = GRID.dz(fibre.length());
     let trial = |sgnl_b| FieldState {
         sgnl_f: 0.0,
         sgnl_b,
         pump_f: 2.0,
         pump_b: 0.0, // shooting method requires zero backward pump amplitude
     };
-    let f = |sgnl_b| out_field_coupled(trial(sgnl_b), &FIBRE, dz, &kappas).sgnl_b / sgnl_b;
+    let f = |sgnl_b| out_field_coupled(trial(sgnl_b), &fibre, dz, &kappas).sgnl_b / sgnl_b;
     let root = rootfind_1d(f, BISECTION).expect("root not found");
     println!("root is at {}", root);
     println!("residual at 0 {}", f(0.0));
@@ -139,12 +146,13 @@ fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
     Ok(())
 }
 fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
-    let result = DFB_LASER
+    let result = dfb_laser()
         .solve_shooting(FORWARD_PUMP, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
         .unwrap();
     show_field_profile(&result, show_plots)?;
 
-    let profile = initial_profile(PUMP, &FIBRE, GRID);
+    let fibre = resolved_fibre();
+    let profile = initial_profile(PUMP, &fibre, GRID);
     show_field_profile(&profile, show_plots)?;
 
     Ok(())
@@ -153,7 +161,7 @@ fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
 fn run_pump_scan(show_plots: bool) -> eframe::Result {
     let pumps = linspace(0.0, 10.0, 200);
     let start = Instant::now();
-    let threshold = DFB_LASER
+    let threshold = dfb_laser()
         .pump_scan(&pumps, 1.0, BISECTION_SOLVE_CONFIG)
         .expect("pump scan failed");
     let elapsed = start.elapsed();
@@ -194,7 +202,7 @@ fn plot_pump_scan_derivatives(show_plot: bool) -> eframe::Result {
         picard: pc,
         ..BISECTION_SOLVE_CONFIG
     };
-    let outputs = DFB_LASER
+    let outputs = dfb_laser()
         .pump_scan(&pumps, balance, solve_config)
         .expect("pump scan failed");
     let outputs: Vec<(f64, f64)> = outputs
@@ -218,7 +226,7 @@ fn plot_pump_scan_derivatives(show_plot: bool) -> eframe::Result {
         .collect();
 
     let threshold_config = IterationConfig { tol: 1e-3, max: 20 };
-    let (forward_slope, backward_slope, threshold) = DFB_LASER
+    let (forward_slope, backward_slope, threshold) = dfb_laser()
         .find_threshold_and_slope(
             Pump {
                 total: 2.0,
@@ -253,7 +261,7 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
         return Ok(());
     }
 
-    let z = GRID.grid(FIBRE.length());
+    let z = GRID.grid(FIBRE.geometry.length);
     let kappas = GRATING.grid(GRID.0 + 1);
     let mut plot = Plotter::new();
     plot.plot(&z, &kappas);
@@ -273,27 +281,28 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
         pump_f: comparison_pump.forward_amplitude(),
         pump_b: 0.0,
     };
+    let fibre = resolved_fibre();
 
     let direct_profile = FieldProfile::new(
-        GRID.grid(FIBRE.length()),
+        GRID.grid(fibre.length()),
         solve_profile_coupled(
             comparison_boundary,
-            &FIBRE,
-            GRID.dz(FIBRE.length()),
+            &fibre,
+            GRID.dz(fibre.length()),
             &comparison_kappas,
         ),
     );
 
-    let initial = initial_profile(comparison_pump, &FIBRE, GRID);
+    let initial = initial_profile(comparison_pump, &fibre, GRID);
     let mut picard_solver = PicardSolver::from_initial(initial.fields);
     let picard_fields = solve_profile_picard(
         &mut picard_solver,
         comparison_sgnl_b,
         comparison_pump,
-        &FIBRE,
+        &fibre,
         PICARD,
         &comparison_kappas,
-        GRID.dz(FIBRE.length()),
+        GRID.dz(fibre.length()),
     )
     .expect("Picard profile comparison did not converge")
     .to_vec();
@@ -317,13 +326,14 @@ fn compare_dfb_solvers(show_plots: bool) -> eframe::Result {
     let comparison_pump = FORWARD_PUMP;
 
     let start = Instant::now();
-    let shooting_profile = DFB_LASER
+    let laser = dfb_laser();
+    let shooting_profile = laser
         .solve_shooting(comparison_pump, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
         .expect("shooting DFB solve failed");
     let shooting_elapsed = start.elapsed();
 
     let start = Instant::now();
-    let picard_profile = DFB_LASER
+    let picard_profile = laser
         .solve_picard(comparison_pump, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
         .expect("Picard DFB solve failed");
     let picard_elapsed = start.elapsed();
