@@ -100,7 +100,7 @@ impl Default for DfbMode {
             },
             fibre: Fibre {
                 geometry: FibreGeometry {
-                    core_radius: 1.0,
+                    core_radius: 4e-6,
                     numerical_aperture: 0.1,
                     length: 5.0,
                 },
@@ -113,8 +113,8 @@ impl Default for DfbMode {
                     sgnl_em: 1.0,
                 },
             },
-            pump_mode: FieldMode::new(1.0),
-            sgnl_mode: FieldMode::new(1.0),
+            pump_mode: FieldMode::new(970e-9),
+            sgnl_mode: FieldMode::new(1060e-9),
             grid_points: GridPoints::default(),
             grating: Grating {
                 kappa_left: 0.6,

@@ -110,7 +110,7 @@ impl FibreGeometry {
         let v = self.v_number(mode);
         let mode_over_core = dimensionless_marcuse_radius(v);
         let gamma = 1.0 - f64::exp(-2.0 / (mode_over_core * mode_over_core));
-        gamma * 1e-10 + 1.0
+        gamma //* 1e-10 + 1.0
         //1.0
     }
 }
@@ -196,7 +196,7 @@ impl Default for Fibre {
     fn default() -> Self {
         Self {
             geometry: FibreGeometry {
-                core_radius: 1.0,
+                core_radius: 4e-6,
                 numerical_aperture: 0.1,
                 length: 5.0,
             },

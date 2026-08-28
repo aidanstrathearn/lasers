@@ -16,7 +16,7 @@ const FORWARD_PUMP: Pump = Pump {
 
 static FIBRE: Fibre = Fibre {
     geometry: FibreGeometry {
-        core_radius: 1.0,
+        core_radius: 4e-6,
         numerical_aperture: 0.1,
         length: 10.0,
     },
@@ -29,8 +29,8 @@ static FIBRE: Fibre = Fibre {
         sgnl_em: 1.0,
     },
 };
-const PUMP_MODE: FieldMode = FieldMode::new(1.0);
-const SGNL_MODE: FieldMode = FieldMode::new(1.0);
+const PUMP_MODE: FieldMode = FieldMode::new(970e-9);
+const SGNL_MODE: FieldMode = FieldMode::new(1060e-9);
 
 const GRID: GridPoints = GridPoints(500);
 const FULL_PROFILE: bool = true;

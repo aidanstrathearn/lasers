@@ -218,8 +218,8 @@ mod tests {
             ..crate::lase::Fibre::default()
         };
         let fibre = fibre.resolve(
-            crate::lase::FieldMode::new(1.0),
-            crate::lase::FieldMode::new(1.0),
+            crate::lase::FieldMode::new(970e-9),
+            crate::lase::FieldMode::new(1060e-9),
         );
         let signal = Signal {
             total: 2.0,
