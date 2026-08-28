@@ -5,6 +5,121 @@ use crate::utils::{IterationConfig, linspace, relative_diff};
 pub type OutputPower = (f64, f64);
 pub type PumpScan = Vec<Option<OutputPower>>;
 
+#[derive(Clone, Copy)]
+pub struct Gain {
+    pub pump: f64,
+    pub signal: f64,
+}
+
+#[derive(Clone, Copy)]
+pub struct TwoLevelDopant {
+    pub density: f64,
+    pub lifetime: f64,
+    pub pump_ab: f64,
+    pub pump_em: f64,
+    pub sgnl_ab: f64,
+    pub sgnl_em: f64,
+}
+
+impl TwoLevelDopant {
+    pub fn steady_state(&self, gamma_dn: f64, gamma_up: f64) -> (f64, f64) {
+        let gamma_decay = 1.0 / self.lifetime;
+        let gamma_dn_total = gamma_decay + gamma_dn;
+        let denom = gamma_up + gamma_dn_total;
+        (gamma_dn_total / denom, gamma_up / denom)
+    }
+    pub fn pops(&self, fs: FieldState, pump_overlap: f64, sgnl_overlap: f64) -> (f64, f64) {
+        let pump_flux = (fs.pump_f * fs.pump_f + fs.pump_b * fs.pump_b) * pump_overlap;
+
+        let sgnl_flux = (fs.sgnl_f * fs.sgnl_f + fs.sgnl_b * fs.sgnl_b) * sgnl_overlap;
+
+        let gamma_up = pump_flux * self.pump_ab + sgnl_flux * self.sgnl_ab;
+        let gamma_dn = pump_flux * self.pump_em + sgnl_flux * self.sgnl_em;
+        self.steady_state(gamma_dn, gamma_up)
+    }
+
+    pub fn gain(&self, fs: FieldState, pump_overlap: f64, sgnl_overlap: f64) -> (f64, f64) {
+        let (g, e) = self.pops(fs, pump_overlap, sgnl_overlap);
+        (
+            self.density * (-g * self.pump_ab + e * self.pump_em) * pump_overlap,
+            self.density * (-g * self.sgnl_ab + e * self.sgnl_em) * sgnl_overlap,
+        )
+
+    }
+}
+
+
+
+
+
+
+const TWO_PI: f64 = 2.0 * std::f64::consts::PI;
+const SPEED_OF_LIGHT_MS: f64 = 299_792_458.0;
+
+
+fn numerical_aperture(n_core: f64, n_cladding: f64) -> f64 {
+    (n_core * n_core - n_cladding * n_cladding).sqrt()
+}
+
+fn v_number(numerical_aperture: f64, core_radius: f64, wavelength: f64) -> f64 {
+    TWO_PI * core_radius * numerical_aperture / wavelength
+}
+
+fn dimensionless_marcuse_radius(v_number: f64) -> f64 {
+    // this is an approximation for the ratio mode_radius / core_radius
+    // D. Marcuse, “Loss analysis of single-mode fiber splices,” Bell System Technical Journal, vol. 56, no. 5, pp. 703–718, 1977.
+    0.65 + 1.619 / v_number.powf(1.5) + 2.879 / v_number.powi(6)
+}
+
+
+
+#[derive(Copy, Clone)]
+pub struct FieldMode {
+    wavelength: f64
+}
+
+pub struct FibreGeometry {
+    pub core_radius: f64,
+    pub numerical_aperture: f64,
+    pub length: f64,
+}
+
+impl FibreGeometry {
+    fn single_mode_cutoff_wavelength(&self) -> f64 {
+        TWO_PI * self.core_radius * self.numerical_aperture / 2.405
+    }
+
+    fn is_single_spatial_mode(&self, mode: FieldMode) -> bool {
+        mode.wavelength > self.single_mode_cutoff_wavelength()
+    }
+
+    fn v_number(&self, mode: FieldMode) -> f64 {
+        TWO_PI * self.core_radius * self.numerical_aperture / mode.wavelength
+    }
+
+    fn mode_overlap(&self, mode: FieldMode) -> f64 {
+        let v = self.v_number(mode);
+        let mode_over_core = dimensionless_marcuse_radius(v);
+        let gamma = 1.0 - f64::exp(- 2.0 / (mode_over_core * mode_over_core));
+        gamma
+    }
+}
+
+pub struct Fibre2 {
+    pub geometry: FibreGeometry,
+    pub dopant: TwoLevelDopant,
+    pub pump_mode: FieldMode,
+    pub sgnl_mode: FieldMode
+}
+
+impl Fibre2 {
+    fn gain(&self, fs: FieldState) -> (f64, f64) {
+        let pump_overlap = self.geometry.mode_overlap(self.pump_mode);
+        let sgnl_overlap = self.geometry.mode_overlap(self.sgnl_mode);
+        self.dopant.gain(fs, pump_overlap, sgnl_overlap)
+    }
+}
+
 
 
 #[derive(Copy, Clone)]
