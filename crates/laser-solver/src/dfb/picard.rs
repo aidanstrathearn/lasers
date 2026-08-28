@@ -1,6 +1,8 @@
 use super::{DfbLaser, DfbSolveConfig};
 use crate::error::SolverError;
-use crate::lase::{FieldProfile, FieldState, OutputPower, Pump, ResolvedFibre};
+use crate::lase::{
+    FieldProfile, FieldState, OutputPower, Pump, ResolvedFibre, profile_convergence_error,
+};
 use crate::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::rootfind::try_rootfind_1d;
 
@@ -36,7 +38,7 @@ pub fn find_pump_b(pump: Pump, profile: &[FieldState], fp: &ResolvedFibre<'_>, d
 // but we also pass a borrowed slice of kappas, so must annotate
 // to show that &[FieldState] comes from &mut PicardSolver
 pub fn solve_profile_picard<'a>(
-    solver: &'a mut PicardSolver,
+    solver: &'a mut PicardSolver<FieldState>,
     sgnl_b: f64,
     pump: Pump,
     fp: &ResolvedFibre<'_>,
@@ -58,11 +60,20 @@ pub fn solve_profile_picard<'a>(
         ..boundary
     };
 
-    let step = |new_previous: FieldState, old_current: FieldState, i| {
-        new_previous.coupled_step(fp.gain(old_current), kappas[i], dz)
+    let step = |new_previous: &FieldState, old_current: &FieldState, i| {
+        new_previous.coupled_step(fp.gain(*old_current), kappas[i], dz)
     };
 
-    solver.solve(config, set_boundary, step)
+    let error = |current: &[FieldState], previous: &[FieldState]| {
+        profile_convergence_error(
+            current,
+            previous,
+            config.absolute_tolerance,
+            config.relative_tolerance,
+        )
+    };
+
+    solver.solve(config.max_iterations, set_boundary, step, error)
 }
 
 impl DfbLaser<'_> {
@@ -71,7 +82,7 @@ impl DfbLaser<'_> {
         pump: Pump,
         config: DfbSolveConfig,
         full_profile: bool,
-        solver: &mut PicardSolver,
+        solver: &mut PicardSolver<FieldState>,
     ) -> Result<FieldProfile, SolverError> {
         let gp = config.grid_points;
         let kappas = self.grating.grid(gp.0);
@@ -118,7 +129,7 @@ impl DfbLaser<'_> {
         &self,
         pump: Pump,
         config: DfbSolveConfig,
-        solver: &mut PicardSolver,
+        solver: &mut PicardSolver<FieldState>,
     ) -> Result<OutputPower, SolverError> {
         let profile = self.solve_with_picard_solver(pump, config, false, solver)?;
         Ok(profile.output_powers())

@@ -1,5 +1,8 @@
 use crate::error::SolverError;
-use crate::lase::{FieldProfile, FieldState, GridPoints, OutputPower, Pump, ResolvedFibre, Signal};
+use crate::lase::{
+    FieldProfile, FieldState, GridPoints, OutputPower, Pump, ResolvedFibre, Signal,
+    profile_convergence_error,
+};
 use crate::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::propagation::{out_field_uncoupled, solve_profile_uncoupled};
 use crate::rootfind::{RootFindConfig, rootfind_1d};
@@ -111,7 +114,7 @@ pub fn find_b_fields(
 }
 
 pub fn solve_amp_profile_picard<'a>(
-    solver: &'a mut PicardSolver,
+    solver: &'a mut PicardSolver<FieldState>,
     signal: Signal,
     pump: Pump,
     fp: &ResolvedFibre<'_>,
@@ -136,11 +139,20 @@ pub fn solve_amp_profile_picard<'a>(
         }
     };
 
-    let step = |new_previous: FieldState, old_current: FieldState, _i| {
-        new_previous.uncoupled_step(fp.gain(old_current), dz)
+    let step = |new_previous: &FieldState, old_current: &FieldState, _i| {
+        new_previous.uncoupled_step(fp.gain(*old_current), dz)
     };
 
-    solver.solve(config, set_boundary, step)
+    let error = |current: &[FieldState], previous: &[FieldState]| {
+        profile_convergence_error(
+            current,
+            previous,
+            config.absolute_tolerance,
+            config.relative_tolerance,
+        )
+    };
+
+    solver.solve(config.max_iterations, set_boundary, step, error)
 }
 
 pub fn initial_profile(

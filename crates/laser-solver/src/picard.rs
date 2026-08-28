@@ -1,4 +1,3 @@
-use crate::lase::FieldState;
 use std::fmt;
 
 #[derive(Debug)]
@@ -35,43 +34,49 @@ impl Default for PicardConfig {
     }
 }
 
-pub struct PicardSolver {
-    current: Vec<FieldState>,
-    new: Vec<FieldState>,
+pub struct PicardSolver<T> {
+    current: Vec<T>,
+    new: Vec<T>,
 }
 
-impl PicardSolver {
-    pub fn from_initial(initial: Vec<FieldState>) -> Self {
-        let n = initial.len();
+impl<T: Clone> PicardSolver<T> {
+    pub fn from_initial(initial: Vec<T>) -> Self {
+        assert!(
+            !initial.is_empty(),
+            "Picard initial profile must not be empty"
+        );
         Self {
+            new: initial.clone(),
             current: initial,
-            new: vec![FieldState::default(); n],
         }
     }
+}
 
-    pub fn profile(&self) -> &[FieldState] {
+impl<T> PicardSolver<T> {
+    pub fn profile(&self) -> &[T] {
         &self.current
     }
 
-    pub fn solve<SetBoundary, Step>(
+    pub fn solve<SetBoundary, Step, Error>(
         &mut self,
-        config: PicardConfig,
+        max_iterations: usize,
         mut set_boundary: SetBoundary,
         mut step: Step,
-    ) -> Result<&[FieldState], PicardError>
+        mut error: Error,
+    ) -> Result<&[T], PicardError>
     where
-        SetBoundary: FnMut(&[FieldState]) -> FieldState,
-        Step: FnMut(FieldState, FieldState, usize) -> FieldState,
+        SetBoundary: FnMut(&[T]) -> T,
+        Step: FnMut(&T, &T, usize) -> T,
+        Error: FnMut(&[T], &[T]) -> f64,
     {
-        for _ in 0..config.max_iterations {
+        for _ in 0..max_iterations {
             self.new[0] = set_boundary(&self.current);
             for i in 0..self.new.len() - 1 {
-                self.new[i + 1] = step(self.new[i], self.current[i], i);
+                self.new[i + 1] = step(&self.new[i], &self.current[i], i);
             }
 
             std::mem::swap(&mut self.current, &mut self.new);
-            let error = profile_convergence_error(&self.current, &self.new, config);
-            if error <= 1.0 {
+            if error(&self.current, &self.new) <= 1.0 {
                 return Ok(&self.current);
             }
         }
@@ -79,181 +84,58 @@ impl PicardSolver {
     }
 }
 
-pub fn profile_convergence_error(
-    current: &[FieldState],
-    new: &[FieldState],
-    config: PicardConfig,
-) -> f64 {
-    assert_eq!(current.len(), new.len());
-    let mut max_dif_s = 0.0_f64;
-    let mut max_dif_p = 0.0_f64;
-    let mut max_mag_s = 0.0_f64;
-    let mut max_mag_p = 0.0_f64;
-
-    for (&current, &new) in current.iter().zip(new) {
-        let current_powers = current.field_powers();
-        let new_powers = new.field_powers();
-        if !current_powers[0].is_finite()
-            || !new_powers[0].is_finite()
-            || !current_powers[1].is_finite()
-            || !new_powers[1].is_finite()
-        {
-            return f64::INFINITY;
-        }
-        max_dif_s = max_dif_s.max((current_powers[0] - new_powers[0]).abs().sqrt()); // check scaling and tolerance
-        max_dif_p = max_dif_p.max((current_powers[1] - new_powers[1]).abs().sqrt());
-        max_mag_s = max_mag_s.max(current_powers[0].max(new_powers[0]).sqrt());
-        max_mag_p = max_mag_p.max(current_powers[1].max(new_powers[1]).sqrt());
-    }
-    (max_dif_p / (config.absolute_tolerance + config.relative_tolerance * max_mag_p))
-        .max(max_dif_s / (config.absolute_tolerance + config.relative_tolerance * max_mag_s))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn convergence_check_config() -> PicardConfig {
-        PicardConfig {
-            max_iterations: 1,
-            relative_tolerance: 1e-6,
-            absolute_tolerance: 1e-10,
-        }
-    }
-
     #[test]
     fn step_receives_new_previous_old_current_and_interval_index() {
-        let initial = vec![
-            FieldState {
-                pump_f: 1.0,
-                ..FieldState::default()
-            },
-            FieldState {
-                pump_f: 2.0,
-                ..FieldState::default()
-            },
-            FieldState {
-                pump_f: 3.0,
-                ..FieldState::default()
-            },
-        ];
+        let initial = vec![1.0, 2.0, 3.0];
         let mut solver = PicardSolver::from_initial(initial);
         let mut steps = Vec::new();
-        let config = PicardConfig {
-            max_iterations: 1,
-            relative_tolerance: 0.0,
-            absolute_tolerance: 100.0,
-        };
 
         solver
             .solve(
-                config,
+                1,
                 |current| {
-                    assert_eq!(
-                        current.iter().map(|field| field.pump_f).collect::<Vec<_>>(),
-                        vec![1.0, 2.0, 3.0]
-                    );
-                    FieldState {
-                        pump_f: 10.0,
-                        ..FieldState::default()
-                    }
+                    assert_eq!(current, [1.0, 2.0, 3.0]);
+                    10.0
                 },
                 |new_previous, old_current, i| {
-                    steps.push((new_previous.pump_f, old_current.pump_f, i));
-                    FieldState {
-                        pump_f: new_previous.pump_f + 1.0,
-                        ..FieldState::default()
-                    }
+                    steps.push((*new_previous, *old_current, i));
+                    new_previous + 1.0
+                },
+                |current, previous| {
+                    assert_eq!(current, [10.0, 11.0, 12.0]);
+                    assert_eq!(previous, [1.0, 2.0, 3.0]);
+                    0.0
                 },
             )
-            .expect("single Picard iteration should satisfy the loose tolerance");
+            .expect("error callback should accept the first Picard iteration");
 
         assert_eq!(steps, vec![(10.0, 1.0, 0), (11.0, 2.0, 1)]);
-        assert_eq!(
-            solver
-                .profile()
-                .iter()
-                .map(|field| field.pump_f)
-                .collect::<Vec<_>>(),
-            vec![10.0, 11.0, 12.0]
-        );
+        assert_eq!(solver.profile(), [10.0, 11.0, 12.0]);
     }
 
     #[test]
-    fn identical_profiles_have_zero_error() {
-        let profile = vec![FieldState {
-            pump_f: 100.0,
-            pump_b: 10.0,
-            sgnl_f: 1.0,
-            sgnl_b: -1.0,
-        }];
-
-        let error = profile_convergence_error(&profile, &profile, convergence_check_config());
-
-        assert_eq!(error, 0.0);
+    #[should_panic(expected = "Picard initial profile must not be empty")]
+    fn rejects_an_empty_initial_profile() {
+        let _solver = PicardSolver::<String>::from_initial(Vec::new());
     }
 
     #[test]
-    fn tiny_zero_crossing_converges() {
-        let current = vec![FieldState {
-            sgnl_b: 1e-12,
-            ..FieldState::default()
-        }];
-        let new = vec![FieldState {
-            sgnl_b: -1e-12,
-            ..FieldState::default()
-        }];
+    fn supports_non_copy_states() {
+        let mut solver = PicardSolver::from_initial(vec!["old 0".to_owned(), "old 1".to_owned()]);
 
-        let error = profile_convergence_error(&current, &new, convergence_check_config());
+        solver
+            .solve(
+                1,
+                |_| "new 0".to_owned(),
+                |new_previous, old_current, _| format!("{new_previous}; {old_current}"),
+                |_, _| 0.0,
+            )
+            .unwrap();
 
-        assert!(error <= 1.0, "tiny zero crossing error was {error:e}");
-    }
-
-    #[test]
-    fn localized_error_is_not_hidden() {
-        let current = vec![
-            FieldState {
-                pump_f: 1.0,
-                ..FieldState::default()
-            };
-            100
-        ];
-        let mut new = current.clone();
-        new[50].pump_f = 1.01;
-
-        let error = profile_convergence_error(&current, &new, convergence_check_config());
-
-        assert!(error > 1.0, "localized profile error was {error:e}");
-    }
-
-    #[test]
-    fn fields_are_scaled_independently() {
-        let current = vec![FieldState {
-            pump_f: 1e6,
-            sgnl_b: 1e-6,
-            ..FieldState::default()
-        }];
-        let new = vec![FieldState {
-            pump_f: 1e6,
-            sgnl_b: 2e-6,
-            ..FieldState::default()
-        }];
-
-        let error = profile_convergence_error(&current, &new, convergence_check_config());
-
-        assert!(error > 1.0, "signal error was hidden by pump scale");
-    }
-
-    #[test]
-    fn non_finite_values_fail_convergence() {
-        let current = vec![FieldState::default()];
-        let new = vec![FieldState {
-            pump_b: f64::NAN,
-            ..FieldState::default()
-        }];
-
-        let error = profile_convergence_error(&current, &new, convergence_check_config());
-
-        assert!(error.is_infinite());
+        assert_eq!(solver.profile(), ["new 0", "new 0; old 0"]);
     }
 }

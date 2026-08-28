@@ -46,7 +46,11 @@ pub fn initial_profile(pump: Pump, fp: &ResolvedFibre<'_>, gp: GridPoints) -> Fi
 }
 
 impl DfbLaser<'_> {
-    fn initial_picard_solver(&self, pump: Pump, grid_points: GridPoints) -> PicardSolver {
+    fn initial_picard_solver(
+        &self,
+        pump: Pump,
+        grid_points: GridPoints,
+    ) -> PicardSolver<FieldState> {
         let initial = initial_profile(pump, &self.fibre, grid_points);
         PicardSolver::from_initial(initial.fields)
     }

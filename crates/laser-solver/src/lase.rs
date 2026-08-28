@@ -255,6 +255,37 @@ impl FieldState {
     }
 }
 
+pub fn profile_convergence_error(
+    current: &[FieldState],
+    previous: &[FieldState],
+    absolute_tolerance: f64,
+    relative_tolerance: f64,
+) -> f64 {
+    assert_eq!(current.len(), previous.len());
+    let mut max_dif_s = 0.0_f64;
+    let mut max_dif_p = 0.0_f64;
+    let mut max_mag_s = 0.0_f64;
+    let mut max_mag_p = 0.0_f64;
+
+    for (&current, &previous) in current.iter().zip(previous) {
+        let current_powers = current.field_powers();
+        let previous_powers = previous.field_powers();
+        if !current_powers[0].is_finite()
+            || !previous_powers[0].is_finite()
+            || !current_powers[1].is_finite()
+            || !previous_powers[1].is_finite()
+        {
+            return f64::INFINITY;
+        }
+        max_dif_s = max_dif_s.max((current_powers[0] - previous_powers[0]).abs().sqrt());
+        max_dif_p = max_dif_p.max((current_powers[1] - previous_powers[1]).abs().sqrt());
+        max_mag_s = max_mag_s.max(current_powers[0].max(previous_powers[0]).sqrt());
+        max_mag_p = max_mag_p.max(current_powers[1].max(previous_powers[1]).sqrt());
+    }
+    (max_dif_p / (absolute_tolerance + relative_tolerance * max_mag_p))
+        .max(max_dif_s / (absolute_tolerance + relative_tolerance * max_mag_s))
+}
+
 pub fn field_max_diff(f1: FieldState, f2: FieldState) -> f64 {
     let diffs = [
         relative_diff(f1.pump_f, f2.pump_f),
@@ -471,6 +502,92 @@ mod tests {
     use super::*;
     use crate::picard::PicardError;
     use crate::propagation::transfer;
+
+    const CONVERGENCE_RELATIVE_TOLERANCE: f64 = 1e-6;
+    const CONVERGENCE_ABSOLUTE_TOLERANCE: f64 = 1e-10;
+
+    fn convergence_error(current: &[FieldState], previous: &[FieldState]) -> f64 {
+        profile_convergence_error(
+            current,
+            previous,
+            CONVERGENCE_ABSOLUTE_TOLERANCE,
+            CONVERGENCE_RELATIVE_TOLERANCE,
+        )
+    }
+
+    #[test]
+    fn identical_profiles_have_zero_convergence_error() {
+        let profile = vec![FieldState {
+            pump_f: 100.0,
+            pump_b: 10.0,
+            sgnl_f: 1.0,
+            sgnl_b: -1.0,
+        }];
+
+        assert_eq!(convergence_error(&profile, &profile), 0.0);
+    }
+
+    #[test]
+    fn tiny_zero_crossing_converges() {
+        let current = vec![FieldState {
+            sgnl_b: 1e-12,
+            ..FieldState::default()
+        }];
+        let previous = vec![FieldState {
+            sgnl_b: -1e-12,
+            ..FieldState::default()
+        }];
+
+        let error = convergence_error(&current, &previous);
+
+        assert!(error <= 1.0, "tiny zero crossing error was {error:e}");
+    }
+
+    #[test]
+    fn localized_convergence_error_is_not_hidden() {
+        let current = vec![
+            FieldState {
+                pump_f: 1.0,
+                ..FieldState::default()
+            };
+            100
+        ];
+        let mut previous = current.clone();
+        previous[50].pump_f = 1.01;
+
+        let error = convergence_error(&current, &previous);
+
+        assert!(error > 1.0, "localized profile error was {error:e}");
+    }
+
+    #[test]
+    fn convergence_fields_are_scaled_independently() {
+        let current = vec![FieldState {
+            pump_f: 1e6,
+            sgnl_b: 1e-6,
+            ..FieldState::default()
+        }];
+        let previous = vec![FieldState {
+            pump_f: 1e6,
+            sgnl_b: 2e-6,
+            ..FieldState::default()
+        }];
+
+        let error = convergence_error(&current, &previous);
+
+        assert!(error > 1.0, "signal error was hidden by pump scale");
+    }
+
+    #[test]
+    fn non_finite_values_fail_convergence() {
+        let current = vec![FieldState::default()];
+        let previous = vec![FieldState {
+            pump_b: f64::NAN,
+            ..FieldState::default()
+        }];
+
+        assert!(convergence_error(&current, &previous).is_infinite());
+    }
 
     #[test]
     fn check_transfer() {
