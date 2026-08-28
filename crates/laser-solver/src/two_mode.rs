@@ -1,5 +1,5 @@
 use crate::dopant::TwoLevelDopant;
-use crate::fibre::{BidirectionalAmplitude, Fibre, FieldMode};
+use crate::fibre::{BidirectionalAmplitude, Fibre, FieldMode, bidirectional_amplitudes};
 use crate::maths::utils::relative_diff;
 
 pub type OutputPower = (f64, f64);
@@ -241,11 +241,7 @@ impl Signal {
             self.total >= 0.0 && (-1.0..=1.0).contains(&self.balance),
             "signal total must be non-negative and balance must be between -1 and 1"
         );
-        let forward_fraction = (self.balance + 1.0) * 0.5;
-        (
-            (forward_fraction * self.total).sqrt(),
-            ((1.0 - forward_fraction) * self.total).sqrt(),
-        )
+        bidirectional_amplitudes(self.total, self.balance)
     }
 
     pub fn forward_amplitude(self) -> f64 {
@@ -278,11 +274,7 @@ impl Pump {
             self.total >= 0.0 && (-1.0..=1.0).contains(&self.balance),
             "pump total must be non-negative and balance must be between -1 and 1"
         );
-        let forward_fraction = (self.balance + 1.0) * 0.5;
-        (
-            (forward_fraction * self.total).sqrt(),
-            ((1.0 - forward_fraction) * self.total).sqrt(),
-        )
+        bidirectional_amplitudes(self.total, self.balance)
     }
 
     pub fn forward_amplitude(self) -> f64 {

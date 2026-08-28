@@ -58,6 +58,14 @@ impl BidirectionalAmplitude {
     }
 }
 
+pub(crate) fn bidirectional_amplitudes(total_power: f64, balance: f64) -> (f64, f64) {
+    let forward_fraction = (balance + 1.0) * 0.5;
+    (
+        (forward_fraction * total_power).sqrt(),
+        ((1.0 - forward_fraction) * total_power).sqrt(),
+    )
+}
+
 #[derive(Clone)]
 pub struct FibreGeometry {
     pub core_radius: f64,
