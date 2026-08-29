@@ -1,4 +1,4 @@
-use crate::dopant::TwoLevelDopant;
+use crate::dopant::{TwoLevelDopant, TwoLevelPopulations};
 use crate::fibre::{BidirectionalAmplitude, Fibre, FieldMode, bidirectional_amplitudes};
 use crate::maths::utils::relative_diff;
 
@@ -78,7 +78,7 @@ impl ResolvedFibre<'_> {
     }
 
     pub fn initial_gain(&self) -> Gain {
-        let mut gain = self.fibre.dopant.gain_from_populations(0.5, 0.5);
+        let mut gain = self.fibre.dopant.gain_from_populations(TwoLevelPopulations {ground:0.0, excited: 0.0});
         gain.pump = gain.pump * self.pump_overlap;
         gain.signal = gain.signal * self.sgnl_overlap;
         gain
