@@ -98,7 +98,10 @@ impl FibreGeometry {
 }
 
 #[derive(Clone)]
-pub struct Fibre<D: DopantModel = TwoLevelDopant, G = NoGrating> {
+pub struct Fibre<
+    D: DopantModel = TwoLevelDopant,
+    G: GratingModel = NoGrating,
+> {
     pub geometry: FibreGeometry,
     pub dopant: D,
     pub grating: G,
