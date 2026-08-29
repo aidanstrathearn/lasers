@@ -1,3 +1,5 @@
+use crate::lase::Gain;
+
 #[derive(Clone, Copy)]
 pub struct TwoLevelDopant {
     pub density: f64,
@@ -8,17 +10,47 @@ pub struct TwoLevelDopant {
     pub sgnl_em: f64,
 }
 
+pub struct TwoLevelPopulations {
+    pub(crate) ground: f64,
+    pub(crate) excited: f64
+}
+
+struct TwoLevelRates {
+    up: f64,
+    down: f64
+}
+
 impl TwoLevelDopant {
-    pub fn steady_state(&self, gamma_dn: f64, gamma_up: f64) -> (f64, f64) {
+    pub fn steady_state(&self, rates: TwoLevelRates) -> TwoLevelPopulations {
         let gamma_decay = 1.0 / self.lifetime;
-        let gamma_dn_total = gamma_decay + gamma_dn;
-        let denom = gamma_up + gamma_dn_total;
-        (gamma_dn_total / denom, gamma_up / denom)
+        let gamma_dn_total = gamma_decay + rates.down;
+        let denom = rates.up + gamma_dn_total;
+        TwoLevelPopulations {
+            ground: gamma_dn_total / denom,
+            excited: rates.up / denom
+        }
     }
 
-    pub fn pops(&self, pump_flux: f64, sgnl_flux: f64) -> (f64, f64) {
-        let gamma_up = pump_flux * self.pump_ab + sgnl_flux * self.sgnl_ab;
-        let gamma_dn = pump_flux * self.pump_em + sgnl_flux * self.sgnl_em;
-        self.steady_state(gamma_dn, gamma_up)
+    pub fn pops(&self, pump_flux: f64, sgnl_flux: f64) -> TwoLevelPopulations {
+        let rates = TwoLevelRates {
+            up: pump_flux * self.pump_ab + sgnl_flux * self.sgnl_ab,
+            down: pump_flux * self.pump_em + sgnl_flux * self.sgnl_em
+        };
+        self.steady_state(rates)
+    }
+}
+
+impl TwoLevelDopant {
+    pub fn gain(&self, pump_flux: f64, sgnl_flux: f64) -> Gain {
+        let pops = self.pops(pump_flux, sgnl_flux);
+        let (g, e) = (pops.ground, pops.excited);
+        self.gain_from_populations(g, e)
+    }
+
+    pub(crate) fn gain_from_populations(&self, ground: f64, excited: f64) -> Gain {
+        Gain {
+            pump: self.density * (-ground * self.pump_ab + excited * self.pump_em),
+            signal: self.density * (-ground * self.sgnl_ab + excited * self.sgnl_em),
+        }
     }
 }

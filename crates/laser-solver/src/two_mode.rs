@@ -10,19 +10,7 @@ pub struct Gain {
     pub signal: f64,
 }
 
-impl TwoLevelDopant {
-    pub fn gain(&self, pump_flux: f64, sgnl_flux: f64) -> Gain {
-        let (g, e) = self.pops(pump_flux, sgnl_flux);
-        self.gain_from_populations(g, e)
-    }
 
-    fn gain_from_populations(&self, ground: f64, excited: f64) -> Gain {
-        Gain {
-            pump: self.density * (-ground * self.pump_ab + excited * self.pump_em),
-            signal: self.density * (-ground * self.sgnl_ab + excited * self.sgnl_em),
-        }
-    }
-}
 
 impl Fibre {
     pub fn resolve(&self, pump_mode: FieldMode, sgnl_mode: FieldMode) -> ResolvedFibre<'_> {
@@ -84,7 +72,9 @@ impl ResolvedFibre<'_> {
 
     pub fn populations(&self, fs: FieldState) -> (f64, f64) {
         let (pump_flux, sgnl_flux) = self.mode_fluxes(fs);
-        self.fibre.dopant.pops(pump_flux, sgnl_flux)
+        let pops = self.fibre.dopant.pops(pump_flux, sgnl_flux);
+        (pops.ground, pops.excited)
+
     }
 
     pub fn initial_gain(&self) -> Gain {
