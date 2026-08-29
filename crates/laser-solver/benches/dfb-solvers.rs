@@ -1,12 +1,11 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::lase::{
-    Fibre, FibreGeometry, FieldMode, GridPoints, Pump, ResolvedFibre, TwoLevelDopant,
+    Fibre, FibreGeometry, FieldMode, GridPoints, Pump, ResolvedFibre, TwoLevelCrossSections,
+    TwoLevelDopant,
 };
 use laser_solver::maths::picard::PicardConfig;
-use laser_solver::maths::rootfind::{
-    BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig,
-};
+use laser_solver::maths::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
 use laser_solver::maths::utils::IterationConfig;
 use std::hint::black_box;
 
@@ -25,14 +24,12 @@ static FIBRE: Fibre = Fibre {
     dopant: TwoLevelDopant {
         density: 1.0,
         lifetime: 1.0,
-        pump_ab: 0.01 * 100.0,
-        pump_em: 0.0,
-        sgnl_ab: 0.0,
-        sgnl_em: 1.0,
     },
 };
 const PUMP_MODE: FieldMode = FieldMode::new(970e-9);
 const SGNL_MODE: FieldMode = FieldMode::new(1060e-9);
+const PUMP_INTERACTION: TwoLevelCrossSections = TwoLevelCrossSections::new(0.01 * 100.0, 0.0);
+const SGNL_INTERACTION: TwoLevelCrossSections = TwoLevelCrossSections::new(0.0, 1.0);
 
 const GRID: GridPoints = GridPoints(500);
 const FULL_PROFILE: bool = true;
@@ -44,7 +41,7 @@ const GRATING: Grating = Grating {
 };
 
 fn resolved_fibre() -> ResolvedFibre<'static> {
-    FIBRE.resolve(PUMP_MODE, SGNL_MODE)
+    FIBRE.resolve_with_interactions(PUMP_MODE, PUMP_INTERACTION, SGNL_MODE, SGNL_INTERACTION)
 }
 
 fn dfb_laser() -> DfbLaser<'static> {

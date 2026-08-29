@@ -1,4 +1,4 @@
-use crate::dopant::TwoLevelDopant;
+use crate::dopant::{DopantModel, TwoLevelDopant};
 
 const TWO_PI: f64 = 2.0 * std::f64::consts::PI;
 const SPEED_OF_LIGHT_MS: f64 = 299_792_458.0;
@@ -97,12 +97,12 @@ impl FibreGeometry {
 }
 
 #[derive(Clone)]
-pub struct Fibre {
+pub struct Fibre<D: DopantModel = TwoLevelDopant> {
     pub geometry: FibreGeometry,
-    pub dopant: TwoLevelDopant,
+    pub dopant: D,
 }
 
-impl Default for Fibre {
+impl Default for Fibre<TwoLevelDopant> {
     fn default() -> Self {
         Self {
             geometry: FibreGeometry {
@@ -113,10 +113,6 @@ impl Default for Fibre {
             dopant: TwoLevelDopant {
                 density: 1.0,
                 lifetime: 1.0,
-                pump_ab: 0.01,
-                pump_em: 0.0,
-                sgnl_ab: 0.0,
-                sgnl_em: 1.0,
             },
         }
     }

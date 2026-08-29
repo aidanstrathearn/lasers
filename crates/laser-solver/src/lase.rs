@@ -2,7 +2,9 @@ use crate::error::SolverError;
 use crate::maths::rootfind::RootFindError;
 use crate::maths::utils::{IterationConfig, linspace, relative_diff};
 
-pub use crate::dopant::TwoLevelDopant;
+pub use crate::dopant::{
+    DopantError, DopantModel, TwoLevelCrossSections, TwoLevelDopant, TwoLevelPopulations,
+};
 pub use crate::fibre::{BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode};
 pub use crate::two_mode::{
     FieldProfile, FieldState, Gain, OutputPower, Pump, ResolvedFibre, Signal, field_avg_diff,

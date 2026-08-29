@@ -1,7 +1,7 @@
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::dfb::Grating;
-use laser_solver::lase::{Fibre, GridPoints, Pump};
+use laser_solver::lase::{Fibre, GridPoints, Pump, TwoLevelCrossSections};
 use laser_solver::maths::rootfind::BisectionConfig;
 
 pub(crate) fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) -> bool {
@@ -100,7 +100,12 @@ pub(crate) fn pump_slider_grid(pump: &mut Pump, ui: &mut Ui) -> bool {
     changed
 }
 
-pub(crate) fn fibre_params_slider_grid(params: &mut Fibre, ui: &mut Ui) -> bool {
+pub(crate) fn fibre_params_slider_grid(
+    params: &mut Fibre,
+    pump_interaction: &mut TwoLevelCrossSections,
+    signal_interaction: &mut TwoLevelCrossSections,
+    ui: &mut Ui,
+) -> bool {
     let mut changed = false;
     let dopant = &mut params.dopant;
 
@@ -108,25 +113,27 @@ pub(crate) fn fibre_params_slider_grid(params: &mut Fibre, ui: &mut Ui) -> bool 
         egui::Grid::new("params1").show(ui, |ui| {
             ui.label("Pump em.");
             changed |= ui
-                .add(egui::Slider::new(&mut dopant.pump_em, 0.0..=10.0).step_by(0.01))
+                .add(egui::Slider::new(&mut pump_interaction.emission, 0.0..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
             ui.label("Pump abs.");
             changed |= ui
-                .add(egui::Slider::new(&mut dopant.pump_ab, 0.05..=10.0).step_by(0.01))
+                .add(egui::Slider::new(&mut pump_interaction.absorption, 0.05..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
             ui.label("Signl em.");
             changed |= ui
-                .add(egui::Slider::new(&mut dopant.sgnl_em, 0.05..=10.0).step_by(0.01))
+                .add(egui::Slider::new(&mut signal_interaction.emission, 0.05..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
             ui.label("Signl abs.");
             changed |= ui
-                .add(egui::Slider::new(&mut dopant.sgnl_ab, 0.0..=10.0).step_by(0.01))
+                .add(
+                    egui::Slider::new(&mut signal_interaction.absorption, 0.0..=10.0).step_by(0.01),
+                )
                 .changed();
             ui.end_row();
         });

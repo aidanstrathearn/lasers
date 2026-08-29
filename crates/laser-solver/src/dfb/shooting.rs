@@ -1,10 +1,11 @@
 use super::{DfbLaser, DfbSolveConfig};
+use crate::dopant::DopantModel;
 use crate::error::SolverError;
 use crate::lase::{BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump};
-use crate::propagation::{out_field_coupled, solve_profile_coupled};
 use crate::maths::rootfind::rootfind_1d;
+use crate::propagation::{out_field_coupled, solve_profile_coupled};
 
-impl DfbLaser<'_> {
+impl<D: DopantModel> DfbLaser<'_, D> {
     pub fn solve_shooting(
         &self,
         pump: Pump,

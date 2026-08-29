@@ -10,8 +10,7 @@ impl DfbMode {
             upper: 2.0 * self.pump.total.sqrt(),
             ..self.config
         };
-        
-        
+
         let (result, compute_time) = timed(|| {
             self.dfb_laser()
                 .solve(self.pump, self.dfb_solve_config(bc), full_profile)
@@ -25,8 +24,8 @@ impl DfbMode {
             .into_iter()
             .zip(result.fields)
             .map(|(z, field)| {
-                let (g, e) = fibre.populations(field);
-                ([z, g], [z, e])
+                let populations = fibre.populations(field);
+                ([z, populations.ground], [z, populations.excited])
             })
             .unzip();
 

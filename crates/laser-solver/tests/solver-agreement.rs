@@ -3,12 +3,10 @@ use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, initial_profile};
 use laser_solver::lase::{
     BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, GridPoints,
-    Pump, ResolvedFibre, Signal, TwoLevelDopant, profile_max_diff,
+    Pump, ResolvedFibre, Signal, TwoLevelCrossSections, TwoLevelDopant, profile_max_diff,
 };
 use laser_solver::maths::picard::{PicardConfig, PicardSolver};
-use laser_solver::maths::rootfind::{
-    BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig,
-};
+use laser_solver::maths::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
 use laser_solver::maths::utils::IterationConfig;
 use laser_solver::propagation::solve_profile_coupled;
 
@@ -27,14 +25,12 @@ static FIBRE: Fibre = Fibre {
     dopant: TwoLevelDopant {
         density: 1.0,
         lifetime: 1.0,
-        pump_ab: 0.01 * 100.0,
-        pump_em: 0.0,
-        sgnl_ab: 0.0,
-        sgnl_em: 1.0,
     },
 };
 const PUMP_MODE: FieldMode = FieldMode::new(970e-9);
 const SGNL_MODE: FieldMode = FieldMode::new(1060e-9);
+const PUMP_INTERACTION: TwoLevelCrossSections = TwoLevelCrossSections::new(0.01 * 100.0, 0.0);
+const SGNL_INTERACTION: TwoLevelCrossSections = TwoLevelCrossSections::new(0.0, 1.0);
 
 const GRID: GridPoints = GridPoints(500);
 // Gain is sampled at the left edge of each step, so reversal symmetry converges
@@ -54,7 +50,7 @@ const SYMMETRIC_GRATING: Grating = Grating {
 };
 
 fn resolved_fibre() -> ResolvedFibre<'static> {
-    FIBRE.resolve(PUMP_MODE, SGNL_MODE)
+    FIBRE.resolve_with_interactions(PUMP_MODE, PUMP_INTERACTION, SGNL_MODE, SGNL_INTERACTION)
 }
 
 fn dfb_laser() -> DfbLaser<'static> {

@@ -1,4 +1,5 @@
 use super::{DfbLaser, DfbSolveConfig};
+use crate::dopant::DopantModel;
 use crate::error::SolverError;
 use crate::lase::{
     BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump, ResolvedFibre,
@@ -7,7 +8,12 @@ use crate::lase::{
 use crate::maths::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::maths::rootfind::try_rootfind_1d;
 
-pub fn find_pump_b(pump_backward: f64, profile: &[FieldState], fp: &ResolvedFibre<'_>, dz: f64) -> f64 {
+pub fn find_pump_b<D: DopantModel>(
+    pump_backward: f64,
+    profile: &[FieldState],
+    fp: &ResolvedFibre<'_, D>,
+    dz: f64,
+) -> f64 {
     let expg: f64 = profile[..profile.len() - 1]
         .iter()
         .map(|&field| 0.5 * fp.gain(field).pump * dz)
@@ -38,11 +44,11 @@ pub fn find_pump_b(pump_backward: f64, profile: &[FieldState], fp: &ResolvedFibr
 // here we are returning a borrowed slice of the input borrowed PicardSolver
 // but we also pass a borrowed slice of kappas, so must annotate
 // to show that &[FieldState] comes from &mut PicardSolver
-pub fn solve_profile_picard<'a>(
+pub fn solve_profile_picard<'a, D: DopantModel>(
     solver: &'a mut PicardSolver<FieldState>,
     sgnl_b: f64,
     pump: Pump,
-    fp: &ResolvedFibre<'_>,
+    fp: &ResolvedFibre<'_, D>,
     config: PicardConfig,
     kappas: &[f64],
     dz: f64,
@@ -77,7 +83,7 @@ pub fn solve_profile_picard<'a>(
     solver.solve(config.max_iterations, set_boundary, step, error)
 }
 
-impl DfbLaser<'_> {
+impl<D: DopantModel> DfbLaser<'_, D> {
     fn solve_with_picard_solver(
         &self,
         pump: Pump,

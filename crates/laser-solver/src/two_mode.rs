@@ -1,4 +1,4 @@
-use crate::dopant::{TwoLevelDopant, TwoLevelPopulations};
+use crate::dopant::{DopantError, DopantModel, TwoLevelDopant};
 use crate::fibre::{BidirectionalAmplitude, Fibre, FieldMode, bidirectional_amplitudes};
 use crate::maths::utils::relative_diff;
 
@@ -10,30 +10,54 @@ pub struct Gain {
     pub signal: f64,
 }
 
+impl<D: DopantModel> Fibre<D> {
+    pub fn resolve(
+        &self,
+        pump_mode: FieldMode,
+        sgnl_mode: FieldMode,
+    ) -> Result<ResolvedFibre<'_, D>, DopantError> {
+        let pump_interaction = self.dopant.interaction(pump_mode.wavelength())?;
+        let sgnl_interaction = self.dopant.interaction(sgnl_mode.wavelength())?;
+        Ok(
+            self.resolve_with_interactions(
+                pump_mode,
+                pump_interaction,
+                sgnl_mode,
+                sgnl_interaction,
+            ),
+        )
+    }
 
-
-impl Fibre {
-    pub fn resolve(&self, pump_mode: FieldMode, sgnl_mode: FieldMode) -> ResolvedFibre<'_> {
+    pub fn resolve_with_interactions(
+        &self,
+        pump_mode: FieldMode,
+        pump_interaction: D::Interaction,
+        sgnl_mode: FieldMode,
+        sgnl_interaction: D::Interaction,
+    ) -> ResolvedFibre<'_, D> {
         ResolvedFibre {
             fibre: self,
             pump_mode,
             sgnl_mode,
             pump_overlap: self.geometry.mode_overlap(pump_mode),
             sgnl_overlap: self.geometry.mode_overlap(sgnl_mode),
+            pump_interaction,
+            sgnl_interaction,
         }
     }
 }
 
-#[derive(Clone)]
-pub struct ResolvedFibre<'a> {
-    fibre: &'a Fibre,
+pub struct ResolvedFibre<'a, D: DopantModel = TwoLevelDopant> {
+    fibre: &'a Fibre<D>,
     pump_mode: FieldMode,
     sgnl_mode: FieldMode,
     pump_overlap: f64,
     sgnl_overlap: f64,
+    pump_interaction: D::Interaction,
+    sgnl_interaction: D::Interaction,
 }
 
-impl ResolvedFibre<'_> {
+impl<D: DopantModel> ResolvedFibre<'_, D> {
     pub fn length(&self) -> f64 {
         self.fibre.geometry.length
     }
@@ -61,40 +85,59 @@ impl ResolvedFibre<'_> {
         )
     }
 
-    pub fn gain(&self, fs: FieldState) -> Gain {
+    fn rates(&self, fs: FieldState) -> D::Rates {
         let (pump_flux, sgnl_flux) = self.mode_fluxes(fs);
-        let data = &[
-            (pump_flux, self.fibre.dopant.pump_cross_section()),
-            (sgnl_flux, self.fibre.dopant.signal_cross_section()),
-        ];
+        let mut rates = D::Rates::default();
+        self.fibre
+            .dopant
+            .add_rates(&mut rates, &self.pump_interaction, pump_flux);
+        self.fibre
+            .dopant
+            .add_rates(&mut rates, &self.sgnl_interaction, sgnl_flux);
+        rates
+    }
 
-        let pops = self.fibre.dopant.pops(data);
+    pub fn gain(&self, fs: FieldState) -> Gain {
+        let rates = self.rates(fs);
+        let populations = self.fibre.dopant.populations(&rates);
         let mut gain = Gain {
-            pump: self.fibre.dopant.gain_from_crosssection(pops, self.fibre.dopant.pump_cross_section()),
-            signal: self.fibre.dopant.gain_from_crosssection(pops, self.fibre.dopant.signal_cross_section()),
+            pump: self.fibre.dopant.gain(&self.pump_interaction, &populations),
+            signal: self.fibre.dopant.gain(&self.sgnl_interaction, &populations),
         };
-
-        //let mut gain = self.fibre.dopant.gain(pump_flux, sgnl_flux);
 
         gain.pump = gain.pump * self.pump_overlap;
         gain.signal = gain.signal * self.sgnl_overlap;
         gain
     }
 
-    pub fn populations(&self, fs: FieldState) -> (f64, f64) {
-        let (pump_flux, sgnl_flux) = self.mode_fluxes(fs);
-        let data = &[
-            (pump_flux, self.fibre.dopant.pump_cross_section()),
-            (sgnl_flux, self.fibre.dopant.signal_cross_section()),
-        ];
-        let pops = self.fibre.dopant.pops(data);
-
-        (pops.ground, pops.excited)
-
+    pub fn populations(&self, fs: FieldState) -> D::Populations {
+        let rates = self.rates(fs);
+        self.fibre.dopant.populations(&rates)
     }
 
     pub fn initial_gain(&self) -> Gain {
-        Gain {pump: 0.0, signal: 0.0}
+        Gain {
+            pump: 0.0,
+            signal: 0.0,
+        }
+    }
+}
+
+impl<D> Clone for ResolvedFibre<'_, D>
+where
+    D: DopantModel,
+    D::Interaction: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            fibre: self.fibre,
+            pump_mode: self.pump_mode,
+            sgnl_mode: self.sgnl_mode,
+            pump_overlap: self.pump_overlap,
+            sgnl_overlap: self.sgnl_overlap,
+            pump_interaction: self.pump_interaction.clone(),
+            sgnl_interaction: self.sgnl_interaction.clone(),
+        }
     }
 }
 
@@ -216,10 +259,7 @@ impl FieldProfile {
     pub fn output_powers(&self) -> OutputPower {
         let left = self.fields.first().expect("field profile is empty");
         let right = self.fields.last().expect("field profile is empty");
-        (
-            right.signal.forward_power(),
-            left.signal.backward_power(),
-        )
+        (right.signal.forward_power(), left.signal.backward_power())
     }
 }
 
@@ -404,23 +444,6 @@ mod tests {
 
         assert!(convergence_error(&current, &previous).is_infinite());
     }
-
-    // #[test]
-    // fn two_level_dopant_returns_material_gain() {
-    //     let dopant = TwoLevelDopant {
-    //         density: 2.0,
-    //         lifetime: 1.0,
-    //         pump_ab: 3.0,
-    //         pump_em: 0.0,
-    //         sgnl_ab: 1.0,
-    //         sgnl_em: 0.0,
-    //     };
-    //
-    //     let gain = dopant.gain(2.0, 3.0);
-    //
-    //     assert!((gain.pump - -0.6).abs() < 1e-12);
-    //     assert!((gain.signal - -0.2).abs() < 1e-12);
-    // }
 
     #[test]
     fn pump_converts_power_and_balance_to_amplitudes() {

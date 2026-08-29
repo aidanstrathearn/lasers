@@ -3,7 +3,7 @@ use crate::{Points, dfb::DfbMode, field_profile_plot, power_points, timed};
 use eframe::egui;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::error::SolverError;
-use laser_solver::lase::{Fibre, FieldMode, GridPoints, Pump};
+use laser_solver::lase::{Fibre, FieldMode, GridPoints, Pump, TwoLevelCrossSections};
 use laser_solver::maths::rootfind::{BisectionConfig, Newton1dConfig};
 use laser_solver::maths::utils::IterationConfig;
 use std::sync::mpsc;
@@ -28,16 +28,34 @@ impl DfbMode {
 }
 
 #[allow(dead_code)]
-#[derive(Default)]
 pub struct ProfilePlot {
     pump: Pump,
     fibre_params: Fibre,
     pump_mode: FieldMode,
     sgnl_mode: FieldMode,
+    pump_interaction: TwoLevelCrossSections,
+    signal_interaction: TwoLevelCrossSections,
     grid_points: GridPoints,
     grating: Grating,
     pending: Option<Receiver<[Points; 4]>>,
     result: Option<[Points; 4]>,
+}
+
+impl Default for ProfilePlot {
+    fn default() -> Self {
+        Self {
+            pump: Pump::default(),
+            fibre_params: Fibre::default(),
+            pump_mode: FieldMode::default(),
+            sgnl_mode: FieldMode::default(),
+            pump_interaction: TwoLevelCrossSections::new(0.01, 0.0),
+            signal_interaction: TwoLevelCrossSections::new(0.0, 1.0),
+            grid_points: GridPoints::default(),
+            grating: Grating::default(),
+            pending: None,
+            result: None,
+        }
+    }
 }
 
 impl ProfilePlot {
@@ -54,10 +72,17 @@ impl ProfilePlot {
         let fibre_params = self.fibre_params.clone();
         let pump_mode = self.pump_mode;
         let sgnl_mode = self.sgnl_mode;
+        let pump_interaction = self.pump_interaction;
+        let signal_interaction = self.signal_interaction;
         let grid_points = self.grid_points;
         let grating = self.grating;
         let compute_fn = move || {
-            let fibre = fibre_params.resolve(pump_mode, sgnl_mode);
+            let fibre = fibre_params.resolve_with_interactions(
+                pump_mode,
+                pump_interaction,
+                sgnl_mode,
+                signal_interaction,
+            );
             let laser = DfbLaser { fibre, grating };
             let result = laser.solve_shooting(
                 pump,

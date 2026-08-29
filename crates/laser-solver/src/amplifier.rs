@@ -1,3 +1,4 @@
+use crate::dopant::{DopantModel, TwoLevelDopant};
 use crate::error::SolverError;
 use crate::lase::{
     BidirectionalAmplitude, FieldProfile, FieldState, GridPoints, OutputPower, Pump, ResolvedFibre,
@@ -14,12 +15,11 @@ pub struct AmplifierSolveConfig {
     pub picard: PicardConfig,
 }
 
-#[derive(Clone)]
-pub struct Amplifier<'a> {
-    pub fibre: ResolvedFibre<'a>,
+pub struct Amplifier<'a, D: DopantModel = TwoLevelDopant> {
+    pub fibre: ResolvedFibre<'a, D>,
 }
 
-impl Amplifier<'_> {
+impl<D: DopantModel> Amplifier<'_, D> {
     pub fn solve(
         &self,
         signal: Signal,
@@ -47,8 +47,20 @@ impl Amplifier<'_> {
     }
 }
 
-pub fn solve_shooting(
-    fibre: &ResolvedFibre<'_>,
+impl<D> Clone for Amplifier<'_, D>
+where
+    D: DopantModel,
+    D::Interaction: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            fibre: self.fibre.clone(),
+        }
+    }
+}
+
+pub fn solve_shooting<D: DopantModel>(
+    fibre: &ResolvedFibre<'_, D>,
     forward_signal: f64,
     pump: Pump,
     config: AmplifierSolveConfig,
@@ -97,11 +109,11 @@ pub fn solve_shooting(
     }
 }
 
-pub fn find_b_fields(
+pub fn find_b_fields<D: DopantModel>(
     signal_b_right: f64,
     pump_b_right: f64,
     profile: &[FieldState],
-    fp: &ResolvedFibre<'_>,
+    fp: &ResolvedFibre<'_, D>,
     dz: f64,
 ) -> (f64, f64) {
     let (pump_od, signal_od): (f64, f64) =
@@ -119,11 +131,11 @@ pub fn find_b_fields(
     )
 }
 
-pub fn solve_amp_profile_picard<'a>(
+pub fn solve_amp_profile_picard<'a, D: DopantModel>(
     solver: &'a mut PicardSolver<FieldState>,
     signal: Signal,
     pump: Pump,
-    fp: &ResolvedFibre<'_>,
+    fp: &ResolvedFibre<'_, D>,
     config: PicardConfig,
     dz: f64,
 ) -> Result<&'a [FieldState], PicardError> {
@@ -161,10 +173,10 @@ pub fn solve_amp_profile_picard<'a>(
     solver.solve(config.max_iterations, set_boundary, step, error)
 }
 
-pub fn initial_profile(
+pub fn initial_profile<D: DopantModel>(
     signal: Signal,
     pump: Pump,
-    fp: &ResolvedFibre<'_>,
+    fp: &ResolvedFibre<'_, D>,
     gp: GridPoints,
 ) -> FieldProfile {
     let gain = fp.initial_gain();
@@ -197,8 +209,8 @@ pub fn initial_profile(
     FieldProfile::new(zs, fields)
 }
 
-pub fn solve_amp_picard(
-    fibre: &ResolvedFibre<'_>,
+pub fn solve_amp_picard<D: DopantModel>(
+    fibre: &ResolvedFibre<'_, D>,
     signal: Signal,
     pump: Pump,
     config: AmplifierSolveConfig,
@@ -232,16 +244,14 @@ mod tests {
             dopant: crate::lase::TwoLevelDopant {
                 density: 0.0,
                 lifetime: 1.0,
-                pump_ab: 1.0,
-                pump_em: 0.0,
-                sgnl_ab: 0.0,
-                sgnl_em: 1.0,
             },
             ..crate::lase::Fibre::default()
         };
-        let fibre = fibre.resolve(
+        let fibre = fibre.resolve_with_interactions(
             crate::lase::FieldMode::new(970e-9),
+            crate::lase::TwoLevelCrossSections::new(1.0, 0.0),
             crate::lase::FieldMode::new(1060e-9),
+            crate::lase::TwoLevelCrossSections::new(0.0, 1.0),
         );
         let signal = Signal {
             total: 2.0,

@@ -1,6 +1,7 @@
 pub mod picard;
 mod shooting;
 
+use crate::dopant::{DopantModel, TwoLevelDopant};
 use crate::error::SolverError;
 use crate::lase::{
     BidirectionalAmplitude, FieldProfile, FieldState, GridPoints, Pump, PumpScan, ResolvedFibre,
@@ -17,12 +18,16 @@ pub struct DfbSolveConfig {
     pub picard: PicardConfig,
 }
 
-pub struct DfbLaser<'a> {
-    pub fibre: ResolvedFibre<'a>,
+pub struct DfbLaser<'a, D: DopantModel = TwoLevelDopant> {
+    pub fibre: ResolvedFibre<'a, D>,
     pub grating: Grating,
 }
 
-pub fn initial_profile(pump: Pump, fp: &ResolvedFibre<'_>, gp: GridPoints) -> FieldProfile {
+pub fn initial_profile<D: DopantModel>(
+    pump: Pump,
+    fp: &ResolvedFibre<'_, D>,
+    gp: GridPoints,
+) -> FieldProfile {
     let g = fp.initial_gain().pump; // ground and excited populations are equal
     let zs = gp.grid(fp.length());
     let end_factor = (0.5 * g * fp.length()).exp();
@@ -46,7 +51,7 @@ pub fn initial_profile(pump: Pump, fp: &ResolvedFibre<'_>, gp: GridPoints) -> Fi
     FieldProfile::new(zs, fields)
 }
 
-impl DfbLaser<'_> {
+impl<D: DopantModel> DfbLaser<'_, D> {
     fn initial_picard_solver(
         &self,
         pump: Pump,

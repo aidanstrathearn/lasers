@@ -11,7 +11,8 @@ use eframe::egui::Ui;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{
-    Fibre, FibreGeometry, FieldMode, GridPoints, Pump, ResolvedFibre, TwoLevelDopant,
+    Fibre, FibreGeometry, FieldMode, GridPoints, Pump, ResolvedFibre, TwoLevelCrossSections,
+    TwoLevelDopant,
 };
 use laser_solver::maths::picard::PicardConfig;
 use laser_solver::maths::rootfind::{BisectionConfig, RootFindConfig};
@@ -80,6 +81,8 @@ pub(crate) struct DfbMode {
     pub(crate) fibre: Fibre,
     pub(crate) pump_mode: FieldMode,
     pub(crate) sgnl_mode: FieldMode,
+    pub(crate) pump_interaction: TwoLevelCrossSections,
+    pub(crate) signal_interaction: TwoLevelCrossSections,
     pub(crate) grid_points: GridPoints,
     pub(crate) grating: Grating,
     pub(crate) config: BisectionConfig,
@@ -107,14 +110,12 @@ impl Default for DfbMode {
                 dopant: TwoLevelDopant {
                     density: 0.50,
                     lifetime: 1.0,
-                    pump_ab: 1.0,
-                    pump_em: 0.0,
-                    sgnl_ab: 0.0,
-                    sgnl_em: 1.0,
                 },
             },
             pump_mode: FieldMode::new(970e-9),
             sgnl_mode: FieldMode::new(1060e-9),
+            pump_interaction: TwoLevelCrossSections::new(1.0, 0.0),
+            signal_interaction: TwoLevelCrossSections::new(0.0, 1.0),
             grid_points: GridPoints::default(),
             grating: Grating {
                 kappa_left: 0.6,
@@ -137,7 +138,12 @@ impl Default for DfbMode {
 
 impl DfbMode {
     pub(crate) fn resolved_fibre(&self) -> ResolvedFibre<'_> {
-        self.fibre.resolve(self.pump_mode, self.sgnl_mode)
+        self.fibre.resolve_with_interactions(
+            self.pump_mode,
+            self.pump_interaction,
+            self.sgnl_mode,
+            self.signal_interaction,
+        )
     }
 
     pub(crate) fn dfb_laser(&self) -> DfbLaser<'_> {
@@ -178,7 +184,12 @@ impl ModeUi for DfbMode {
         egui::Grid::new("global-params").show(ui, |ui| {
             ui.vertical(|ui| {
                 ui.heading("Fibre");
-                changed |= fibre_params_slider_grid(&mut self.fibre, ui);
+                changed |= fibre_params_slider_grid(
+                    &mut self.fibre,
+                    &mut self.pump_interaction,
+                    &mut self.signal_interaction,
+                    ui,
+                );
             });
             ui.vertical(|ui| {
                 ui.heading("Bragg");
