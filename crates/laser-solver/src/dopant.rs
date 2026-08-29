@@ -18,6 +18,13 @@ trait DopantModel {
         flux: f64,
     ) -> Self::Rates;
 
+    fn add_rates(
+        &self,
+        rates: &mut Self::Rates,
+        interaction: &Self::Interaction,
+        flux: f64,
+    );
+
     fn populations(&self, rates: &Self::Rates) -> Self::Populations;
 
     fn gain(
