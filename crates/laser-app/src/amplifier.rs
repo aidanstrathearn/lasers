@@ -9,7 +9,6 @@ use crate::{ModeUi, field_profile_plot, timed};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::amplifier::{Amplifier, AmplifierSolveConfig};
-use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{
     Fibre, FibreGeometry, FieldMode, Pump, Signal, TwoLevelCrossSections, TwoLevelDopant,

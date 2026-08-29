@@ -1,8 +1,9 @@
 use crate::plotter::Plotter;
 use crate::{Points, dfb::DfbMode, field_profile_plot, power_points, timed};
 use eframe::egui;
-use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig};
 use laser_solver::error::SolverError;
+use laser_solver::grating::PiShift;
 use laser_solver::lase::{Fibre, FieldMode, Pump, TwoLevelCrossSections};
 use laser_solver::maths::rootfind::{BisectionConfig, Newton1dConfig};
 use laser_solver::maths::utils::IterationConfig;
@@ -36,7 +37,7 @@ pub struct ProfilePlot {
     pump_interaction: TwoLevelCrossSections,
     signal_interaction: TwoLevelCrossSections,
     steps: usize,
-    grating: Grating,
+    grating: PiShift,
     pending: Option<Receiver<[Points; 4]>>,
     result: Option<[Points; 4]>,
 }
@@ -51,7 +52,7 @@ impl Default for ProfilePlot {
             pump_interaction: TwoLevelCrossSections::new(0.01, 0.0),
             signal_interaction: TwoLevelCrossSections::new(0.0, 1.0),
             steps: 100,
-            grating: Grating::default(),
+            grating: PiShift::default(),
             pending: None,
             result: None,
         }

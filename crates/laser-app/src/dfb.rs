@@ -8,8 +8,9 @@ use crate::residual_plot::{ResidualRange, residual_slider_grid};
 use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
 use eframe::egui::Ui;
-use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig};
 use laser_solver::error::SolverError;
+use laser_solver::grating::PiShift;
 use laser_solver::lase::{
     Fibre, FibreGeometry, FieldMode, Pump, ResolvedFibre, TwoLevelCrossSections, TwoLevelDopant,
 };
@@ -83,7 +84,7 @@ pub(crate) struct DfbMode {
     pub(crate) pump_interaction: TwoLevelCrossSections,
     pub(crate) signal_interaction: TwoLevelCrossSections,
     pub(crate) steps: usize,
-    pub(crate) grating: Grating,
+    pub(crate) grating: PiShift,
     pub(crate) config: BisectionConfig,
     pub(crate) picard_config: PicardConfig,
     pub(crate) threshold_range: ThresholdRange,
@@ -116,7 +117,7 @@ impl Default for DfbMode {
             pump_interaction: TwoLevelCrossSections::new(1.0, 0.0),
             signal_interaction: TwoLevelCrossSections::new(0.0, 1.0),
             steps: 100,
-            grating: Grating {
+            grating: PiShift {
                 kappa_left: 0.6,
                 kappa_right: 0.6,
                 pi_shift_position: 0.5,

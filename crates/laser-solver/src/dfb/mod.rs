@@ -3,6 +3,7 @@ mod shooting;
 
 use crate::dopant::{DopantModel, TwoLevelDopant};
 use crate::error::SolverError;
+use crate::grating::PiShift;
 use crate::lase::{
     BidirectionalAmplitude, FieldProfile, FieldState, Pump, PumpScan, ResolvedFibre,
     find_threshold_and_slope as scan_for_threshold, pump_scan as scan_pump_totals,
@@ -20,7 +21,7 @@ pub struct DfbSolveConfig {
 
 pub struct DfbLaser<'a, D: DopantModel = TwoLevelDopant> {
     pub fibre: ResolvedFibre<'a, D>,
-    pub grating: Grating,
+    pub grating: PiShift,
 }
 
 impl<D: DopantModel> DfbLaser<'_, D> {
@@ -101,37 +102,5 @@ impl<D: DopantModel> DfbLaser<'_, D> {
                 self.output_power_shooting(Pump { total, balance }, solve_config)
             })
         }
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct Grating {
-    pub kappa_left: f64,
-    pub kappa_right: f64,
-    pub pi_shift_position: f64,
-}
-
-impl Default for Grating {
-    fn default() -> Self {
-        Self {
-            kappa_left: 1.0,
-            kappa_right: 1.0,
-            pi_shift_position: 0.45,
-        }
-    }
-}
-
-impl Grating {
-    pub fn grid(self, n: usize) -> Vec<f64> {
-        (0..n)
-            .map(|j| {
-                let z = j as f64 / n as f64;
-                if z < self.pi_shift_position {
-                    self.kappa_left
-                } else {
-                    -self.kappa_right
-                }
-            })
-            .collect()
     }
 }

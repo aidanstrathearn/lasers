@@ -1,5 +1,6 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig};
+use laser_solver::grating::PiShift;
 use laser_solver::lase::{
     Fibre, FibreGeometry, FieldMode, Pump, ResolvedFibre, TwoLevelCrossSections,
     TwoLevelDopant,
@@ -34,7 +35,7 @@ const SGNL_INTERACTION: TwoLevelCrossSections = TwoLevelCrossSections::new(0.0, 
 const STEPS: usize = 500;
 const FULL_PROFILE: bool = true;
 
-const GRATING: Grating = Grating {
+const GRATING: PiShift = PiShift {
     kappa_left: 1.0,
     kappa_right: 1.0,
     pi_shift_position: 0.45,

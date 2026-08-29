@@ -1,6 +1,7 @@
 use super::{DfbLaser, DfbSolveConfig};
 use crate::dopant::DopantModel;
 use crate::error::SolverError;
+use crate::grating::sample_grating;
 use crate::lase::{
     BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump, UniformGrid,
 };
@@ -20,7 +21,7 @@ impl<D: DopantModel> DfbLaser<'_, D> {
             "shooting solver requires a forward-only pump"
         );
         let grid = UniformGrid::new(self.fibre.length(), config.steps);
-        let kappas = self.grating.grid(grid.steps());
+        let kappas = sample_grating(&self.grating, grid.steps());
         let dz = grid.dz();
         let trial = |sgnl_b| FieldState {
             signal: BidirectionalAmplitude {

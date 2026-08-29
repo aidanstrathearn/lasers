@@ -1,6 +1,7 @@
 use crate::plotter::Plotter;
 use crate::{Points, dfb::DfbMode, timed};
-use laser_solver::dfb::{DfbLaser, Grating};
+use laser_solver::dfb::DfbLaser;
+use laser_solver::grating::PiShift;
 use laser_solver::error::SolverError;
 use laser_solver::maths::rootfind::BisectionConfig;
 use laser_solver::maths::utils::linspace;
@@ -20,7 +21,7 @@ impl DfbMode {
         let mut compute_time = Duration::ZERO;
 
         for pi_position in pi_positions {
-            let grating = Grating {
+            let grating = PiShift {
                 pi_shift_position: pi_position,
                 ..self.grating
             };

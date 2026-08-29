@@ -3,7 +3,8 @@ mod plots;
 
 use crate::plots::plot_profile_diff;
 use laser_solver::dfb::picard::solve_profile_picard;
-use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig};
+use laser_solver::grating::{PiShift, sample_grating};
 use laser_solver::lase::{
     BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, Pump,
     ResolvedFibre, TwoLevelCrossSections, TwoLevelDopant, UniformGrid, profile_max_diff,
@@ -43,7 +44,7 @@ const SGNL_INTERACTION: TwoLevelCrossSections = TwoLevelCrossSections::new(0.0, 
 const STEPS: usize = 500;
 const FULL_PROFILE: bool = true;
 
-const GRATING: Grating = Grating {
+const GRATING: PiShift = PiShift {
     kappa_left: 1.0,
     kappa_right: 1.0,
     pi_shift_position: 0.45,
@@ -112,7 +113,7 @@ fn main() -> eframe::Result {
 fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
     let fibre = resolved_fibre();
     let grid = UniformGrid::new(fibre.length(), STEPS);
-    let kappas = GRATING.grid(grid.steps());
+    let kappas = sample_grating(&GRATING, grid.steps());
     let dz = grid.dz();
     let trial = |sgnl_b| FieldState {
         signal: BidirectionalAmplitude {
@@ -258,7 +259,7 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
 
     let grid = UniformGrid::new(FIBRE.geometry.length, STEPS);
     let z = grid.positions().collect::<Vec<_>>();
-    let kappas = GRATING.grid(grid.points());
+    let kappas = sample_grating(&GRATING, grid.points());
     let mut plot = Plotter::new();
     plot.plot(&z, &kappas);
     plot.xlabel("z");
@@ -271,7 +272,7 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
     let comparison_pump = FORWARD_PUMP;
     let comparison_sgnl_b = 1.0;
     let grid = UniformGrid::new(FIBRE.geometry.length, STEPS);
-    let comparison_kappas = GRATING.grid(grid.steps());
+    let comparison_kappas = sample_grating(&GRATING, grid.steps());
     let comparison_boundary = FieldState {
         signal: BidirectionalAmplitude {
             forward: 0.0,

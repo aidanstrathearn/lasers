@@ -1,6 +1,6 @@
 use eframe::egui;
 use eframe::egui::Ui;
-use laser_solver::dfb::Grating;
+use laser_solver::grating::PiShift;
 use laser_solver::lase::{Fibre, Pump, TwoLevelCrossSections};
 use laser_solver::maths::rootfind::BisectionConfig;
 
@@ -54,7 +54,7 @@ pub(crate) fn steps_slider(steps: &mut usize, ui: &mut Ui) -> bool {
     changed
 }
 
-pub(crate) fn grating_slider_grid(grating: &mut Grating, ui: &mut Ui) -> bool {
+pub(crate) fn grating_slider_grid(grating: &mut PiShift, ui: &mut Ui) -> bool {
     let mut changed = false;
 
     egui::Grid::new("grating").show(ui, |ui| {

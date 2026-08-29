@@ -1,6 +1,7 @@
 use laser_solver::amplifier::{AmplifierSolveConfig, solve_amp_picard, solve_shooting};
 use laser_solver::dfb::picard::solve_profile_picard;
-use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig};
+use laser_solver::grating::{PiShift, sample_grating};
 use laser_solver::lase::{
     BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, Pump,
     ResolvedFibre, Signal, TwoLevelCrossSections, TwoLevelDopant, UniformGrid, profile_max_diff,
@@ -37,13 +38,13 @@ const STEPS: usize = 500;
 // with grid refinement rather than holding bit-for-bit on a coarse grid.
 const SYMMETRY_STEPS: usize = 5_000;
 
-const GRATING: Grating = Grating {
+const GRATING: PiShift = PiShift {
     kappa_left: 1.0,
     kappa_right: 1.0,
     pi_shift_position: 0.45,
 };
 
-const SYMMETRIC_GRATING: Grating = Grating {
+const SYMMETRIC_GRATING: PiShift = PiShift {
     kappa_left: 1.0,
     kappa_right: 1.0,
     pi_shift_position: 0.5,
@@ -153,7 +154,7 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
     let sgnl_b = 1.0;
     let fibre = resolved_fibre();
     let grid = UniformGrid::new(fibre.length(), STEPS);
-    let kappas = GRATING.grid(grid.steps());
+    let kappas = sample_grating(&GRATING, grid.steps());
     let boundary = FieldState {
         signal: BidirectionalAmplitude {
             forward: 0.0,
