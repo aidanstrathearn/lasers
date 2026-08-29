@@ -77,6 +77,7 @@ impl ResolvedFibre<'_> {
             (sgnl_flux, self.fibre.dopant.signal_cross_section()),
         ];
         let pops = self.fibre.dopant.pops(data);
+
         (pops.ground, pops.excited)
 
     }

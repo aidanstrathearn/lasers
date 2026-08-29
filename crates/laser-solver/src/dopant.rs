@@ -29,6 +29,23 @@ pub struct TwoLevelCrossSections {
 }
 
 impl TwoLevelDopant {
+
+    pub fn cross_sections(wavelength: f64) -> TwoLevelCrossSections {
+        todo!()
+    }
+
+    pub fn make_rates(data: &[(f64, TwoLevelCrossSections)]) -> TwoLevelRates {
+        let mut rates = TwoLevelRates::default();
+        for (flux, sigma) in data.iter() {
+            rates = TwoLevelRates {
+                up: rates.up + flux * sigma.absorption,
+                down: rates.down + flux * sigma.emission,
+            };
+        }
+        rates
+    }
+
+
     pub fn steady_state(&self, rates: TwoLevelRates) -> TwoLevelPopulations {
         let gamma_decay = 1.0 / self.lifetime;
         let gamma_dn_total = gamma_decay + rates.down;
@@ -39,24 +56,15 @@ impl TwoLevelDopant {
         }
     }
 
-    pub fn add_rate(
-        flux: f64,
+    pub(crate) fn gain_from_crosssection(
+        &self,
+        pops: TwoLevelPopulations,
         sigma: TwoLevelCrossSections,
-        rates: TwoLevelRates,
-    ) -> TwoLevelRates {
-        TwoLevelRates {
-            up: rates.up + flux * sigma.absorption,
-            down: rates.down + flux * sigma.emission,
-        }
+    ) -> f64 {
+        self.density * (-pops.ground * sigma.absorption + pops.excited * sigma.emission)
     }
 
-    pub fn make_rates(data: &[(f64, TwoLevelCrossSections)]) -> TwoLevelRates {
-        let mut rates = TwoLevelRates::default();
-        for (flux, sigma) in data.iter() {
-            rates = TwoLevelDopant::add_rate(*flux, *sigma, rates);
-        }
-        rates
-    }
+
 
     pub fn pops(&self, data: &[(f64, TwoLevelCrossSections)]) -> TwoLevelPopulations {
 
@@ -77,13 +85,7 @@ impl TwoLevelDopant {
         }
     }
 
-    pub(crate) fn gain_from_crosssection(
-        &self,
-        pops: TwoLevelPopulations,
-        sigma: TwoLevelCrossSections,
-    ) -> f64 {
-        self.density * (-pops.ground * sigma.absorption + pops.excited * sigma.emission)
-    }
+
 
     pub fn signal_cross_section(&self) -> TwoLevelCrossSections {
         TwoLevelCrossSections {
