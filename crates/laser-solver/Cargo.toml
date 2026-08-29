@@ -10,3 +10,7 @@ criterion = "0.7"
 [[bench]]
 name = "dfb-solvers"
 harness = false
+
+[[bench]]
+name = "propagation-steps"
+harness = false
