@@ -33,6 +33,14 @@ impl FieldState {
             pump: self.pump.uncoupled_step(gain.pump, dz),
         }
     }
+
+    fn step_if(self, gain: Gain, kappa: f64, dz: f64) -> FieldState {
+        if kappa == 0.0 {
+            self.uncoupled_step(gain, dz)
+        } else {
+            self.coupled_step(gain, kappa, dz)
+        }
+    }
 }
 
 pub fn transfer(gain: f64, kappa: f64, dz: f64) -> (f64, f64, f64, f64) {
