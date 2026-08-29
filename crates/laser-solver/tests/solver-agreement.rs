@@ -2,8 +2,8 @@ use laser_solver::amplifier::{AmplifierSolveConfig, solve_amp_picard, solve_shoo
 use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::lase::{
-    BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, GridPoints,
-    Pump, ResolvedFibre, Signal, TwoLevelCrossSections, TwoLevelDopant, profile_max_diff,
+    BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, Pump,
+    ResolvedFibre, Signal, TwoLevelCrossSections, TwoLevelDopant, UniformGrid, profile_max_diff,
 };
 use laser_solver::maths::picard::{PicardConfig, PicardSolver};
 use laser_solver::maths::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
@@ -32,10 +32,10 @@ const SGNL_MODE: FieldMode = FieldMode::new(1060e-9);
 const PUMP_INTERACTION: TwoLevelCrossSections = TwoLevelCrossSections::new(0.01 * 100.0, 0.0);
 const SGNL_INTERACTION: TwoLevelCrossSections = TwoLevelCrossSections::new(0.0, 1.0);
 
-const GRID: GridPoints = GridPoints(500);
+const STEPS: usize = 500;
 // Gain is sampled at the left edge of each step, so reversal symmetry converges
 // with grid refinement rather than holding bit-for-bit on a coarse grid.
-const SYMMETRY_GRID: GridPoints = GridPoints(5_000);
+const SYMMETRY_STEPS: usize = 5_000;
 
 const GRATING: Grating = Grating {
     kappa_left: 1.0,
@@ -100,13 +100,13 @@ const BISECTION: BisectionConfig = BisectionConfig {
 };
 
 const NEWTON_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
-    grid_points: GRID,
+    steps: STEPS,
     root_find: RootFindConfig::Newton1d(NEWTON),
     picard: PICARD,
 };
 
 const BISECTION_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
-    grid_points: GRID,
+    steps: STEPS,
     root_find: RootFindConfig::Bisection(BISECTION),
     picard: PICARD,
 };
@@ -128,7 +128,7 @@ fn shooting_and_picard_amplifier_profiles_agree() {
         balance: 0.0,
     };
     let config = AmplifierSolveConfig {
-        grid_points: GRID,
+        steps: STEPS,
         root_find: RootFindConfig::Bisection(BISECTION),
         picard: SYMMETRY_PICARD,
     };
@@ -151,7 +151,9 @@ fn shooting_and_picard_amplifier_profiles_agree() {
 fn direct_and_buffered_picard_profile_solvers_agree() {
     let pump = FORWARD_PUMP;
     let sgnl_b = 1.0;
-    let kappas = GRATING.grid(GRID.0);
+    let fibre = resolved_fibre();
+    let grid = UniformGrid::new(fibre.length(), STEPS);
+    let kappas = GRATING.grid(grid.steps());
     let boundary = FieldState {
         signal: BidirectionalAmplitude {
             forward: 0.0,
@@ -162,18 +164,16 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
             backward: 0.0,
         },
     };
-    let fibre = resolved_fibre();
-
     let direct_profile = FieldProfile::new(
-        GRID.grid(fibre.length()),
+        grid.positions().collect(),
         solve_profile_coupled(
             boundary,
             |fields| fibre.gain(fields),
-            GRID.dz(fibre.length()),
+            grid.dz(),
             &kappas,
         ),
     );
-    let mut picard_solver = PicardSolver::filled(GRID.0 + 1, boundary);
+    let mut picard_solver = PicardSolver::filled(grid.points(), boundary);
     let picard_fields = solve_profile_picard(
         &mut picard_solver,
         sgnl_b,
@@ -181,7 +181,7 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
         &fibre,
         PICARD,
         &kappas,
-        GRID.dz(fibre.length()),
+        grid.dz(),
     )
     .expect("buffered Picard profile solve failed")
     .to_vec();
@@ -271,7 +271,7 @@ fn backward_pumped_picard_is_reverse_of_forward_pumped_shooting() {
         .solve_shooting(
             shooting_pump,
             DfbSolveConfig {
-                grid_points: SYMMETRY_GRID,
+                steps: SYMMETRY_STEPS,
                 root_find: RootFindConfig::Bisection(BISECTION),
                 picard: SYMMETRY_PICARD,
             },
@@ -282,7 +282,7 @@ fn backward_pumped_picard_is_reverse_of_forward_pumped_shooting() {
         .solve_picard(
             picard_pump,
             DfbSolveConfig {
-                grid_points: SYMMETRY_GRID,
+                steps: SYMMETRY_STEPS,
                 root_find: RootFindConfig::Bisection(BISECTION),
                 picard: SYMMETRY_PICARD,
             },

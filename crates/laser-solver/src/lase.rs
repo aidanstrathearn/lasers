@@ -1,6 +1,6 @@
 use crate::error::SolverError;
 use crate::maths::rootfind::RootFindError;
-use crate::maths::utils::{IterationConfig, linspace, relative_diff};
+use crate::maths::utils::{IterationConfig, relative_diff};
 
 pub use crate::dopant::{
     DopantError, DopantModel, TwoLevelCrossSections, TwoLevelDopant, TwoLevelPopulations,
@@ -13,22 +13,54 @@ pub use crate::two_mode::{
 
 pub type PumpScan = Vec<Option<OutputPower>>;
 
-#[derive(Copy, Clone)]
-pub struct GridPoints(pub usize);
-
-impl Default for GridPoints {
-    fn default() -> Self {
-        Self(100)
-    }
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct UniformGrid {
+    length: f64,
+    steps: usize,
+    dz: f64,
 }
 
-impl GridPoints {
-    pub fn grid(self, length: f64) -> Vec<f64> {
-        linspace(0.0, length, self.0)
+impl UniformGrid {
+    pub fn new(length: f64, steps: usize) -> Self {
+        assert!(
+            length.is_finite() && length > 0.0,
+            "grid length must be positive and finite"
+        );
+        assert!(steps > 0, "grid must contain at least one step");
+        Self {
+            length,
+            steps,
+            dz: length / steps as f64,
+        }
     }
 
-    pub fn dz(self, length: f64) -> f64 {
-        length / self.0 as f64
+    pub fn length(self) -> f64 {
+        self.length
+    }
+
+    pub fn steps(self) -> usize {
+        self.steps
+    }
+
+    pub fn points(self) -> usize {
+        self.steps + 1
+    }
+
+    pub fn dz(self) -> f64 {
+        self.dz
+    }
+
+    pub fn position(self, point: usize) -> f64 {
+        assert!(point <= self.steps, "grid point is out of bounds");
+        if point == self.steps {
+            self.length
+        } else {
+            point as f64 * self.dz
+        }
+    }
+
+    pub fn positions(self) -> impl ExactSizeIterator<Item = f64> {
+        (0..self.points()).map(move |point| self.position(point))
     }
 }
 
@@ -97,6 +129,20 @@ mod tests {
     use super::*;
     use crate::maths::picard::PicardError;
     use crate::propagation::transfer;
+
+    #[test]
+    fn uniform_grid_distinguishes_steps_from_points() {
+        let grid = UniformGrid::new(10.0, 4);
+
+        assert_eq!(grid.length(), 10.0);
+        assert_eq!(grid.steps(), 4);
+        assert_eq!(grid.points(), 5);
+        assert_eq!(grid.dz(), 2.5);
+        assert_eq!(
+            grid.positions().collect::<Vec<_>>(),
+            vec![0.0, 2.5, 5.0, 7.5, 10.0]
+        );
+    }
 
     #[test]
     fn check_transfer() {

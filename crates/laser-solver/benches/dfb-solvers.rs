@@ -1,7 +1,7 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::lase::{
-    Fibre, FibreGeometry, FieldMode, GridPoints, Pump, ResolvedFibre, TwoLevelCrossSections,
+    Fibre, FibreGeometry, FieldMode, Pump, ResolvedFibre, TwoLevelCrossSections,
     TwoLevelDopant,
 };
 use laser_solver::maths::picard::PicardConfig;
@@ -31,7 +31,7 @@ const SGNL_MODE: FieldMode = FieldMode::new(1060e-9);
 const PUMP_INTERACTION: TwoLevelCrossSections = TwoLevelCrossSections::new(0.01 * 100.0, 0.0);
 const SGNL_INTERACTION: TwoLevelCrossSections = TwoLevelCrossSections::new(0.0, 1.0);
 
-const GRID: GridPoints = GridPoints(500);
+const STEPS: usize = 500;
 const FULL_PROFILE: bool = true;
 
 const GRATING: Grating = Grating {
@@ -69,7 +69,7 @@ const NEWTON: Newton1dConfig = Newton1dConfig {
 };
 
 const NEWTON_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
-    grid_points: GRID,
+    steps: STEPS,
     root_find: RootFindConfig::Newton1d(NEWTON),
     picard: PICARD,
 };
@@ -114,7 +114,7 @@ fn benchmark_bisection_midpoints(c: &mut Criterion) {
                         .solve_shooting(
                             FORWARD_PUMP,
                             DfbSolveConfig {
-                                grid_points: GRID,
+                                steps: STEPS,
                                 root_find: RootFindConfig::Bisection(config),
                                 picard: PICARD,
                             },

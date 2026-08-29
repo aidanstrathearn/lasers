@@ -1,6 +1,6 @@
 use crate::controls::{
-    bisection_slider_grid, fibre_params_slider_grid, grating_slider_grid, gridpoints_slider,
-    pump_slider_grid,
+    bisection_slider_grid, fibre_params_slider_grid, grating_slider_grid, pump_slider_grid,
+    steps_slider,
 };
 use crate::plotter::Plotter;
 use crate::residual_plot::{ResidualRange, residual_slider_grid};
@@ -12,8 +12,7 @@ use laser_solver::amplifier::{Amplifier, AmplifierSolveConfig};
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{
-    Fibre, FibreGeometry, FieldMode, GridPoints, Pump, Signal, TwoLevelCrossSections,
-    TwoLevelDopant,
+    Fibre, FibreGeometry, FieldMode, Pump, Signal, TwoLevelCrossSections, TwoLevelDopant,
 };
 use laser_solver::maths::picard::PicardConfig;
 use laser_solver::maths::rootfind::Midpoint::Arithmetic;
@@ -70,7 +69,7 @@ pub(crate) struct AmplifierMode {
     pub(crate) sgnl_mode: FieldMode,
     pub(crate) pump_interaction: TwoLevelCrossSections,
     pub(crate) signal_interaction: TwoLevelCrossSections,
-    pub(crate) grid_points: GridPoints,
+    pub(crate) steps: usize,
     pub(crate) config: BisectionConfig,
     cached_plotter: Option<Result<Plotter, SolverError>>,
     pub(crate) compute_time: Option<Duration>,
@@ -100,7 +99,7 @@ impl Default for AmplifierMode {
             sgnl_mode: FieldMode::new(1060e-9),
             pump_interaction: TwoLevelCrossSections::new(1.0, 0.0),
             signal_interaction: TwoLevelCrossSections::new(0.0, 1.0),
-            grid_points: GridPoints::default(),
+            steps: 100,
             config: BisectionConfig::default(),
             cached_plotter: None,
             compute_time: None,
@@ -145,7 +144,7 @@ impl AmplifierMode {
         root_find: impl Into<RootFindConfig>,
     ) -> AmplifierSolveConfig {
         AmplifierSolveConfig {
-            grid_points: self.grid_points,
+            steps: self.steps,
             root_find: root_find.into(),
             picard: PicardConfig {
                 max_iterations: 2000,
@@ -213,7 +212,7 @@ impl ModeUi for AmplifierMode {
             ui.vertical(|ui| {
                 ui.heading("Solver");
                 changed |= bisection_slider_grid(&mut self.config, ui);
-                changed |= gridpoints_slider(&mut self.grid_points, ui);
+                changed |= steps_slider(&mut self.steps, ui);
             });
 
             match self.view {

@@ -1,7 +1,7 @@
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::dfb::Grating;
-use laser_solver::lase::{Fibre, GridPoints, Pump, TwoLevelCrossSections};
+use laser_solver::lase::{Fibre, Pump, TwoLevelCrossSections};
 use laser_solver::maths::rootfind::BisectionConfig;
 
 pub(crate) fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) -> bool {
@@ -40,13 +40,13 @@ pub(crate) fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) -
     changed
 }
 
-pub(crate) fn gridpoints_slider(gp: &mut GridPoints, ui: &mut Ui) -> bool {
+pub(crate) fn steps_slider(steps: &mut usize, ui: &mut Ui) -> bool {
     let mut changed = false;
 
-    egui::Grid::new("grid-points").show(ui, |ui| {
-        ui.label("Nz");
+    egui::Grid::new("grid-steps").show(ui, |ui| {
+        ui.label("Steps");
         changed |= ui
-            .add(egui::Slider::new(&mut gp.0, 10..=1000).step_by(2.0))
+            .add(egui::Slider::new(steps, 10..=1000).step_by(2.0))
             .changed();
         ui.end_row();
     });

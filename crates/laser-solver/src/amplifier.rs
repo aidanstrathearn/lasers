@@ -1,8 +1,8 @@
 use crate::dopant::{DopantModel, TwoLevelDopant};
 use crate::error::SolverError;
 use crate::lase::{
-    BidirectionalAmplitude, FieldProfile, FieldState, GridPoints, OutputPower, Pump, ResolvedFibre,
-    Signal, profile_convergence_error,
+    BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump, ResolvedFibre, Signal,
+    UniformGrid, profile_convergence_error,
 };
 use crate::maths::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::maths::rootfind::{RootFindConfig, rootfind_1d};
@@ -10,7 +10,7 @@ use crate::propagation::{out_field_uncoupled, solve_profile_uncoupled};
 
 #[derive(Copy, Clone)]
 pub struct AmplifierSolveConfig {
-    pub grid_points: GridPoints,
+    pub steps: usize,
     pub root_find: RootFindConfig,
     pub picard: PicardConfig,
 }
@@ -66,9 +66,9 @@ pub fn solve_shooting<D: DopantModel>(
     config: AmplifierSolveConfig,
     full_profile: bool,
 ) -> Result<FieldProfile, SolverError> {
-    let gp = config.grid_points;
-    let nsteps = gp.0;
-    let dz = gp.dz(fibre.length());
+    let grid = UniformGrid::new(fibre.length(), config.steps);
+    let nsteps = grid.steps();
+    let dz = grid.dz();
     let (pump_forward, pump_backward) = pump.amplitudes();
     let trial = |pump_b| FieldState {
         signal: BidirectionalAmplitude {
@@ -94,7 +94,7 @@ pub fn solve_shooting<D: DopantModel>(
     };
 
     if full_profile {
-        let z = gp.grid(fibre.length());
+        let z = grid.positions().collect();
         let fields =
             solve_profile_uncoupled(trial(pump_b), |fields| fibre.gain(fields), dz, nsteps);
         Ok(FieldProfile::new(z, fields))
@@ -180,8 +180,8 @@ pub fn solve_amp_picard<D: DopantModel>(
     config: AmplifierSolveConfig,
     full_profile: bool,
 ) -> Result<FieldProfile, SolverError> {
-    let gp = config.grid_points;
-    let dz = gp.dz(fibre.length());
+    let grid = UniformGrid::new(fibre.length(), config.steps);
+    let dz = grid.dz();
     let (signal_forward, signal_backward) = signal.amplitudes();
     let (pump_forward, pump_backward) = pump.amplitudes();
     let initial = FieldState {
@@ -194,12 +194,15 @@ pub fn solve_amp_picard<D: DopantModel>(
             backward: pump_backward,
         },
     };
-    let mut solver = PicardSolver::filled(gp.0 + 1, initial);
+    let mut solver = PicardSolver::filled(grid.points(), initial);
     solve_amp_profile_picard(&mut solver, signal, pump, fibre, config.picard, dz)?;
 
     let fields = solver.profile();
     if full_profile {
-        Ok(FieldProfile::new(gp.grid(fibre.length()), fields.to_vec()))
+        Ok(FieldProfile::new(
+            grid.positions().collect(),
+            fields.to_vec(),
+        ))
     } else {
         Ok(FieldProfile::new(
             vec![0.0, fibre.length()],
@@ -237,7 +240,7 @@ mod tests {
             balance: 0.0,
         };
         let config = AmplifierSolveConfig {
-            grid_points: GridPoints(10),
+            steps: 10,
             root_find: BisectionConfig::default().into(),
             picard: PicardConfig::default(),
         };

@@ -5,8 +5,8 @@ use crate::plots::plot_profile_diff;
 use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::lase::{
-    BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, GridPoints,
-    Pump, ResolvedFibre, TwoLevelCrossSections, TwoLevelDopant, profile_max_diff,
+    BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, Pump,
+    ResolvedFibre, TwoLevelCrossSections, TwoLevelDopant, UniformGrid, profile_max_diff,
 };
 use laser_solver::maths::picard::{PicardConfig, PicardSolver};
 use laser_solver::maths::rootfind::{
@@ -40,7 +40,7 @@ const SGNL_MODE: FieldMode = FieldMode::new(1060e-9);
 const PUMP_INTERACTION: TwoLevelCrossSections = TwoLevelCrossSections::new(0.01 * 100.0, 0.0);
 const SGNL_INTERACTION: TwoLevelCrossSections = TwoLevelCrossSections::new(0.0, 1.0);
 
-const GRID: GridPoints = GridPoints(500);
+const STEPS: usize = 500;
 const FULL_PROFILE: bool = true;
 
 const GRATING: Grating = Grating {
@@ -85,13 +85,13 @@ const NEWTON: Newton1dConfig = Newton1dConfig {
 };
 
 const NEWTON_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
-    grid_points: GRID,
+    steps: STEPS,
     root_find: RootFindConfig::Newton1d(NEWTON),
     picard: PICARD,
 };
 
 const BISECTION_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
-    grid_points: GRID,
+    steps: STEPS,
     root_find: RootFindConfig::Bisection(BISECTION),
     picard: PICARD,
 };
@@ -110,9 +110,10 @@ fn main() -> eframe::Result {
     Ok(())
 }
 fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
-    let kappas = GRATING.grid(GRID.0);
     let fibre = resolved_fibre();
-    let dz = GRID.dz(fibre.length());
+    let grid = UniformGrid::new(fibre.length(), STEPS);
+    let kappas = GRATING.grid(grid.steps());
+    let dz = grid.dz();
     let trial = |sgnl_b| FieldState {
         signal: BidirectionalAmplitude {
             forward: 0.0,
@@ -255,8 +256,9 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
         return Ok(());
     }
 
-    let z = GRID.grid(FIBRE.geometry.length);
-    let kappas = GRATING.grid(GRID.0 + 1);
+    let grid = UniformGrid::new(FIBRE.geometry.length, STEPS);
+    let z = grid.positions().collect::<Vec<_>>();
+    let kappas = GRATING.grid(grid.points());
     let mut plot = Plotter::new();
     plot.plot(&z, &kappas);
     plot.xlabel("z");
@@ -268,7 +270,8 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
 fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
     let comparison_pump = FORWARD_PUMP;
     let comparison_sgnl_b = 1.0;
-    let comparison_kappas = GRATING.grid(GRID.0);
+    let grid = UniformGrid::new(FIBRE.geometry.length, STEPS);
+    let comparison_kappas = GRATING.grid(grid.steps());
     let comparison_boundary = FieldState {
         signal: BidirectionalAmplitude {
             forward: 0.0,
@@ -282,16 +285,16 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
     let fibre = resolved_fibre();
 
     let direct_profile = FieldProfile::new(
-        GRID.grid(fibre.length()),
+        grid.positions().collect(),
         solve_profile_coupled(
             comparison_boundary,
             |fields| fibre.gain(fields),
-            GRID.dz(fibre.length()),
+            grid.dz(),
             &comparison_kappas,
         ),
     );
 
-    let mut picard_solver = PicardSolver::filled(GRID.0 + 1, comparison_boundary);
+    let mut picard_solver = PicardSolver::filled(grid.points(), comparison_boundary);
     let picard_fields = solve_profile_picard(
         &mut picard_solver,
         comparison_sgnl_b,
@@ -299,7 +302,7 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
         &fibre,
         PICARD,
         &comparison_kappas,
-        GRID.dz(fibre.length()),
+        grid.dz(),
     )
     .expect("Picard profile comparison did not converge")
     .to_vec();

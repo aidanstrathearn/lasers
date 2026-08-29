@@ -1,7 +1,9 @@
 use super::{DfbLaser, DfbSolveConfig};
 use crate::dopant::DopantModel;
 use crate::error::SolverError;
-use crate::lase::{BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump};
+use crate::lase::{
+    BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump, UniformGrid,
+};
 use crate::maths::rootfind::rootfind_1d;
 use crate::propagation::{out_field_coupled, solve_profile_coupled};
 
@@ -17,9 +19,9 @@ impl<D: DopantModel> DfbLaser<'_, D> {
             pump_backward, 0.0,
             "shooting solver requires a forward-only pump"
         );
-        let gp = config.grid_points;
-        let kappas = self.grating.grid(gp.0);
-        let dz = gp.dz(self.fibre.length());
+        let grid = UniformGrid::new(self.fibre.length(), config.steps);
+        let kappas = self.grating.grid(grid.steps());
+        let dz = grid.dz();
         let trial = |sgnl_b| FieldState {
             signal: BidirectionalAmplitude {
                 forward: 0.0,
@@ -39,7 +41,7 @@ impl<D: DopantModel> DfbLaser<'_, D> {
         let sgnl_b = rootfind_1d(f, config.root_find)?;
 
         if full_profile {
-            let z = gp.grid(self.fibre.length());
+            let z = grid.positions().collect();
             let fields =
                 solve_profile_coupled(trial(sgnl_b), |fields| self.fibre.gain(fields), dz, &kappas);
             Ok(FieldProfile::new(z, fields))

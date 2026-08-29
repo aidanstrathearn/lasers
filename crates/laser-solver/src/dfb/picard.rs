@@ -1,7 +1,10 @@
 use super::{DfbLaser, DfbSolveConfig};
 use crate::dopant::DopantModel;
 use crate::error::SolverError;
-use crate::lase::{profile_convergence_error, BidirectionalAmplitude, FieldProfile, FieldState, GridPoints, OutputPower, Pump, ResolvedFibre};
+use crate::lase::{
+    BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump, ResolvedFibre, UniformGrid,
+    profile_convergence_error,
+};
 use crate::maths::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::maths::rootfind::try_rootfind_1d;
 
@@ -84,7 +87,7 @@ impl<D: DopantModel> DfbLaser<'_, D> {
     pub(crate) fn initial_picard_solver(
         &self,
         pump: Pump,
-        grid_points: GridPoints,
+        steps: usize,
     ) -> PicardSolver<FieldState> {
         let (pump_forward, pump_backward) = pump.amplitudes();
         let initial = FieldState {
@@ -94,7 +97,7 @@ impl<D: DopantModel> DfbLaser<'_, D> {
                 backward: pump_backward,
             },
         };
-        PicardSolver::filled(grid_points.0 + 1, initial)
+        PicardSolver::filled(steps + 1, initial)
     }
     
     fn solve_with_picard_solver(
@@ -104,9 +107,9 @@ impl<D: DopantModel> DfbLaser<'_, D> {
         full_profile: bool,
         solver: &mut PicardSolver<FieldState>,
     ) -> Result<FieldProfile, SolverError> {
-        let gp = config.grid_points;
-        let kappas = self.grating.grid(gp.0);
-        let dz = gp.dz(self.fibre.length());
+        let grid = UniformGrid::new(self.fibre.length(), config.steps);
+        let kappas = self.grating.grid(grid.steps());
+        let dz = grid.dz();
         let f = |sgnl_b| -> Result<f64, SolverError> {
             let fields = solve_profile_picard(
                 solver,
@@ -123,7 +126,7 @@ impl<D: DopantModel> DfbLaser<'_, D> {
         let _sgnl_b = try_rootfind_1d(f, config.root_find)?;
         if full_profile {
             Ok(FieldProfile::new(
-                gp.grid(self.fibre.length()),
+                grid.positions().collect(),
                 solver.profile().to_vec(),
             ))
         } else {
@@ -141,7 +144,7 @@ impl<D: DopantModel> DfbLaser<'_, D> {
         config: DfbSolveConfig,
         full_profile: bool,
     ) -> Result<FieldProfile, SolverError> {
-        let mut solver = self.initial_picard_solver(pump, config.grid_points);
+        let mut solver = self.initial_picard_solver(pump, config.steps);
         self.solve_with_picard_solver(pump, config, full_profile, &mut solver)
     }
 

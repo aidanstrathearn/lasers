@@ -4,7 +4,7 @@ mod shooting;
 use crate::dopant::{DopantModel, TwoLevelDopant};
 use crate::error::SolverError;
 use crate::lase::{
-    BidirectionalAmplitude, FieldProfile, FieldState, GridPoints, Pump, PumpScan, ResolvedFibre,
+    BidirectionalAmplitude, FieldProfile, FieldState, Pump, PumpScan, ResolvedFibre,
     find_threshold_and_slope as scan_for_threshold, pump_scan as scan_pump_totals,
 };
 use crate::maths::picard::{PicardConfig, PicardSolver};
@@ -13,7 +13,7 @@ use crate::maths::utils::IterationConfig;
 
 #[derive(Copy, Clone)]
 pub struct DfbSolveConfig {
-    pub grid_points: GridPoints,
+    pub steps: usize,
     pub root_find: RootFindConfig,
     pub picard: PicardConfig,
 }
@@ -48,7 +48,7 @@ impl<D: DopantModel> DfbLaser<'_, D> {
         pump_start.amplitudes();
         let use_picard = pump_start.balance != 1.0;
         if use_picard {
-            let mut solver = self.initial_picard_solver(pump_start, solve_config.grid_points);
+            let mut solver = self.initial_picard_solver(pump_start, solve_config.steps);
             let f = |total| {
                 self.output_power_picard(
                     Pump {
@@ -91,7 +91,7 @@ impl<D: DopantModel> DfbLaser<'_, D> {
                     total: pump_start,
                     balance,
                 },
-                solve_config.grid_points,
+                solve_config.steps,
             );
             scan_pump_totals(pump_totals, |total| {
                 self.output_power_picard(Pump { total, balance }, solve_config, &mut solver)

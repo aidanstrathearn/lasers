@@ -1,13 +1,15 @@
 use crate::plotter::Plotter;
 use crate::{dfb::DfbMode, timed};
 use laser_solver::error::SolverError;
+use laser_solver::lase::UniformGrid;
 
 impl DfbMode {
     pub fn kappa_plot(&mut self) -> Result<Plotter, SolverError> {
         let ((z, kappas), compute_time) = timed(|| {
+            let grid = UniformGrid::new(self.fibre.geometry.length, self.steps);
             (
-                self.grid_points.grid(self.fibre.geometry.length),
-                self.grating.grid(self.grid_points.0),
+                grid.positions().collect::<Vec<_>>(),
+                self.grating.grid(grid.steps()),
             )
         });
         self.compute_time = Some(compute_time);

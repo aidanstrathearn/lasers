@@ -3,7 +3,7 @@ use crate::{Points, dfb::DfbMode, timed};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::error::SolverError;
-use laser_solver::lase::{BidirectionalAmplitude, FieldState};
+use laser_solver::lase::{BidirectionalAmplitude, FieldState, UniformGrid};
 use laser_solver::propagation::out_field_coupled;
 use laser_solver::maths::utils::linspace;
 
@@ -32,9 +32,10 @@ impl DfbMode {
             self.residual_range.num,
         );
 
-        let kappas = self.grating.grid(self.grid_points.0);
         let fibre = self.resolved_fibre();
-        let dz = self.grid_points.dz(fibre.length());
+        let grid = UniformGrid::new(fibre.length(), self.steps);
+        let kappas = self.grating.grid(grid.steps());
+        let dz = grid.dz();
         let trial = |sgnl_b| FieldState {
             signal: BidirectionalAmplitude {
                 forward: 0.0,

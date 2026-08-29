@@ -1,7 +1,7 @@
 use crate::ModeUi;
 use crate::controls::{
-    bisection_slider_grid, fibre_params_slider_grid, grating_slider_grid, gridpoints_slider,
-    pump_slider_grid,
+    bisection_slider_grid, fibre_params_slider_grid, grating_slider_grid, pump_slider_grid,
+    steps_slider,
 };
 use crate::plotter::Plotter;
 use crate::residual_plot::{ResidualRange, residual_slider_grid};
@@ -11,8 +11,7 @@ use eframe::egui::Ui;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{
-    Fibre, FibreGeometry, FieldMode, GridPoints, Pump, ResolvedFibre, TwoLevelCrossSections,
-    TwoLevelDopant,
+    Fibre, FibreGeometry, FieldMode, Pump, ResolvedFibre, TwoLevelCrossSections, TwoLevelDopant,
 };
 use laser_solver::maths::picard::PicardConfig;
 use laser_solver::maths::rootfind::{BisectionConfig, RootFindConfig};
@@ -83,7 +82,7 @@ pub(crate) struct DfbMode {
     pub(crate) sgnl_mode: FieldMode,
     pub(crate) pump_interaction: TwoLevelCrossSections,
     pub(crate) signal_interaction: TwoLevelCrossSections,
-    pub(crate) grid_points: GridPoints,
+    pub(crate) steps: usize,
     pub(crate) grating: Grating,
     pub(crate) config: BisectionConfig,
     pub(crate) picard_config: PicardConfig,
@@ -116,7 +115,7 @@ impl Default for DfbMode {
             sgnl_mode: FieldMode::new(1060e-9),
             pump_interaction: TwoLevelCrossSections::new(1.0, 0.0),
             signal_interaction: TwoLevelCrossSections::new(0.0, 1.0),
-            grid_points: GridPoints::default(),
+            steps: 100,
             grating: Grating {
                 kappa_left: 0.6,
                 kappa_right: 0.6,
@@ -155,7 +154,7 @@ impl DfbMode {
 
     pub(crate) fn dfb_solve_config(&self, root_find: impl Into<RootFindConfig>) -> DfbSolveConfig {
         DfbSolveConfig {
-            grid_points: self.grid_points,
+            steps: self.steps,
             root_find: root_find.into(),
             picard: self.picard_config,
         }
@@ -202,7 +201,7 @@ impl ModeUi for DfbMode {
             ui.vertical(|ui| {
                 ui.heading("Solver");
                 changed |= bisection_slider_grid(&mut self.config, ui);
-                changed |= gridpoints_slider(&mut self.grid_points, ui);
+                changed |= steps_slider(&mut self.steps, ui);
             });
 
             match self.view {
