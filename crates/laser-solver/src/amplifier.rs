@@ -173,42 +173,6 @@ pub fn solve_amp_profile_picard<'a, D: DopantModel>(
     solver.solve(config.max_iterations, set_boundary, step, error)
 }
 
-pub fn initial_profile<D: DopantModel>(
-    signal: Signal,
-    pump: Pump,
-    fp: &ResolvedFibre<'_, D>,
-    gp: GridPoints,
-) -> FieldProfile {
-    let gain = fp.initial_gain();
-    let gpump = gain.pump;
-    let gsignal = gain.signal;
-    let zs = gp.grid(fp.length());
-    let pump_end_factor = (0.5 * gpump * fp.length()).exp();
-    let signal_end_factor = (0.5 * gsignal * fp.length()).exp();
-    let (pump_forward, pump_backward) = pump.amplitudes();
-    let (signal_forward, signal_backward) = signal.amplitudes();
-
-    let fields = zs
-        .iter()
-        .map(|z| {
-            let pump_factor = (0.5 * gpump * z).exp();
-            let signal_factor = (0.5 * gsignal * z).exp();
-
-            FieldState {
-                signal: BidirectionalAmplitude {
-                    forward: signal_factor * signal_forward,
-                    backward: signal_end_factor / signal_factor * signal_backward,
-                },
-                pump: BidirectionalAmplitude {
-                    forward: pump_factor * pump_forward,
-                    backward: pump_end_factor / pump_factor * pump_backward,
-                },
-            }
-        })
-        .collect();
-    FieldProfile::new(zs, fields)
-}
-
 pub fn solve_amp_picard<D: DopantModel>(
     fibre: &ResolvedFibre<'_, D>,
     signal: Signal,
@@ -218,8 +182,19 @@ pub fn solve_amp_picard<D: DopantModel>(
 ) -> Result<FieldProfile, SolverError> {
     let gp = config.grid_points;
     let dz = gp.dz(fibre.length());
-    let initial = initial_profile(signal, pump, fibre, gp);
-    let mut solver = PicardSolver::from_initial(initial.fields);
+    let (signal_forward, signal_backward) = signal.amplitudes();
+    let (pump_forward, pump_backward) = pump.amplitudes();
+    let initial = FieldState {
+        signal: BidirectionalAmplitude {
+            forward: signal_forward,
+            backward: signal_backward,
+        },
+        pump: BidirectionalAmplitude {
+            forward: pump_forward,
+            backward: pump_backward,
+        },
+    };
+    let mut solver = PicardSolver::filled(gp.0 + 1, initial);
     solve_amp_profile_picard(&mut solver, signal, pump, fibre, config.picard, dz)?;
 
     let fields = solver.profile();

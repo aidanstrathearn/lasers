@@ -23,42 +23,21 @@ pub struct DfbLaser<'a, D: DopantModel = TwoLevelDopant> {
     pub grating: Grating,
 }
 
-pub fn initial_profile<D: DopantModel>(
-    pump: Pump,
-    fp: &ResolvedFibre<'_, D>,
-    gp: GridPoints,
-) -> FieldProfile {
-    let g = fp.initial_gain().pump; // ground and excited populations are equal
-    let zs = gp.grid(fp.length());
-    let end_factor = (0.5 * g * fp.length()).exp();
-    let (pump_forward, pump_backward) = pump.amplitudes();
-
-    let fields = zs
-        .iter()
-        .map(|z| {
-            let f = (0.5 * g * z).exp(); // &f64 * f64 -> f64 apparently, so no need to deref
-            let b = end_factor / f;
-
-            FieldState {
-                signal: BidirectionalAmplitude::default(),
-                pump: BidirectionalAmplitude {
-                    forward: f * pump_forward,
-                    backward: b * pump_backward,
-                },
-            }
-        })
-        .collect();
-    FieldProfile::new(zs, fields)
-}
-
 impl<D: DopantModel> DfbLaser<'_, D> {
     fn initial_picard_solver(
         &self,
         pump: Pump,
         grid_points: GridPoints,
     ) -> PicardSolver<FieldState> {
-        let initial = initial_profile(pump, &self.fibre, grid_points);
-        PicardSolver::from_initial(initial.fields)
+        let (pump_forward, pump_backward) = pump.amplitudes();
+        let initial = FieldState {
+            signal: BidirectionalAmplitude::default(),
+            pump: BidirectionalAmplitude {
+                forward: pump_forward,
+                backward: pump_backward,
+            },
+        };
+        PicardSolver::filled(grid_points.0 + 1, initial)
     }
 
     pub fn solve(

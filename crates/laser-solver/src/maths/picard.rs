@@ -40,6 +40,10 @@ pub struct PicardSolver<T> {
 }
 
 impl<T: Clone> PicardSolver<T> {
+    pub fn filled(len: usize, initial: T) -> Self {
+        Self::from_initial(vec![initial; len])
+    }
+
     pub fn from_initial(initial: Vec<T>) -> Self {
         assert!(
             !initial.is_empty(),
@@ -87,6 +91,13 @@ impl<T> PicardSolver<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn creates_a_constant_initial_profile() {
+        let solver = PicardSolver::filled(3, "initial".to_owned());
+
+        assert_eq!(solver.profile(), ["initial", "initial", "initial"]);
+    }
 
     #[test]
     fn step_receives_new_previous_old_current_and_interval_index() {

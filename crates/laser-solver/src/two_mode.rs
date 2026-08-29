@@ -114,13 +114,6 @@ impl<D: DopantModel> ResolvedFibre<'_, D> {
         let rates = self.rates(fs);
         self.fibre.dopant.populations(&rates)
     }
-
-    pub fn initial_gain(&self) -> Gain {
-        Gain {
-            pump: 0.0,
-            signal: 0.0,
-        }
-    }
 }
 
 impl<D> Clone for ResolvedFibre<'_, D>

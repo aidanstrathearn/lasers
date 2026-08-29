@@ -1,6 +1,6 @@
 use laser_solver::amplifier::{AmplifierSolveConfig, solve_amp_picard, solve_shooting};
 use laser_solver::dfb::picard::solve_profile_picard;
-use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, initial_profile};
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::lase::{
     BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, GridPoints,
     Pump, ResolvedFibre, Signal, TwoLevelCrossSections, TwoLevelDopant, profile_max_diff,
@@ -173,8 +173,7 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
             &kappas,
         ),
     );
-    let initial = initial_profile(pump, &fibre, GRID);
-    let mut picard_solver = PicardSolver::from_initial(initial.fields);
+    let mut picard_solver = PicardSolver::filled(GRID.0 + 1, boundary);
     let picard_fields = solve_profile_picard(
         &mut picard_solver,
         sgnl_b,

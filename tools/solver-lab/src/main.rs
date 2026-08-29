@@ -3,7 +3,7 @@ mod plots;
 
 use crate::plots::plot_profile_diff;
 use laser_solver::dfb::picard::solve_profile_picard;
-use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating, initial_profile};
+use laser_solver::dfb::{DfbLaser, DfbSolveConfig, Grating};
 use laser_solver::lase::{
     BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, GridPoints,
     Pump, ResolvedFibre, TwoLevelCrossSections, TwoLevelDopant, profile_max_diff,
@@ -19,15 +19,6 @@ use plots::show_field_profile;
 use std::time::Instant;
 
 const PUMP_FORWARD_AMPLITUDE: f64 = 100.0;
-const PUMP_BACKWARD_AMPLITUDE: f64 = 10.0;
-const PUMP: Pump = Pump {
-    total: PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE
-        + PUMP_BACKWARD_AMPLITUDE * PUMP_BACKWARD_AMPLITUDE,
-    balance: (PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE
-        - PUMP_BACKWARD_AMPLITUDE * PUMP_BACKWARD_AMPLITUDE)
-        / (PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE
-            + PUMP_BACKWARD_AMPLITUDE * PUMP_BACKWARD_AMPLITUDE),
-};
 const FORWARD_PUMP: Pump = Pump {
     total: PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE,
     balance: 1.0,
@@ -157,10 +148,6 @@ fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
         .solve_shooting(FORWARD_PUMP, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
         .unwrap();
     show_field_profile(&result, show_plots)?;
-
-    let fibre = resolved_fibre();
-    let profile = initial_profile(PUMP, &fibre, GRID);
-    show_field_profile(&profile, show_plots)?;
 
     Ok(())
 }
@@ -304,8 +291,7 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
         ),
     );
 
-    let initial = initial_profile(comparison_pump, &fibre, GRID);
-    let mut picard_solver = PicardSolver::from_initial(initial.fields);
+    let mut picard_solver = PicardSolver::filled(GRID.0 + 1, comparison_boundary);
     let picard_fields = solve_profile_picard(
         &mut picard_solver,
         comparison_sgnl_b,
