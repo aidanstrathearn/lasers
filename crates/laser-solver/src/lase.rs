@@ -128,7 +128,7 @@ pub fn find_threshold_and_slope(
 mod tests {
     use super::*;
     use crate::maths::picard::PicardError;
-    use crate::propagation::transfer;
+    use crate::fibre::transfer;
 
     #[test]
     fn uniform_grid_distinguishes_steps_from_points() {

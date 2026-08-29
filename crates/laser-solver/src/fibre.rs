@@ -117,3 +117,37 @@ impl Default for Fibre<TwoLevelDopant> {
         }
     }
 }
+
+
+impl BidirectionalAmplitude {
+    pub fn coupled_step(self, gain: f64, kappa: f64, dz: f64) -> Self {
+        let (a, b, c, d) = transfer(gain, kappa, dz);
+        Self {
+            forward: a * self.forward + b * self.backward,
+            backward: c * self.forward + d * self.backward,
+        }
+    }
+
+    pub fn uncoupled_step(self, gain: f64, dz: f64) -> Self {
+        let factor = (0.5 * gain * dz).exp();
+        Self {
+            forward: self.forward * factor,
+            backward: self.backward / factor,
+        }
+    }
+}
+
+pub fn transfer(gain: f64, kappa: f64, dz: f64) -> (f64, f64, f64, f64) {
+    let g_dz = 0.5 * gain * dz;
+    let k_dz = kappa * dz;
+    let x = (g_dz * g_dz + k_dz * k_dz).sqrt();
+
+    let cosh = x.cosh();
+    let sinch = if x > 1e-30 { x.sinh() / x } else { 1.0_f64 };
+    (
+        cosh + g_dz * sinch,
+        k_dz * sinch,
+        k_dz * sinch,
+        cosh - g_dz * sinch,
+    )
+}

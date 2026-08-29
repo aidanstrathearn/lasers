@@ -1,23 +1,4 @@
-use crate::fibre::BidirectionalAmplitude;
 use crate::two_mode::{FieldState, Gain};
-
-impl BidirectionalAmplitude {
-    pub fn coupled_step(self, gain: f64, kappa: f64, dz: f64) -> Self {
-        let (a, b, c, d) = transfer(gain, kappa, dz);
-        Self {
-            forward: a * self.forward + b * self.backward,
-            backward: c * self.forward + d * self.backward,
-        }
-    }
-
-    pub fn uncoupled_step(self, gain: f64, dz: f64) -> Self {
-        let factor = (0.5 * gain * dz).exp();
-        Self {
-            forward: self.forward * factor,
-            backward: self.backward / factor,
-        }
-    }
-}
 
 impl FieldState {
     pub fn coupled_step(self, gain: Gain, kappa: f64, dz: f64) -> Self {
@@ -43,20 +24,7 @@ impl FieldState {
     }
 }
 
-pub fn transfer(gain: f64, kappa: f64, dz: f64) -> (f64, f64, f64, f64) {
-    let g_dz = 0.5 * gain * dz;
-    let k_dz = kappa * dz;
-    let x = (g_dz * g_dz + k_dz * k_dz).sqrt();
 
-    let cosh = x.cosh();
-    let sinch = if x > 1e-30 { x.sinh() / x } else { 1.0_f64 };
-    (
-        cosh + g_dz * sinch,
-        k_dz * sinch,
-        k_dz * sinch,
-        cosh - g_dz * sinch,
-    )
-}
 
 pub fn solve_profile_uncoupled(
     fs: FieldState,
@@ -120,6 +88,7 @@ pub fn out_field_coupled(
 mod tests {
     use super::*;
     use std::cell::RefCell;
+    use crate::fibre::BidirectionalAmplitude;
 
     #[test]
     fn uncoupled_step_applies_supplied_gain() {
