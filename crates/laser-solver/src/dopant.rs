@@ -1,5 +1,33 @@
 use crate::lase::Gain;
 
+
+struct DopantError;
+trait DopantModel {
+    type Interaction;
+    type Rates: Default;
+    type Populations;
+
+    fn interaction(
+        &self,
+        wavelength: f64,
+    ) -> Result<Self::Interaction, DopantError>;
+
+    fn rates(
+        &self,
+        interaction: &Self::Interaction,
+        flux: f64,
+    ) -> Self::Rates;
+
+    fn populations(&self, rates: &Self::Rates) -> Self::Populations;
+
+    fn gain(
+        &self,
+        interaction: &Self::Interaction,
+        populations: &Self::Populations,
+    ) -> f64;
+}
+
+
 #[derive(Clone, Copy)]
 pub struct TwoLevelDopant {
     pub density: f64,
@@ -29,9 +57,18 @@ pub struct TwoLevelCrossSections {
 }
 
 impl TwoLevelDopant {
+    pub fn signal_cross_section(&self) -> TwoLevelCrossSections {
+        TwoLevelCrossSections {
+            absorption: self.sgnl_ab,
+            emission: self.sgnl_em,
+        }
+    }
 
-    pub fn cross_sections(wavelength: f64) -> TwoLevelCrossSections {
-        todo!()
+    pub fn pump_cross_section(&self) -> TwoLevelCrossSections {
+        TwoLevelCrossSections {
+            absorption: self.pump_ab,
+            emission: self.pump_em,
+        }
     }
 
     pub fn make_rates(data: &[(f64, TwoLevelCrossSections)]) -> TwoLevelRates {
@@ -72,32 +109,19 @@ impl TwoLevelDopant {
         self.steady_state(rates)
     }
 
-    pub fn gain(&self, pump_flux: f64, sgnl_flux: f64) -> Gain {
-        let data = &[
-            (pump_flux, self.pump_cross_section()),
-            (sgnl_flux, self.signal_cross_section()),
-        ];
-        let rates = TwoLevelDopant::make_rates(data);
-        let pops = self.steady_state(rates);
-        Gain {
-            pump: self.gain_from_crosssection(pops, self.pump_cross_section()),
-            signal: self.gain_from_crosssection(pops, self.signal_cross_section()),
-        }
-    }
+    // pub fn gain(&self, data: &[(f64, TwoLevelCrossSections)]) -> Gain {
+    //     // let data = &[
+    //     //     (pump_flux, self.pump_cross_section()),
+    //     //     (sgnl_flux, self.signal_cross_section()),
+    //     // ];
+    //     let pops = self.pops(data);
+    //     Gain {
+    //         pump: self.gain_from_crosssection(pops, self.pump_cross_section()),
+    //         signal: self.gain_from_crosssection(pops, self.signal_cross_section()),
+    //     }
+    // }
 
 
 
-    pub fn signal_cross_section(&self) -> TwoLevelCrossSections {
-        TwoLevelCrossSections {
-            absorption: self.sgnl_ab,
-            emission: self.sgnl_em,
-        }
-    }
 
-    pub fn pump_cross_section(&self) -> TwoLevelCrossSections {
-        TwoLevelCrossSections {
-            absorption: self.pump_ab,
-            emission: self.pump_em,
-        }
-    }
 }
