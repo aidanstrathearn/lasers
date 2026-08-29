@@ -1,4 +1,4 @@
-use super::{FieldState, Gain};
+use super::{Gain, fieldstate::FieldState};
 
 impl FieldState {
     pub fn coupled_step(self, gain: Gain, kappa: f64, dz: f64) -> Self {
