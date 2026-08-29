@@ -7,7 +7,7 @@ use crate::lase::{
 };
 use crate::maths::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::maths::rootfind::{RootFindConfig, rootfind_1d};
-use crate::propagation::{out_field_uncoupled, solve_profile_uncoupled};
+use crate::two_mode::propagation::{out_field_uncoupled, solve_profile_uncoupled};
 
 #[derive(Copy, Clone)]
 pub struct AmplifierSolveConfig {

@@ -14,7 +14,7 @@ use laser_solver::maths::rootfind::{
     BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig, rootfind_1d,
 };
 use laser_solver::maths::utils::{IterationConfig, linspace};
-use laser_solver::propagation::{out_field_coupled, solve_profile_coupled};
+use laser_solver::two_mode::propagation::{out_field_coupled, solve_profile_coupled};
 use myplotlib::Plotter;
 use plots::show_field_profile;
 use std::time::Instant;

@@ -1,21 +1,19 @@
 use crate::controls::{
-    bisection_slider_grid, fibre_params_slider_grid, grating_slider_grid, pump_slider_grid,
+    bisection_slider_grid, fibre_params_slider_grid, pump_slider_grid,
     steps_slider,
 };
 use crate::plotter::Plotter;
-use crate::residual_plot::{ResidualRange, residual_slider_grid};
-use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use crate::{ModeUi, field_profile_plot, timed};
 use eframe::egui;
 use eframe::egui::Ui;
-use laser_solver::amplifier::{Amplifier, AmplifierSolveConfig};
 use laser_solver::error::SolverError;
 use laser_solver::lase::{
     Fibre, FibreGeometry, FieldMode, Pump, Signal, TwoLevelCrossSections, TwoLevelDopant,
 };
 use laser_solver::maths::picard::PicardConfig;
 use laser_solver::maths::rootfind::Midpoint::Arithmetic;
-use laser_solver::maths::rootfind::{BisectionConfig, Midpoint, RootFindConfig};
+use laser_solver::maths::rootfind::{BisectionConfig, RootFindConfig};
+use laser_solver::two_mode::amplifier::{Amplifier, AmplifierSolveConfig};
 use std::time::Duration;
 
 #[derive(PartialEq, Default, Copy, Clone)]

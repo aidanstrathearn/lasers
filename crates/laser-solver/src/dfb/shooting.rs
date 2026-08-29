@@ -6,7 +6,7 @@ use crate::lase::{
     BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump,
 };
 use crate::maths::rootfind::rootfind_1d;
-use crate::propagation::{out_field_coupled, solve_profile_coupled};
+use crate::two_mode::propagation::{out_field_coupled, solve_profile_coupled};
 
 impl<D: DopantModel, G: GratingModel> DfbLaser<'_, D, G> {
     pub fn solve_shooting(

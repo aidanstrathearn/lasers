@@ -1,4 +1,4 @@
-use crate::two_mode::{FieldState, Gain};
+use super::{FieldState, Gain};
 
 impl FieldState {
     pub fn coupled_step(self, gain: Gain, kappa: f64, dz: f64) -> Self {

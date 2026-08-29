@@ -1,4 +1,3 @@
-use laser_solver::amplifier::{AmplifierSolveConfig, solve_amp_picard, solve_shooting};
 use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig};
 use laser_solver::grating::{NoGrating, PiShift};
@@ -9,7 +8,8 @@ use laser_solver::lase::{
 use laser_solver::maths::picard::{PicardConfig, PicardSolver};
 use laser_solver::maths::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
 use laser_solver::maths::utils::IterationConfig;
-use laser_solver::propagation::solve_profile_coupled;
+use laser_solver::two_mode::amplifier::{AmplifierSolveConfig, solve_amp_picard, solve_shooting};
+use laser_solver::two_mode::propagation::solve_profile_coupled;
 
 const PUMP_FORWARD_AMPLITUDE: f64 = 100.0;
 const FORWARD_PUMP: Pump = Pump {
