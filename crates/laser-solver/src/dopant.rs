@@ -58,20 +58,23 @@ impl TwoLevelDopant {
         rates
     }
 
-    pub fn pops(&self, pump_flux: f64, sgnl_flux: f64) -> TwoLevelPopulations {
-        // let mut rates = TwoLevelRates::default();
-        // rates = TwoLevelDopant::add_rate(pump_flux, self.pump_cross_section(), rates);
-        // rates = TwoLevelDopant::add_rate(sgnl_flux, self.signal_cross_section(), rates);
-        let rates = TwoLevelDopant::make_rates(&[
-            (pump_flux, self.pump_cross_section()),
-            (sgnl_flux, self.signal_cross_section()),
-        ]);
+    pub fn pops(&self, data: &[(f64, TwoLevelCrossSections)]) -> TwoLevelPopulations {
+
+        let rates = TwoLevelDopant::make_rates(data);
         self.steady_state(rates)
     }
 
     pub fn gain(&self, pump_flux: f64, sgnl_flux: f64) -> Gain {
-        let pops = self.pops(pump_flux, sgnl_flux);
-        self.gain_from_populations(pops)
+        let data = &[
+            (pump_flux, self.pump_cross_section()),
+            (sgnl_flux, self.signal_cross_section()),
+        ];
+        let rates = TwoLevelDopant::make_rates(data);
+        let pops = self.steady_state(rates);
+        Gain {
+            pump: self.gain_from_crosssection(pops, self.pump_cross_section()),
+            signal: self.gain_from_crosssection(pops, self.signal_cross_section()),
+        }
     }
 
     pub(crate) fn gain_from_crosssection(
@@ -80,13 +83,6 @@ impl TwoLevelDopant {
         sigma: TwoLevelCrossSections,
     ) -> f64 {
         self.density * (-pops.ground * sigma.absorption + pops.excited * sigma.emission)
-    }
-
-    pub(crate) fn gain_from_populations(&self, pops: TwoLevelPopulations) -> Gain {
-        Gain {
-            pump: self.gain_from_crosssection(pops, self.pump_cross_section()),
-            signal: self.gain_from_crosssection(pops, self.signal_cross_section()),
-        }
     }
 
     pub fn signal_cross_section(&self) -> TwoLevelCrossSections {

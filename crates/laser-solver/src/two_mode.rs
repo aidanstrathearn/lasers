@@ -72,16 +72,17 @@ impl ResolvedFibre<'_> {
 
     pub fn populations(&self, fs: FieldState) -> (f64, f64) {
         let (pump_flux, sgnl_flux) = self.mode_fluxes(fs);
-        let pops = self.fibre.dopant.pops(pump_flux, sgnl_flux);
+        let data = &[
+            (pump_flux, self.fibre.dopant.pump_cross_section()),
+            (sgnl_flux, self.fibre.dopant.signal_cross_section()),
+        ];
+        let pops = self.fibre.dopant.pops(data);
         (pops.ground, pops.excited)
 
     }
 
     pub fn initial_gain(&self) -> Gain {
-        let mut gain = self.fibre.dopant.gain_from_populations(TwoLevelPopulations {ground:0.0, excited: 0.0});
-        gain.pump = gain.pump * self.pump_overlap;
-        gain.signal = gain.signal * self.sgnl_overlap;
-        gain
+        Gain {pump: 0.0, signal: 0.0}
     }
 }
 
