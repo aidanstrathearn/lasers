@@ -78,13 +78,12 @@ impl DfbView {
 pub(crate) struct DfbMode {
     pub(crate) view: DfbView,
     pub(crate) pump: Pump,
-    pub(crate) fibre: Fibre,
+    pub(crate) fibre: Fibre<TwoLevelDopant, PiShift>,
     pub(crate) pump_mode: FieldMode,
     pub(crate) sgnl_mode: FieldMode,
     pub(crate) pump_interaction: TwoLevelCrossSections,
     pub(crate) signal_interaction: TwoLevelCrossSections,
     pub(crate) steps: usize,
-    pub(crate) grating: PiShift,
     pub(crate) config: BisectionConfig,
     pub(crate) picard_config: PicardConfig,
     pub(crate) threshold_range: ThresholdRange,
@@ -111,17 +110,17 @@ impl Default for DfbMode {
                     density: 0.50,
                     lifetime: 1.0,
                 },
+                grating: PiShift {
+                    kappa_left: 0.6,
+                    kappa_right: 0.6,
+                    pi_shift_position: 0.5,
+                },
             },
             pump_mode: FieldMode::new(970e-9),
             sgnl_mode: FieldMode::new(1060e-9),
             pump_interaction: TwoLevelCrossSections::new(1.0, 0.0),
             signal_interaction: TwoLevelCrossSections::new(0.0, 1.0),
             steps: 100,
-            grating: PiShift {
-                kappa_left: 0.6,
-                kappa_right: 0.6,
-                pi_shift_position: 0.5,
-            },
             config: BisectionConfig::default(),
             picard_config: PicardConfig {
                 max_iterations: 5_000,
@@ -137,7 +136,7 @@ impl Default for DfbMode {
 }
 
 impl DfbMode {
-    pub(crate) fn resolved_fibre(&self) -> ResolvedFibre<'_> {
+    pub(crate) fn resolved_fibre(&self) -> ResolvedFibre<'_, TwoLevelDopant, PiShift> {
         self.fibre.resolve_with_interactions(
             self.pump_mode,
             self.pump_interaction,
@@ -149,7 +148,6 @@ impl DfbMode {
     pub(crate) fn dfb_laser(&self) -> DfbLaser<'_> {
         DfbLaser {
             fibre: self.resolved_fibre(),
-            grating: self.grating,
         }
     }
 
@@ -193,7 +191,7 @@ impl ModeUi for DfbMode {
             });
             ui.vertical(|ui| {
                 ui.heading("Bragg");
-                changed |= grating_slider_grid(&mut self.grating, ui);
+                changed |= grating_slider_grid(&mut self.fibre.grating, ui);
             });
             ui.vertical(|ui| {
                 ui.heading("Pump");

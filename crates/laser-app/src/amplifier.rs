@@ -93,6 +93,7 @@ impl Default for AmplifierMode {
                     density: 0.50,
                     lifetime: 1.0,
                 },
+                grating: Default::default(),
             },
             pump_mode: FieldMode::new(970e-9),
             sgnl_mode: FieldMode::new(1060e-9),

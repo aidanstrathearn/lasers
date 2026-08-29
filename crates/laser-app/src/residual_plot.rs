@@ -35,7 +35,7 @@ impl DfbMode {
 
         let fibre = self.resolved_fibre();
         let grid = UniformGrid::new(fibre.length(), self.steps);
-        let kappas = sample_grating(&self.grating, grid.steps());
+        let kappas = sample_grating(fibre.grating(), grid.steps());
         let dz = grid.dz();
         let trial = |sgnl_b| FieldState {
             signal: BidirectionalAmplitude {

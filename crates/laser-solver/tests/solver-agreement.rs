@@ -1,7 +1,7 @@
 use laser_solver::amplifier::{AmplifierSolveConfig, solve_amp_picard, solve_shooting};
 use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig};
-use laser_solver::grating::{PiShift, sample_grating};
+use laser_solver::grating::{NoGrating, PiShift, sample_grating};
 use laser_solver::lase::{
     BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, Pump,
     ResolvedFibre, Signal, TwoLevelCrossSections, TwoLevelDopant, UniformGrid, profile_max_diff,
@@ -27,6 +27,7 @@ static FIBRE: Fibre = Fibre {
         density: 1.0,
         lifetime: 1.0,
     },
+    grating: NoGrating,
 };
 const PUMP_MODE: FieldMode = FieldMode::new(970e-9);
 const SGNL_MODE: FieldMode = FieldMode::new(1060e-9);
@@ -50,21 +51,55 @@ const SYMMETRIC_GRATING: PiShift = PiShift {
     pi_shift_position: 0.5,
 };
 
+static DFB_FIBRE: Fibre<TwoLevelDopant, PiShift> = Fibre {
+    geometry: FibreGeometry {
+        core_radius: 4e-6,
+        numerical_aperture: 0.1,
+        length: 10.0,
+    },
+    dopant: TwoLevelDopant {
+        density: 1.0,
+        lifetime: 1.0,
+    },
+    grating: GRATING,
+};
+
+static SYMMETRIC_DFB_FIBRE: Fibre<TwoLevelDopant, PiShift> = Fibre {
+    geometry: FibreGeometry {
+        core_radius: 4e-6,
+        numerical_aperture: 0.1,
+        length: 10.0,
+    },
+    dopant: TwoLevelDopant {
+        density: 1.0,
+        lifetime: 1.0,
+    },
+    grating: SYMMETRIC_GRATING,
+};
+
 fn resolved_fibre() -> ResolvedFibre<'static> {
     FIBRE.resolve_with_interactions(PUMP_MODE, PUMP_INTERACTION, SGNL_MODE, SGNL_INTERACTION)
 }
 
 fn dfb_laser() -> DfbLaser<'static> {
     DfbLaser {
-        fibre: resolved_fibre(),
-        grating: GRATING,
+        fibre: DFB_FIBRE.resolve_with_interactions(
+            PUMP_MODE,
+            PUMP_INTERACTION,
+            SGNL_MODE,
+            SGNL_INTERACTION,
+        ),
     }
 }
 
 fn symmetric_dfb_laser() -> DfbLaser<'static> {
     DfbLaser {
-        fibre: resolved_fibre(),
-        grating: SYMMETRIC_GRATING,
+        fibre: SYMMETRIC_DFB_FIBRE.resolve_with_interactions(
+            PUMP_MODE,
+            PUMP_INTERACTION,
+            SGNL_MODE,
+            SGNL_INTERACTION,
+        ),
     }
 }
 

@@ -3,7 +3,7 @@ mod shooting;
 
 use crate::dopant::{DopantModel, TwoLevelDopant};
 use crate::error::SolverError;
-use crate::grating::PiShift;
+use crate::grating::{GratingModel, PiShift};
 use crate::lase::{
     BidirectionalAmplitude, FieldProfile, FieldState, Pump, PumpScan, ResolvedFibre,
     find_threshold_and_slope as scan_for_threshold, pump_scan as scan_pump_totals,
@@ -19,12 +19,15 @@ pub struct DfbSolveConfig {
     pub picard: PicardConfig,
 }
 
-pub struct DfbLaser<'a, D: DopantModel = TwoLevelDopant> {
-    pub fibre: ResolvedFibre<'a, D>,
-    pub grating: PiShift,
+pub struct DfbLaser<
+    'a,
+    D: DopantModel = TwoLevelDopant,
+    G: GratingModel = PiShift,
+> {
+    pub fibre: ResolvedFibre<'a, D, G>,
 }
 
-impl<D: DopantModel> DfbLaser<'_, D> {
+impl<D: DopantModel, G: GratingModel> DfbLaser<'_, D, G> {
     pub fn solve(
         &self,
         pump: Pump,

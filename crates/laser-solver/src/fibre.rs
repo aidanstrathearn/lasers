@@ -1,4 +1,5 @@
 use crate::dopant::{DopantModel, TwoLevelDopant};
+use crate::grating::{GratingModel, NoGrating};
 
 const TWO_PI: f64 = 2.0 * std::f64::consts::PI;
 const SPEED_OF_LIGHT_MS: f64 = 299_792_458.0;
@@ -97,12 +98,13 @@ impl FibreGeometry {
 }
 
 #[derive(Clone)]
-pub struct Fibre<D: DopantModel = TwoLevelDopant> {
+pub struct Fibre<D: DopantModel = TwoLevelDopant, G = NoGrating> {
     pub geometry: FibreGeometry,
     pub dopant: D,
+    pub grating: G,
 }
 
-impl Default for Fibre<TwoLevelDopant> {
+impl<G: GratingModel + Default> Default for Fibre<TwoLevelDopant, G> {
     fn default() -> Self {
         Self {
             geometry: FibreGeometry {
@@ -114,6 +116,7 @@ impl Default for Fibre<TwoLevelDopant> {
                 density: 1.0,
                 lifetime: 1.0,
             },
+            grating: G::default(),
         }
     }
 }

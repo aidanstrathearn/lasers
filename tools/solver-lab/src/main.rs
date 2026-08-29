@@ -25,7 +25,7 @@ const FORWARD_PUMP: Pump = Pump {
     balance: 1.0,
 };
 
-static FIBRE: Fibre = Fibre {
+static FIBRE: Fibre<TwoLevelDopant, PiShift> = Fibre {
     geometry: FibreGeometry {
         core_radius: 4e-6,
         numerical_aperture: 0.1,
@@ -35,6 +35,7 @@ static FIBRE: Fibre = Fibre {
         density: 1.0,
         lifetime: 1.0,
     },
+    grating: GRATING,
 };
 const PUMP_MODE: FieldMode = FieldMode::new(970e-9);
 const SGNL_MODE: FieldMode = FieldMode::new(1060e-9);
@@ -50,14 +51,13 @@ const GRATING: PiShift = PiShift {
     pi_shift_position: 0.45,
 };
 
-fn resolved_fibre() -> ResolvedFibre<'static> {
+fn resolved_fibre() -> ResolvedFibre<'static, TwoLevelDopant, PiShift> {
     FIBRE.resolve_with_interactions(PUMP_MODE, PUMP_INTERACTION, SGNL_MODE, SGNL_INTERACTION)
 }
 
 fn dfb_laser() -> DfbLaser<'static> {
     DfbLaser {
         fibre: resolved_fibre(),
-        grating: GRATING,
     }
 }
 

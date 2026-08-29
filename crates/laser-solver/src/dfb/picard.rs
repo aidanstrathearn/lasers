@@ -1,7 +1,7 @@
 use super::{DfbLaser, DfbSolveConfig};
 use crate::dopant::DopantModel;
 use crate::error::SolverError;
-use crate::grating::sample_grating;
+use crate::grating::{GratingModel, sample_grating};
 use crate::lase::{
     BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump, ResolvedFibre, UniformGrid,
     profile_convergence_error,
@@ -9,10 +9,10 @@ use crate::lase::{
 use crate::maths::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::maths::rootfind::try_rootfind_1d;
 
-pub fn find_pump_b<D: DopantModel>(
+pub fn find_pump_b<D: DopantModel, G: GratingModel>(
     pump_backward: f64,
     profile: &[FieldState],
-    fp: &ResolvedFibre<'_, D>,
+    fp: &ResolvedFibre<'_, D, G>,
     dz: f64,
 ) -> f64 {
     let expg: f64 = profile[..profile.len() - 1]
@@ -45,11 +45,11 @@ pub fn find_pump_b<D: DopantModel>(
 // here we are returning a borrowed slice of the input borrowed PicardSolver
 // but we also pass a borrowed slice of kappas, so must annotate
 // to show that &[FieldState] comes from &mut PicardSolver
-pub fn solve_profile_picard<'a, D: DopantModel>(
+pub fn solve_profile_picard<'a, D: DopantModel, G: GratingModel>(
     solver: &'a mut PicardSolver<FieldState>,
     sgnl_b: f64,
     pump: Pump,
-    fp: &ResolvedFibre<'_, D>,
+    fp: &ResolvedFibre<'_, D, G>,
     config: PicardConfig,
     kappas: &[f64],
     dz: f64,
@@ -84,7 +84,7 @@ pub fn solve_profile_picard<'a, D: DopantModel>(
     solver.solve(config.max_iterations, set_boundary, step, error)
 }
 
-impl<D: DopantModel> DfbLaser<'_, D> {
+impl<D: DopantModel, G: GratingModel> DfbLaser<'_, D, G> {
     pub(crate) fn initial_picard_solver(
         &self,
         pump: Pump,
@@ -109,7 +109,7 @@ impl<D: DopantModel> DfbLaser<'_, D> {
         solver: &mut PicardSolver<FieldState>,
     ) -> Result<FieldProfile, SolverError> {
         let grid = UniformGrid::new(self.fibre.length(), config.steps);
-        let kappas = sample_grating(&self.grating, grid.steps());
+        let kappas = sample_grating(self.fibre.grating(), grid.steps());
         let dz = grid.dz();
         let f = |sgnl_b| -> Result<f64, SolverError> {
             let fields = solve_profile_picard(

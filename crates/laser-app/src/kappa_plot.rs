@@ -10,7 +10,7 @@ impl DfbMode {
             let grid = UniformGrid::new(self.fibre.geometry.length, self.steps);
             (
                 grid.positions().collect::<Vec<_>>(),
-                sample_grating(&self.grating, grid.steps()),
+                sample_grating(&self.fibre.grating, grid.steps()),
             )
         });
         self.compute_time = Some(compute_time);

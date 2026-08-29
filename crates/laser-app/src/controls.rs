@@ -1,7 +1,7 @@
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::grating::PiShift;
-use laser_solver::lase::{Fibre, Pump, TwoLevelCrossSections};
+use laser_solver::lase::{Fibre, Pump, TwoLevelCrossSections, TwoLevelDopant};
 use laser_solver::maths::rootfind::BisectionConfig;
 
 pub(crate) fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) -> bool {
@@ -100,8 +100,8 @@ pub(crate) fn pump_slider_grid(pump: &mut Pump, ui: &mut Ui) -> bool {
     changed
 }
 
-pub(crate) fn fibre_params_slider_grid(
-    params: &mut Fibre,
+pub(crate) fn fibre_params_slider_grid<G>(
+    params: &mut Fibre<TwoLevelDopant, G>,
     pump_interaction: &mut TwoLevelCrossSections,
     signal_interaction: &mut TwoLevelCrossSections,
     ui: &mut Ui,

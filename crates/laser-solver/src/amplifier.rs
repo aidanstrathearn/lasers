@@ -1,5 +1,6 @@
 use crate::dopant::{DopantModel, TwoLevelDopant};
 use crate::error::SolverError;
+use crate::grating::NoGrating;
 use crate::lase::{
     BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump, ResolvedFibre, Signal,
     UniformGrid, profile_convergence_error,
@@ -16,7 +17,7 @@ pub struct AmplifierSolveConfig {
 }
 
 pub struct Amplifier<'a, D: DopantModel = TwoLevelDopant> {
-    pub fibre: ResolvedFibre<'a, D>,
+    pub fibre: ResolvedFibre<'a, D, NoGrating>,
 }
 
 impl<D: DopantModel> Amplifier<'_, D> {
@@ -60,7 +61,7 @@ where
 }
 
 pub fn solve_shooting<D: DopantModel>(
-    fibre: &ResolvedFibre<'_, D>,
+    fibre: &ResolvedFibre<'_, D, NoGrating>,
     forward_signal: f64,
     pump: Pump,
     config: AmplifierSolveConfig,
@@ -113,7 +114,7 @@ pub fn find_b_fields<D: DopantModel>(
     signal_b_right: f64,
     pump_b_right: f64,
     profile: &[FieldState],
-    fp: &ResolvedFibre<'_, D>,
+    fp: &ResolvedFibre<'_, D, NoGrating>,
     dz: f64,
 ) -> (f64, f64) {
     let (pump_od, signal_od): (f64, f64) =
@@ -135,7 +136,7 @@ pub fn solve_amp_profile_picard<'a, D: DopantModel>(
     solver: &'a mut PicardSolver<FieldState>,
     signal: Signal,
     pump: Pump,
-    fp: &ResolvedFibre<'_, D>,
+    fp: &ResolvedFibre<'_, D, NoGrating>,
     config: PicardConfig,
     dz: f64,
 ) -> Result<&'a [FieldState], PicardError> {
@@ -174,7 +175,7 @@ pub fn solve_amp_profile_picard<'a, D: DopantModel>(
 }
 
 pub fn solve_amp_picard<D: DopantModel>(
-    fibre: &ResolvedFibre<'_, D>,
+    fibre: &ResolvedFibre<'_, D, NoGrating>,
     signal: Signal,
     pump: Pump,
     config: AmplifierSolveConfig,

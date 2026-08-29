@@ -1,5 +1,6 @@
 use crate::dopant::{DopantError, DopantModel, TwoLevelDopant};
 use crate::fibre::{BidirectionalAmplitude, Fibre, FieldMode, bidirectional_amplitudes};
+use crate::grating::{GratingModel, NoGrating};
 use crate::maths::utils::relative_diff;
 
 pub type OutputPower = (f64, f64);
@@ -10,12 +11,12 @@ pub struct Gain {
     pub signal: f64,
 }
 
-impl<D: DopantModel> Fibre<D> {
+impl<D: DopantModel, G: GratingModel> Fibre<D, G> {
     pub fn resolve(
         &self,
         pump_mode: FieldMode,
         sgnl_mode: FieldMode,
-    ) -> Result<ResolvedFibre<'_, D>, DopantError> {
+    ) -> Result<ResolvedFibre<'_, D, G>, DopantError> {
         let pump_interaction = self.dopant.interaction(pump_mode.wavelength())?;
         let sgnl_interaction = self.dopant.interaction(sgnl_mode.wavelength())?;
         Ok(
@@ -34,7 +35,7 @@ impl<D: DopantModel> Fibre<D> {
         pump_interaction: D::Interaction,
         sgnl_mode: FieldMode,
         sgnl_interaction: D::Interaction,
-    ) -> ResolvedFibre<'_, D> {
+    ) -> ResolvedFibre<'_, D, G> {
         ResolvedFibre {
             fibre: self,
             pump_mode,
@@ -47,8 +48,12 @@ impl<D: DopantModel> Fibre<D> {
     }
 }
 
-pub struct ResolvedFibre<'a, D: DopantModel = TwoLevelDopant> {
-    fibre: &'a Fibre<D>,
+pub struct ResolvedFibre<
+    'a,
+    D: DopantModel = TwoLevelDopant,
+    G: GratingModel = NoGrating,
+> {
+    fibre: &'a Fibre<D, G>,
     pump_mode: FieldMode,
     sgnl_mode: FieldMode,
     pump_overlap: f64,
@@ -57,7 +62,7 @@ pub struct ResolvedFibre<'a, D: DopantModel = TwoLevelDopant> {
     sgnl_interaction: D::Interaction,
 }
 
-impl<D: DopantModel> ResolvedFibre<'_, D> {
+impl<D: DopantModel, G: GratingModel> ResolvedFibre<'_, D, G> {
     pub fn length(&self) -> f64 {
         self.fibre.geometry.length
     }
@@ -76,6 +81,10 @@ impl<D: DopantModel> ResolvedFibre<'_, D> {
 
     pub fn sgnl_overlap(&self) -> f64 {
         self.sgnl_overlap
+    }
+
+    pub fn grating(&self) -> &G {
+        &self.fibre.grating
     }
 
     pub fn mode_fluxes(&self, fs: FieldState) -> (f64, f64) {
@@ -116,9 +125,10 @@ impl<D: DopantModel> ResolvedFibre<'_, D> {
     }
 }
 
-impl<D> Clone for ResolvedFibre<'_, D>
+impl<D, G> Clone for ResolvedFibre<'_, D, G>
 where
     D: DopantModel,
+    G: GratingModel,
     D::Interaction: Clone,
 {
     fn clone(&self) -> Self {

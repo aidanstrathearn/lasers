@@ -4,7 +4,7 @@ use eframe::egui;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig};
 use laser_solver::error::SolverError;
 use laser_solver::grating::PiShift;
-use laser_solver::lase::{Fibre, FieldMode, Pump, TwoLevelCrossSections};
+use laser_solver::lase::{Fibre, FieldMode, Pump, TwoLevelCrossSections, TwoLevelDopant};
 use laser_solver::maths::rootfind::{BisectionConfig, Newton1dConfig};
 use laser_solver::maths::utils::IterationConfig;
 use std::sync::mpsc;
@@ -31,13 +31,12 @@ impl DfbMode {
 #[allow(dead_code)]
 pub struct ProfilePlot {
     pump: Pump,
-    fibre_params: Fibre,
+    fibre_params: Fibre<TwoLevelDopant, PiShift>,
     pump_mode: FieldMode,
     sgnl_mode: FieldMode,
     pump_interaction: TwoLevelCrossSections,
     signal_interaction: TwoLevelCrossSections,
     steps: usize,
-    grating: PiShift,
     pending: Option<Receiver<[Points; 4]>>,
     result: Option<[Points; 4]>,
 }
@@ -52,7 +51,6 @@ impl Default for ProfilePlot {
             pump_interaction: TwoLevelCrossSections::new(0.01, 0.0),
             signal_interaction: TwoLevelCrossSections::new(0.0, 1.0),
             steps: 100,
-            grating: PiShift::default(),
             pending: None,
             result: None,
         }
@@ -76,7 +74,6 @@ impl ProfilePlot {
         let pump_interaction = self.pump_interaction;
         let signal_interaction = self.signal_interaction;
         let steps = self.steps;
-        let grating = self.grating;
         let compute_fn = move || {
             let fibre = fibre_params.resolve_with_interactions(
                 pump_mode,
@@ -84,7 +81,7 @@ impl ProfilePlot {
                 sgnl_mode,
                 signal_interaction,
             );
-            let laser = DfbLaser { fibre, grating };
+            let laser = DfbLaser { fibre };
             let result = laser.solve_shooting(
                 pump,
                 DfbSolveConfig {

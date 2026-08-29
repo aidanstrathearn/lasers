@@ -23,15 +23,21 @@ impl DfbMode {
         for pi_position in pi_positions {
             let grating = PiShift {
                 pi_shift_position: pi_position,
-                ..self.grating
+                ..self.fibre.grating
             };
 
             let (profile, elapsed) = timed(|| {
-                DfbLaser {
+                let fibre = laser_solver::lase::Fibre {
                     grating,
-                    ..self.dfb_laser()
-                }
-                .solve(self.pump, self.dfb_solve_config(bc), false)
+                    ..self.fibre.clone()
+                };
+                let fibre = fibre.resolve_with_interactions(
+                    self.pump_mode,
+                    self.pump_interaction,
+                    self.sgnl_mode,
+                    self.signal_interaction,
+                );
+                DfbLaser { fibre }.solve(self.pump, self.dfb_solve_config(bc), false)
             });
             compute_time += elapsed;
 
@@ -46,7 +52,7 @@ impl DfbMode {
         let mut plot = Plotter::new();
         plot.add_points(forward_output).label("Forward");
         plot.add_points(backward_output).label("Backward");
-        plot.axvline(self.grating.pi_shift_position)
+        plot.axvline(self.fibre.grating.pi_shift_position)
             .label("Current position");
         plot.xlabel("Pi shift position");
         plot.ylabel("Output power");
