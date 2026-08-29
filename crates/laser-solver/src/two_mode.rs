@@ -69,7 +69,7 @@ pub struct ResolvedFibre<
     pump_interaction: D::Interaction,
     sgnl_interaction: D::Interaction,
     grid: UniformGrid,
-    kappas: Box<[f64]>,
+    kappas: Box<[f64]>, // Vec<f64> would also work but Box<[f64]> enforces unalterable grid length
 }
 
 impl<D: DopantModel, G: GratingModel> ResolvedFibre<'_, D, G> {
