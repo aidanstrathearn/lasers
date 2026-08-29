@@ -1,10 +1,7 @@
 use super::{DfbLaser, DfbSolveConfig};
 use crate::dopant::DopantModel;
 use crate::error::SolverError;
-use crate::lase::{
-    BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump, ResolvedFibre,
-    profile_convergence_error,
-};
+use crate::lase::{profile_convergence_error, BidirectionalAmplitude, FieldProfile, FieldState, GridPoints, OutputPower, Pump, ResolvedFibre};
 use crate::maths::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::maths::rootfind::try_rootfind_1d;
 
@@ -84,6 +81,22 @@ pub fn solve_profile_picard<'a, D: DopantModel>(
 }
 
 impl<D: DopantModel> DfbLaser<'_, D> {
+    pub(crate) fn initial_picard_solver(
+        &self,
+        pump: Pump,
+        grid_points: GridPoints,
+    ) -> PicardSolver<FieldState> {
+        let (pump_forward, pump_backward) = pump.amplitudes();
+        let initial = FieldState {
+            signal: BidirectionalAmplitude::default(),
+            pump: BidirectionalAmplitude {
+                forward: pump_forward,
+                backward: pump_backward,
+            },
+        };
+        PicardSolver::filled(grid_points.0 + 1, initial)
+    }
+    
     fn solve_with_picard_solver(
         &self,
         pump: Pump,

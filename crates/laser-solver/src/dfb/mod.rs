@@ -24,22 +24,6 @@ pub struct DfbLaser<'a, D: DopantModel = TwoLevelDopant> {
 }
 
 impl<D: DopantModel> DfbLaser<'_, D> {
-    fn initial_picard_solver(
-        &self,
-        pump: Pump,
-        grid_points: GridPoints,
-    ) -> PicardSolver<FieldState> {
-        let (pump_forward, pump_backward) = pump.amplitudes();
-        let initial = FieldState {
-            signal: BidirectionalAmplitude::default(),
-            pump: BidirectionalAmplitude {
-                forward: pump_forward,
-                backward: pump_backward,
-            },
-        };
-        PicardSolver::filled(grid_points.0 + 1, initial)
-    }
-
     pub fn solve(
         &self,
         pump: Pump,
