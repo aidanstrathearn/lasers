@@ -1,6 +1,7 @@
 use crate::dopant::{DopantError, DopantModel, TwoLevelDopant};
 use crate::fibre::{BidirectionalAmplitude, Fibre, FieldMode, bidirectional_amplitudes};
-use crate::grating::{GratingModel, NoGrating};
+use crate::grating::{GratingModel, NoGrating, sample_grating};
+use crate::lase::UniformGrid;
 use crate::maths::utils::relative_diff;
 
 pub type OutputPower = (f64, f64);
@@ -16,6 +17,7 @@ impl<D: DopantModel, G: GratingModel> Fibre<D, G> {
         &self,
         pump_mode: FieldMode,
         sgnl_mode: FieldMode,
+        steps: usize,
     ) -> Result<ResolvedFibre<'_, D, G>, DopantError> {
         let pump_interaction = self.dopant.interaction(pump_mode.wavelength())?;
         let sgnl_interaction = self.dopant.interaction(sgnl_mode.wavelength())?;
@@ -25,6 +27,7 @@ impl<D: DopantModel, G: GratingModel> Fibre<D, G> {
                 pump_interaction,
                 sgnl_mode,
                 sgnl_interaction,
+                steps,
             ),
         )
     }
@@ -35,7 +38,10 @@ impl<D: DopantModel, G: GratingModel> Fibre<D, G> {
         pump_interaction: D::Interaction,
         sgnl_mode: FieldMode,
         sgnl_interaction: D::Interaction,
+        steps: usize,
     ) -> ResolvedFibre<'_, D, G> {
+        let grid = UniformGrid::new(self.geometry.length, steps);
+        let kappas = sample_grating(&self.grating, grid.steps()).into_boxed_slice();
         ResolvedFibre {
             fibre: self,
             pump_mode,
@@ -44,6 +50,8 @@ impl<D: DopantModel, G: GratingModel> Fibre<D, G> {
             sgnl_overlap: self.geometry.mode_overlap(sgnl_mode),
             pump_interaction,
             sgnl_interaction,
+            grid,
+            kappas,
         }
     }
 }
@@ -60,6 +68,8 @@ pub struct ResolvedFibre<
     sgnl_overlap: f64,
     pump_interaction: D::Interaction,
     sgnl_interaction: D::Interaction,
+    grid: UniformGrid,
+    kappas: Box<[f64]>,
 }
 
 impl<D: DopantModel, G: GratingModel> ResolvedFibre<'_, D, G> {
@@ -85,6 +95,14 @@ impl<D: DopantModel, G: GratingModel> ResolvedFibre<'_, D, G> {
 
     pub fn grating(&self) -> &G {
         &self.fibre.grating
+    }
+
+    pub fn grid(&self) -> UniformGrid {
+        self.grid
+    }
+
+    pub fn kappas(&self) -> &[f64] {
+        &self.kappas
     }
 
     pub fn mode_fluxes(&self, fs: FieldState) -> (f64, f64) {
@@ -140,6 +158,8 @@ where
             sgnl_overlap: self.sgnl_overlap,
             pump_interaction: self.pump_interaction.clone(),
             sgnl_interaction: self.sgnl_interaction.clone(),
+            grid: self.grid,
+            kappas: self.kappas.clone(),
         }
     }
 }
@@ -335,9 +355,68 @@ impl Pump {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dopant::{TwoLevelCrossSections, TwoLevelDopant};
+    use crate::fibre::{Fibre, FibreGeometry, FieldMode};
+    use crate::grating::{NoGrating, PiShift, sample_grating};
 
     const CONVERGENCE_RELATIVE_TOLERANCE: f64 = 1e-6;
     const CONVERGENCE_ABSOLUTE_TOLERANCE: f64 = 1e-10;
+
+    fn test_fibre<G: GratingModel>(grating: G) -> Fibre<TwoLevelDopant, G> {
+        Fibre {
+            geometry: FibreGeometry {
+                core_radius: 4e-6,
+                numerical_aperture: 0.1,
+                length: 10.0,
+            },
+            dopant: TwoLevelDopant {
+                density: 1.0,
+                lifetime: 1.0,
+            },
+            grating,
+        }
+    }
+
+    #[test]
+    fn resolved_no_grating_caches_fixed_zero_profile() {
+        let fibre = test_fibre(NoGrating);
+        let resolved = fibre.resolve_with_interactions(
+            FieldMode::new(970e-9),
+            TwoLevelCrossSections::new(1.0, 0.0),
+            FieldMode::new(1060e-9),
+            TwoLevelCrossSections::new(0.0, 1.0),
+            4,
+        );
+
+        assert_eq!(resolved.grid().steps(), 4);
+        assert_eq!(resolved.grid().points(), 5);
+        assert_eq!(resolved.grid().position(4), fibre.geometry.length);
+        assert_eq!(resolved.kappas(), &[0.0; 4]);
+
+        let cloned = resolved.clone();
+        assert_eq!(cloned.grid(), resolved.grid());
+        assert_eq!(cloned.kappas(), resolved.kappas());
+    }
+
+    #[test]
+    fn resolved_pi_shift_caches_left_edge_samples() {
+        let grating = PiShift {
+            kappa_left: 2.0,
+            kappa_right: 3.0,
+            pi_shift_position: 0.5,
+        };
+        let fibre = test_fibre(grating);
+        let resolved = fibre.resolve_with_interactions(
+            FieldMode::new(970e-9),
+            TwoLevelCrossSections::new(1.0, 0.0),
+            FieldMode::new(1060e-9),
+            TwoLevelCrossSections::new(0.0, 1.0),
+            4,
+        );
+
+        assert_eq!(resolved.kappas().len(), resolved.grid().steps());
+        assert_eq!(resolved.kappas(), sample_grating(&grating, 4));
+    }
 
     fn convergence_error(current: &[FieldState], previous: &[FieldState]) -> f64 {
         profile_convergence_error(

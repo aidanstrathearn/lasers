@@ -142,6 +142,7 @@ impl DfbMode {
             self.pump_interaction,
             self.sgnl_mode,
             self.signal_interaction,
+            self.steps,
         )
     }
 
@@ -153,7 +154,6 @@ impl DfbMode {
 
     pub(crate) fn dfb_solve_config(&self, root_find: impl Into<RootFindConfig>) -> DfbSolveConfig {
         DfbSolveConfig {
-            steps: self.steps,
             root_find: root_find.into(),
             picard: self.picard_config,
         }

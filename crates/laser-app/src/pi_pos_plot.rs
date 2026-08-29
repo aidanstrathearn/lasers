@@ -36,6 +36,7 @@ impl DfbMode {
                     self.pump_interaction,
                     self.sgnl_mode,
                     self.signal_interaction,
+                    self.steps,
                 );
                 DfbLaser { fibre }.solve(self.pump, self.dfb_solve_config(bc), false)
             });

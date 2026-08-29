@@ -1,10 +1,10 @@
 use laser_solver::amplifier::{AmplifierSolveConfig, solve_amp_picard, solve_shooting};
 use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig};
-use laser_solver::grating::{NoGrating, PiShift, sample_grating};
+use laser_solver::grating::{NoGrating, PiShift};
 use laser_solver::lase::{
     BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, Pump,
-    ResolvedFibre, Signal, TwoLevelCrossSections, TwoLevelDopant, UniformGrid, profile_max_diff,
+    ResolvedFibre, Signal, TwoLevelCrossSections, TwoLevelDopant, profile_max_diff,
 };
 use laser_solver::maths::picard::{PicardConfig, PicardSolver};
 use laser_solver::maths::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
@@ -78,7 +78,13 @@ static SYMMETRIC_DFB_FIBRE: Fibre<TwoLevelDopant, PiShift> = Fibre {
 };
 
 fn resolved_fibre() -> ResolvedFibre<'static> {
-    FIBRE.resolve_with_interactions(PUMP_MODE, PUMP_INTERACTION, SGNL_MODE, SGNL_INTERACTION)
+    FIBRE.resolve_with_interactions(
+        PUMP_MODE,
+        PUMP_INTERACTION,
+        SGNL_MODE,
+        SGNL_INTERACTION,
+        STEPS,
+    )
 }
 
 fn dfb_laser() -> DfbLaser<'static> {
@@ -88,6 +94,7 @@ fn dfb_laser() -> DfbLaser<'static> {
             PUMP_INTERACTION,
             SGNL_MODE,
             SGNL_INTERACTION,
+            STEPS,
         ),
     }
 }
@@ -99,6 +106,7 @@ fn symmetric_dfb_laser() -> DfbLaser<'static> {
             PUMP_INTERACTION,
             SGNL_MODE,
             SGNL_INTERACTION,
+            SYMMETRY_STEPS,
         ),
     }
 }
@@ -136,13 +144,11 @@ const BISECTION: BisectionConfig = BisectionConfig {
 };
 
 const NEWTON_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
-    steps: STEPS,
     root_find: RootFindConfig::Newton1d(NEWTON),
     picard: PICARD,
 };
 
 const BISECTION_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
-    steps: STEPS,
     root_find: RootFindConfig::Bisection(BISECTION),
     picard: PICARD,
 };
@@ -164,7 +170,6 @@ fn shooting_and_picard_amplifier_profiles_agree() {
         balance: 0.0,
     };
     let config = AmplifierSolveConfig {
-        steps: STEPS,
         root_find: RootFindConfig::Bisection(BISECTION),
         picard: SYMMETRY_PICARD,
     };
@@ -187,9 +192,10 @@ fn shooting_and_picard_amplifier_profiles_agree() {
 fn direct_and_buffered_picard_profile_solvers_agree() {
     let pump = FORWARD_PUMP;
     let sgnl_b = 1.0;
-    let fibre = resolved_fibre();
-    let grid = UniformGrid::new(fibre.length(), STEPS);
-    let kappas = sample_grating(&GRATING, grid.steps());
+    let laser = dfb_laser();
+    let fibre = &laser.fibre;
+    let grid = fibre.grid();
+    let kappas = fibre.kappas();
     let boundary = FieldState {
         signal: BidirectionalAmplitude {
             forward: 0.0,
@@ -206,7 +212,7 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
             boundary,
             |fields| fibre.gain(fields),
             grid.dz(),
-            &kappas,
+            kappas,
         ),
     );
     let mut picard_solver = PicardSolver::filled(grid.points(), boundary);
@@ -214,9 +220,9 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
         &mut picard_solver,
         sgnl_b,
         pump,
-        &fibre,
+        fibre,
         PICARD,
-        &kappas,
+        kappas,
         grid.dz(),
     )
     .expect("buffered Picard profile solve failed")
@@ -307,7 +313,6 @@ fn backward_pumped_picard_is_reverse_of_forward_pumped_shooting() {
         .solve_shooting(
             shooting_pump,
             DfbSolveConfig {
-                steps: SYMMETRY_STEPS,
                 root_find: RootFindConfig::Bisection(BISECTION),
                 picard: SYMMETRY_PICARD,
             },
@@ -318,7 +323,6 @@ fn backward_pumped_picard_is_reverse_of_forward_pumped_shooting() {
         .solve_picard(
             picard_pump,
             DfbSolveConfig {
-                steps: SYMMETRY_STEPS,
                 root_find: RootFindConfig::Bisection(BISECTION),
                 picard: SYMMETRY_PICARD,
             },

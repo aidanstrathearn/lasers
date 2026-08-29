@@ -3,7 +3,7 @@ use crate::error::SolverError;
 use crate::grating::NoGrating;
 use crate::lase::{
     BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump, ResolvedFibre, Signal,
-    UniformGrid, profile_convergence_error,
+    profile_convergence_error,
 };
 use crate::maths::picard::{PicardConfig, PicardError, PicardSolver};
 use crate::maths::rootfind::{RootFindConfig, rootfind_1d};
@@ -11,7 +11,6 @@ use crate::propagation::{out_field_uncoupled, solve_profile_uncoupled};
 
 #[derive(Copy, Clone)]
 pub struct AmplifierSolveConfig {
-    pub steps: usize,
     pub root_find: RootFindConfig,
     pub picard: PicardConfig,
 }
@@ -67,7 +66,7 @@ pub fn solve_shooting<D: DopantModel>(
     config: AmplifierSolveConfig,
     full_profile: bool,
 ) -> Result<FieldProfile, SolverError> {
-    let grid = UniformGrid::new(fibre.length(), config.steps);
+    let grid = fibre.grid();
     let nsteps = grid.steps();
     let dz = grid.dz();
     let (pump_forward, pump_backward) = pump.amplitudes();
@@ -181,7 +180,7 @@ pub fn solve_amp_picard<D: DopantModel>(
     config: AmplifierSolveConfig,
     full_profile: bool,
 ) -> Result<FieldProfile, SolverError> {
-    let grid = UniformGrid::new(fibre.length(), config.steps);
+    let grid = fibre.grid();
     let dz = grid.dz();
     let (signal_forward, signal_backward) = signal.amplitudes();
     let (pump_forward, pump_backward) = pump.amplitudes();
@@ -231,6 +230,7 @@ mod tests {
             crate::lase::TwoLevelCrossSections::new(1.0, 0.0),
             crate::lase::FieldMode::new(1060e-9),
             crate::lase::TwoLevelCrossSections::new(0.0, 1.0),
+            10,
         );
         let signal = Signal {
             total: 2.0,
@@ -241,7 +241,6 @@ mod tests {
             balance: 0.0,
         };
         let config = AmplifierSolveConfig {
-            steps: 10,
             root_find: BisectionConfig::default().into(),
             picard: PicardConfig::default(),
         };

@@ -43,7 +43,13 @@ const GRATING: PiShift = PiShift {
 };
 
 fn resolved_fibre() -> ResolvedFibre<'static, TwoLevelDopant, PiShift> {
-    FIBRE.resolve_with_interactions(PUMP_MODE, PUMP_INTERACTION, SGNL_MODE, SGNL_INTERACTION)
+    FIBRE.resolve_with_interactions(
+        PUMP_MODE,
+        PUMP_INTERACTION,
+        SGNL_MODE,
+        SGNL_INTERACTION,
+        STEPS,
+    )
 }
 
 fn dfb_laser() -> DfbLaser<'static> {
@@ -70,7 +76,6 @@ const NEWTON: Newton1dConfig = Newton1dConfig {
 };
 
 const NEWTON_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
-    steps: STEPS,
     root_find: RootFindConfig::Newton1d(NEWTON),
     picard: PICARD,
 };
@@ -115,7 +120,6 @@ fn benchmark_bisection_midpoints(c: &mut Criterion) {
                         .solve_shooting(
                             FORWARD_PUMP,
                             DfbSolveConfig {
-                                steps: STEPS,
                                 root_find: RootFindConfig::Bisection(config),
                                 picard: PICARD,
                             },

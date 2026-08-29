@@ -4,10 +4,10 @@ mod plots;
 use crate::plots::plot_profile_diff;
 use laser_solver::dfb::picard::solve_profile_picard;
 use laser_solver::dfb::{DfbLaser, DfbSolveConfig};
-use laser_solver::grating::{PiShift, sample_grating};
+use laser_solver::grating::PiShift;
 use laser_solver::lase::{
     BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, Pump,
-    ResolvedFibre, TwoLevelCrossSections, TwoLevelDopant, UniformGrid, profile_max_diff,
+    ResolvedFibre, TwoLevelCrossSections, TwoLevelDopant, profile_max_diff,
 };
 use laser_solver::maths::picard::{PicardConfig, PicardSolver};
 use laser_solver::maths::rootfind::{
@@ -52,7 +52,13 @@ const GRATING: PiShift = PiShift {
 };
 
 fn resolved_fibre() -> ResolvedFibre<'static, TwoLevelDopant, PiShift> {
-    FIBRE.resolve_with_interactions(PUMP_MODE, PUMP_INTERACTION, SGNL_MODE, SGNL_INTERACTION)
+    FIBRE.resolve_with_interactions(
+        PUMP_MODE,
+        PUMP_INTERACTION,
+        SGNL_MODE,
+        SGNL_INTERACTION,
+        STEPS,
+    )
 }
 
 fn dfb_laser() -> DfbLaser<'static> {
@@ -86,13 +92,11 @@ const NEWTON: Newton1dConfig = Newton1dConfig {
 };
 
 const NEWTON_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
-    steps: STEPS,
     root_find: RootFindConfig::Newton1d(NEWTON),
     picard: PICARD,
 };
 
 const BISECTION_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
-    steps: STEPS,
     root_find: RootFindConfig::Bisection(BISECTION),
     picard: PICARD,
 };
@@ -112,8 +116,8 @@ fn main() -> eframe::Result {
 }
 fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
     let fibre = resolved_fibre();
-    let grid = UniformGrid::new(fibre.length(), STEPS);
-    let kappas = sample_grating(&GRATING, grid.steps());
+    let grid = fibre.grid();
+    let kappas = fibre.kappas();
     let dz = grid.dz();
     let trial = |sgnl_b| FieldState {
         signal: BidirectionalAmplitude {
@@ -126,7 +130,7 @@ fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
         },
     };
     let f = |sgnl_b| {
-        out_field_coupled(trial(sgnl_b), |fields| fibre.gain(fields), dz, &kappas)
+        out_field_coupled(trial(sgnl_b), |fields| fibre.gain(fields), dz, kappas)
             .signal
             .backward
             / sgnl_b
@@ -257,9 +261,10 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
         return Ok(());
     }
 
-    let grid = UniformGrid::new(FIBRE.geometry.length, STEPS);
-    let z = grid.positions().collect::<Vec<_>>();
-    let kappas = sample_grating(&GRATING, grid.points());
+    let fibre = resolved_fibre();
+    let grid = fibre.grid();
+    let z = grid.positions().take(grid.steps()).collect::<Vec<_>>();
+    let kappas = fibre.kappas();
     let mut plot = Plotter::new();
     plot.plot(&z, &kappas);
     plot.xlabel("z");
@@ -271,8 +276,9 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
 fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
     let comparison_pump = FORWARD_PUMP;
     let comparison_sgnl_b = 1.0;
-    let grid = UniformGrid::new(FIBRE.geometry.length, STEPS);
-    let comparison_kappas = sample_grating(&GRATING, grid.steps());
+    let fibre = resolved_fibre();
+    let grid = fibre.grid();
+    let comparison_kappas = fibre.kappas();
     let comparison_boundary = FieldState {
         signal: BidirectionalAmplitude {
             forward: 0.0,
@@ -283,15 +289,13 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
             backward: 0.0,
         },
     };
-    let fibre = resolved_fibre();
-
     let direct_profile = FieldProfile::new(
         grid.positions().collect(),
         solve_profile_coupled(
             comparison_boundary,
             |fields| fibre.gain(fields),
             grid.dz(),
-            &comparison_kappas,
+            comparison_kappas,
         ),
     );
 
@@ -302,7 +306,7 @@ fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
         comparison_pump,
         &fibre,
         PICARD,
-        &comparison_kappas,
+        comparison_kappas,
         grid.dz(),
     )
     .expect("Picard profile comparison did not converge")

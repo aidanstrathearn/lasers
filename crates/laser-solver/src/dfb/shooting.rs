@@ -1,9 +1,9 @@
 use super::{DfbLaser, DfbSolveConfig};
 use crate::dopant::DopantModel;
 use crate::error::SolverError;
-use crate::grating::{GratingModel, sample_grating};
+use crate::grating::GratingModel;
 use crate::lase::{
-    BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump, UniformGrid,
+    BidirectionalAmplitude, FieldProfile, FieldState, OutputPower, Pump,
 };
 use crate::maths::rootfind::rootfind_1d;
 use crate::propagation::{out_field_coupled, solve_profile_coupled};
@@ -20,8 +20,8 @@ impl<D: DopantModel, G: GratingModel> DfbLaser<'_, D, G> {
             pump_backward, 0.0,
             "shooting solver requires a forward-only pump"
         );
-        let grid = UniformGrid::new(self.fibre.length(), config.steps);
-        let kappas = sample_grating(self.fibre.grating(), grid.steps());
+        let grid = self.fibre.grid();
+        let kappas = self.fibre.kappas();
         let dz = grid.dz();
         let trial = |sgnl_b| FieldState {
             signal: BidirectionalAmplitude {
@@ -34,7 +34,7 @@ impl<D: DopantModel, G: GratingModel> DfbLaser<'_, D, G> {
             },
         };
         let f = |sgnl_b| {
-            out_field_coupled(trial(sgnl_b), |fields| self.fibre.gain(fields), dz, &kappas)
+            out_field_coupled(trial(sgnl_b), |fields| self.fibre.gain(fields), dz, kappas)
                 .signal
                 .backward
                 / sgnl_b
@@ -44,14 +44,14 @@ impl<D: DopantModel, G: GratingModel> DfbLaser<'_, D, G> {
         if full_profile {
             let z = grid.positions().collect();
             let fields =
-                solve_profile_coupled(trial(sgnl_b), |fields| self.fibre.gain(fields), dz, &kappas);
+                solve_profile_coupled(trial(sgnl_b), |fields| self.fibre.gain(fields), dz, kappas);
             Ok(FieldProfile::new(z, fields))
         } else {
             let z = vec![0.0_f64, self.fibre.length()];
             let out_left = trial(sgnl_b);
             let fields = vec![
                 out_left,
-                out_field_coupled(out_left, |fields| self.fibre.gain(fields), dz, &kappas),
+                out_field_coupled(out_left, |fields| self.fibre.gain(fields), dz, kappas),
             ];
             Ok(FieldProfile::new(z, fields))
         }

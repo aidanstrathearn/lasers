@@ -135,6 +135,7 @@ impl AmplifierMode {
                 self.pump_interaction,
                 self.sgnl_mode,
                 self.signal_interaction,
+                self.steps,
             ),
         }
     }
@@ -144,7 +145,6 @@ impl AmplifierMode {
         root_find: impl Into<RootFindConfig>,
     ) -> AmplifierSolveConfig {
         AmplifierSolveConfig {
-            steps: self.steps,
             root_find: root_find.into(),
             picard: PicardConfig {
                 max_iterations: 2000,

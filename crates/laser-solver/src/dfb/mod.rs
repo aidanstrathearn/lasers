@@ -14,7 +14,6 @@ use crate::maths::utils::IterationConfig;
 
 #[derive(Copy, Clone)]
 pub struct DfbSolveConfig {
-    pub steps: usize,
     pub root_find: RootFindConfig,
     pub picard: PicardConfig,
 }
@@ -52,7 +51,7 @@ impl<D: DopantModel, G: GratingModel> DfbLaser<'_, D, G> {
         pump_start.amplitudes();
         let use_picard = pump_start.balance != 1.0;
         if use_picard {
-            let mut solver = self.initial_picard_solver(pump_start, solve_config.steps);
+            let mut solver = self.initial_picard_solver(pump_start);
             let f = |total| {
                 self.output_power_picard(
                     Pump {
@@ -90,13 +89,10 @@ impl<D: DopantModel, G: GratingModel> DfbLaser<'_, D, G> {
 
         let use_picard = balance != 1.0;
         if use_picard {
-            let mut solver = self.initial_picard_solver(
-                Pump {
-                    total: pump_start,
-                    balance,
-                },
-                solve_config.steps,
-            );
+            let mut solver = self.initial_picard_solver(Pump {
+                total: pump_start,
+                balance,
+            });
             scan_pump_totals(pump_totals, |total| {
                 self.output_power_picard(Pump { total, balance }, solve_config, &mut solver)
             })

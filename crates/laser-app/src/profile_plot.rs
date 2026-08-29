@@ -80,12 +80,12 @@ impl ProfilePlot {
                 pump_interaction,
                 sgnl_mode,
                 signal_interaction,
+                steps,
             );
             let laser = DfbLaser { fibre };
             let result = laser.solve_shooting(
                 pump,
                 DfbSolveConfig {
-                    steps,
                     root_find: nc.into(),
                     picard: Default::default(),
                 },
