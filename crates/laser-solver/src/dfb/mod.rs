@@ -3,10 +3,10 @@ mod shooting;
 
 use crate::dopant::{DopantModel, TwoLevelDopant};
 use crate::error::SolverError;
-use crate::grating::{GratingModel, PiShift};
+use crate::grating::{GratingModel, PiShift, sample_grating};
 use crate::lase::{
-    FieldProfile, Pump, PumpScan, ResolvedFibre, find_threshold_and_slope as scan_for_threshold,
-    pump_scan as scan_pump_totals,
+    FieldProfile, Pump, PumpScan, ResolvedFibre, UniformGrid,
+    find_threshold_and_slope as scan_for_threshold, pump_scan as scan_pump_totals,
 };
 use crate::maths::picard::PicardConfig;
 use crate::maths::rootfind::RootFindConfig;
@@ -24,9 +24,29 @@ pub struct DfbLaser<
     G: GratingModel = PiShift,
 > {
     pub fibre: ResolvedFibre<'a, D, G>,
+    grid: UniformGrid,
+    kappas: Box<[f64]>,
 }
 
-impl<D: DopantModel, G: GratingModel> DfbLaser<'_, D, G> {
+impl<'a, D: DopantModel, G: GratingModel> DfbLaser<'a, D, G> {
+    pub fn new(fibre: ResolvedFibre<'a, D, G>, steps: usize) -> Self {
+        let grid = UniformGrid::new(fibre.length(), steps);
+        let kappas = sample_grating(fibre.grating(), grid.steps()).into_boxed_slice();
+        DfbLaser {
+            fibre,
+            grid,
+            kappas,
+        }
+    }
+
+    pub fn grid(&self) -> UniformGrid {
+        self.grid
+    }
+
+    pub fn kappas(&self) -> &[f64] {
+        &self.kappas
+    }
+
     pub fn solve(
         &self,
         pump: Pump,

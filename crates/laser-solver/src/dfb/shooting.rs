@@ -22,8 +22,8 @@ impl<D: DopantModel, G: GratingModel> DfbLaser<'_, D, G> {
             pump_backward, 0.0,
             "shooting solver requires a forward-only pump"
         );
-        let grid = self.fibre.grid();
-        let kappas = self.fibre.kappas();
+        let grid = self.grid();
+        let kappas = self.kappas();
         let dz = grid.dz();
         let trial = |sgnl_b| FieldState {
             signal: BidirectionalAmplitude {

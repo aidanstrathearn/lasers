@@ -32,9 +32,10 @@ impl DfbMode {
             self.residual_range.num,
         );
 
-        let fibre = self.resolved_fibre();
-        let grid = fibre.grid();
-        let kappas = fibre.kappas();
+        let solver = self.dfb_laser();
+        let fibre = &solver.fibre;
+        let grid = solver.grid();
+        let kappas = solver.kappas();
         let dz = grid.dz();
         let trial = |sgnl_b| FieldState {
             signal: BidirectionalAmplitude {

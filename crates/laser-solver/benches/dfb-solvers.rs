@@ -48,14 +48,11 @@ fn resolved_fibre() -> ResolvedFibre<'static, TwoLevelDopant, PiShift> {
         PUMP_INTERACTION,
         SGNL_MODE,
         SGNL_INTERACTION,
-        STEPS,
     )
 }
 
 fn dfb_laser() -> DfbLaser<'static> {
-    DfbLaser {
-        fibre: resolved_fibre(),
-    }
+    DfbLaser::new(resolved_fibre(), STEPS)
 }
 
 const ITERATION: IterationConfig = IterationConfig {

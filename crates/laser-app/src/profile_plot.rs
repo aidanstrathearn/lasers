@@ -80,9 +80,8 @@ impl ProfilePlot {
                 pump_interaction,
                 sgnl_mode,
                 signal_interaction,
-                steps,
             );
-            let laser = DfbLaser { fibre };
+            let laser = DfbLaser::new(fibre, steps);
             let result = laser.solve_shooting(
                 pump,
                 DfbSolveConfig {

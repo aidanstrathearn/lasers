@@ -57,14 +57,11 @@ fn resolved_fibre() -> ResolvedFibre<'static, TwoLevelDopant, PiShift> {
         PUMP_INTERACTION,
         SGNL_MODE,
         SGNL_INTERACTION,
-        STEPS,
     )
 }
 
 fn dfb_laser() -> DfbLaser<'static> {
-    DfbLaser {
-        fibre: resolved_fibre(),
-    }
+    DfbLaser::new(resolved_fibre(), STEPS)
 }
 
 const ITERATION: IterationConfig = IterationConfig {
@@ -115,9 +112,10 @@ fn main() -> eframe::Result {
     Ok(())
 }
 fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
-    let fibre = resolved_fibre();
-    let grid = fibre.grid();
-    let kappas = fibre.kappas();
+    let solver = dfb_laser();
+    let fibre = &solver.fibre;
+    let grid = solver.grid();
+    let kappas = solver.kappas();
     let dz = grid.dz();
     let trial = |sgnl_b| FieldState {
         signal: BidirectionalAmplitude {
@@ -261,10 +259,10 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
         return Ok(());
     }
 
-    let fibre = resolved_fibre();
-    let grid = fibre.grid();
+    let solver = dfb_laser();
+    let grid = solver.grid();
     let z = grid.positions().take(grid.steps()).collect::<Vec<_>>();
-    let kappas = fibre.kappas();
+    let kappas = solver.kappas();
     let mut plot = Plotter::new();
     plot.plot(&z, &kappas);
     plot.xlabel("z");
@@ -276,9 +274,10 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
 fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
     let comparison_pump = FORWARD_PUMP;
     let comparison_sgnl_b = 1.0;
-    let fibre = resolved_fibre();
-    let grid = fibre.grid();
-    let comparison_kappas = fibre.kappas();
+    let solver = dfb_laser();
+    let fibre = &solver.fibre;
+    let grid = solver.grid();
+    let comparison_kappas = solver.kappas();
     let comparison_boundary = FieldState {
         signal: BidirectionalAmplitude {
             forward: 0.0,

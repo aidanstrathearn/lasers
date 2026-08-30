@@ -142,14 +142,11 @@ impl DfbMode {
             self.pump_interaction,
             self.sgnl_mode,
             self.signal_interaction,
-            self.steps,
         )
     }
 
     pub(crate) fn dfb_laser(&self) -> DfbLaser<'_> {
-        DfbLaser {
-            fibre: self.resolved_fibre(),
-        }
+        DfbLaser::new(self.resolved_fibre(), self.steps)
     }
 
     pub(crate) fn dfb_solve_config(&self, root_find: impl Into<RootFindConfig>) -> DfbSolveConfig {

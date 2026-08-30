@@ -1,7 +1,7 @@
 use crate::error::SolverError;
 use crate::fibre::{BidirectionalAmplitude, transfer};
-use crate::grating::GratingModel;
-use crate::lase::{DopantModel, FieldState, profile_convergence_error};
+use crate::grating::{GratingModel, sample_grating};
+use crate::lase::{DopantModel, FieldState, UniformGrid, profile_convergence_error};
 use crate::maths::picard::{PicardConfig, PicardSolver};
 use crate::maths::rootfind::RootFindConfig;
 use crate::two_mode::propagation::solve_profile;
@@ -9,11 +9,27 @@ use crate::two_mode::{FieldProfile, Pump, ResolvedFibre, Signal};
 
 pub struct TwoModeSolver<'a, D: DopantModel, G: GratingModel> {
     fibre: &'a ResolvedFibre<'a, D, G>,
+    grid: UniformGrid,
+    kappas: Box<[f64]>,
 }
 
 impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
-    pub fn new(fibre: &'a ResolvedFibre<'a, D, G>) -> Self {
-        Self { fibre }
+    pub fn new(fibre: &'a ResolvedFibre<'a, D, G>, steps: usize) -> Self {
+        let grid = UniformGrid::new(fibre.length(), steps);
+        let kappas = sample_grating(fibre.grating(), grid.steps()).into_boxed_slice();
+        Self {
+            fibre,
+            grid,
+            kappas,
+        }
+    }
+
+    pub fn grid(&self) -> UniformGrid {
+        self.grid
+    }
+
+    pub fn kappas(&self) -> &[f64] {
+        &self.kappas
     }
 
     pub fn solve_injected(
@@ -25,8 +41,8 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
     ) -> Result<FieldProfile, SolverError> {
         // Reserved for injected solves that require shooting/root-finding.
         let _ = root_find_config;
-        let dz = self.fibre.grid.dz();
-        let kappas = self.fibre.kappas();
+        let dz = self.grid.dz();
+        let kappas = self.kappas();
         let (signal_forward, signal_backward) = signal.amplitudes();
         let (pump_forward, pump_backward) = pump.amplitudes();
         let left_boundary = FieldState {
@@ -46,7 +62,7 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         let solution = if use_shooting {
             solve_profile(left_boundary, |fields| self.fibre.gain(fields), dz, kappas)
         } else {
-            let mut solver = PicardSolver::filled(self.fibre.grid.points(), left_boundary);
+            let mut solver = PicardSolver::filled(self.grid.points(), left_boundary);
             let set_boundary =
                 |current: &[FieldState]| self.injected_left_boundary(pump, signal, current);
             let step = |new_previous: &FieldState, old_current: &FieldState, i| {
@@ -68,7 +84,7 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         };
 
         Ok(FieldProfile::new(
-            self.fibre.grid.positions().collect(),
+            self.grid.positions().collect(),
             solution,
         ))
     }
@@ -87,14 +103,14 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         profile: &[FieldState],
     ) -> FieldState {
         let fibre = self.fibre;
-        let grid = fibre.grid();
+        let grid = self.grid;
         assert_eq!(profile.len(), grid.points());
 
         let dz = grid.dz();
         let mut pump_optical_depth = 0.0;
         let mut signal_transfer_bottom_row = (0.0, 1.0); // calculate bottom row of transfer matrix
 
-        for (&field, &kappa) in profile[..grid.steps()].iter().zip(fibre.kappas()).rev() {
+        for (&field, &kappa) in profile[..grid.steps()].iter().zip(self.kappas()).rev() {
             let gain = fibre.gain(field);
             pump_optical_depth += 0.5 * gain.pump * dz;
             signal_transfer_bottom_row = update_signal_transfer_bottom_row(
@@ -143,7 +159,7 @@ mod tests {
     use super::*;
     use crate::dopant::{TwoLevelCrossSections, TwoLevelDopant};
     use crate::fibre::{Fibre, FibreGeometry, FieldMode};
-    use crate::grating::{NoGrating, PiShift};
+    use crate::grating::{NoGrating, PiShift, sample_grating};
     use crate::maths::rootfind::BisectionConfig;
 
     fn zero_gain_fibre<G: GratingModel>(grating: G) -> Fibre<TwoLevelDopant, G> {
@@ -163,14 +179,12 @@ mod tests {
 
     fn resolve_zero_gain<G: GratingModel>(
         fibre: &Fibre<TwoLevelDopant, G>,
-        steps: usize,
     ) -> ResolvedFibre<'_, TwoLevelDopant, G> {
         fibre.resolve_with_interactions(
             FieldMode::new(970e-9),
             TwoLevelCrossSections::new(1.0, 0.0),
             FieldMode::new(1060e-9),
             TwoLevelCrossSections::new(0.0, 1.0),
-            steps,
         )
     }
 
@@ -179,10 +193,37 @@ mod tests {
     }
 
     #[test]
+    fn no_grating_solver_owns_fixed_zero_profile() {
+        let fibre = zero_gain_fibre(NoGrating);
+        let fibre = resolve_zero_gain(&fibre);
+        let solver = TwoModeSolver::new(&fibre, 4);
+
+        assert_eq!(solver.grid().steps(), 4);
+        assert_eq!(solver.grid().points(), 5);
+        assert_eq!(solver.grid().position(4), fibre.length());
+        assert_eq!(solver.kappas(), &[0.0; 4]);
+    }
+
+    #[test]
+    fn pi_shift_solver_caches_left_edge_samples() {
+        let grating = PiShift {
+            kappa_left: 2.0,
+            kappa_right: 3.0,
+            pi_shift_position: 0.5,
+        };
+        let fibre = zero_gain_fibre(grating);
+        let fibre = resolve_zero_gain(&fibre);
+        let solver = TwoModeSolver::new(&fibre, 4);
+
+        assert_eq!(solver.kappas().len(), solver.grid().steps());
+        assert_eq!(solver.kappas(), sample_grating(&grating, 4));
+    }
+
+    #[test]
     fn injected_boundary_reduces_to_inputs_without_gain_or_grating() {
         let fibre = zero_gain_fibre(NoGrating);
-        let fibre = resolve_zero_gain(&fibre, 4);
-        let solver = TwoModeSolver { fibre: &fibre };
+        let fibre = resolve_zero_gain(&fibre);
+        let solver = TwoModeSolver::new(&fibre, 4);
         let signal = Signal {
             total: 5.0,
             balance: 0.2,
@@ -191,7 +232,7 @@ mod tests {
             total: 7.0,
             balance: -0.4,
         };
-        let profile = vec![FieldState::default(); fibre.grid().points()];
+        let profile = vec![FieldState::default(); solver.grid().points()];
 
         let boundary = solver.injected_left_boundary(pump, signal, &profile);
         let (signal_forward, signal_backward) = signal.amplitudes();
@@ -210,8 +251,8 @@ mod tests {
             kappa_right: 0.3,
             pi_shift_position: 0.5,
         });
-        let fibre = resolve_zero_gain(&fibre, 4);
-        let solver = TwoModeSolver { fibre: &fibre };
+        let fibre = resolve_zero_gain(&fibre);
+        let solver = TwoModeSolver::new(&fibre, 4);
         let signal = Signal {
             total: 5.0,
             balance: 0.2,
@@ -220,12 +261,12 @@ mod tests {
             total: 7.0,
             balance: -0.4,
         };
-        let profile = vec![FieldState::default(); fibre.grid().points()];
+        let profile = vec![FieldState::default(); solver.grid().points()];
 
         let boundary = solver.injected_left_boundary(pump, signal, &profile);
         let mut propagated_signal = boundary.signal;
-        for &kappa in fibre.kappas() {
-            propagated_signal = propagated_signal.coupled_step(0.0, kappa, fibre.grid().dz());
+        for &kappa in solver.kappas() {
+            propagated_signal = propagated_signal.coupled_step(0.0, kappa, solver.grid().dz());
         }
 
         assert_near(propagated_signal.backward, signal.backward_amplitude());
@@ -239,8 +280,8 @@ mod tests {
             kappa_right: 0.3,
             pi_shift_position: 0.5,
         });
-        let fibre = resolve_zero_gain(&fibre, 4);
-        let solver = TwoModeSolver::new(&fibre);
+        let fibre = resolve_zero_gain(&fibre);
+        let solver = TwoModeSolver::new(&fibre, 4);
         let signal = Signal {
             total: 5.0,
             balance: 1.0,
@@ -274,8 +315,8 @@ mod tests {
     #[test]
     fn forward_injected_no_grating_solve_preserves_zero_gain_fields() {
         let fibre = zero_gain_fibre(NoGrating);
-        let fibre = resolve_zero_gain(&fibre, 4);
-        let solver = TwoModeSolver::new(&fibre);
+        let fibre = resolve_zero_gain(&fibre);
+        let solver = TwoModeSolver::new(&fibre, 4);
         let signal = Signal {
             total: 5.0,
             balance: 1.0,
@@ -304,7 +345,7 @@ mod tests {
             },
         };
 
-        assert_eq!(profile.fields.len(), fibre.grid().points());
+        assert_eq!(profile.fields.len(), solver.grid().points());
         for field in profile.fields {
             assert_near(field.signal.forward, expected.signal.forward);
             assert_near(field.signal.backward, expected.signal.backward);
@@ -316,8 +357,8 @@ mod tests {
     #[test]
     fn bidirectional_no_grating_solve_satisfies_all_injected_boundaries() {
         let fibre = zero_gain_fibre(NoGrating);
-        let fibre = resolve_zero_gain(&fibre, 4);
-        let solver = TwoModeSolver::new(&fibre);
+        let fibre = resolve_zero_gain(&fibre);
+        let solver = TwoModeSolver::new(&fibre, 4);
         let signal = Signal {
             total: 2.0,
             balance: 0.0,

@@ -133,7 +133,6 @@ impl AmplifierMode {
             self.pump_interaction,
             self.sgnl_mode,
             self.signal_interaction,
-            self.steps,
         )
     }
 
@@ -164,7 +163,7 @@ impl AmplifierMode {
 
         let (result, compute_time) = timed(|| {
             let fibre = self.resolved_fibre();
-            TwoModeSolver::new(&fibre).solve_injected(
+            TwoModeSolver::new(&fibre, self.steps).solve_injected(
                 self.pump,
                 self.signal,
                 bc.into(),

@@ -5,11 +5,11 @@ use laser_solver::error::SolverError;
 impl DfbMode {
     pub fn kappa_plot(&mut self) -> Result<Plotter, SolverError> {
         let (points, compute_time) = timed(|| {
-            let fibre = self.resolved_fibre();
-            fibre
+            let solver = self.dfb_laser();
+            solver
                 .grid()
                 .positions()
-                .zip(fibre.kappas().iter().copied())
+                .zip(solver.kappas().iter().copied())
                 .map(|(z, kappa)| [z, kappa])
                 .collect()
         });

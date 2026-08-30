@@ -83,32 +83,31 @@ fn resolved_fibre() -> ResolvedFibre<'static> {
         PUMP_INTERACTION,
         SGNL_MODE,
         SGNL_INTERACTION,
-        STEPS,
     )
 }
 
 fn dfb_laser() -> DfbLaser<'static> {
-    DfbLaser {
-        fibre: DFB_FIBRE.resolve_with_interactions(
+    DfbLaser::new(
+        DFB_FIBRE.resolve_with_interactions(
             PUMP_MODE,
             PUMP_INTERACTION,
             SGNL_MODE,
             SGNL_INTERACTION,
-            STEPS,
         ),
-    }
+        STEPS,
+    )
 }
 
 fn symmetric_dfb_laser() -> DfbLaser<'static> {
-    DfbLaser {
-        fibre: SYMMETRIC_DFB_FIBRE.resolve_with_interactions(
+    DfbLaser::new(
+        SYMMETRIC_DFB_FIBRE.resolve_with_interactions(
             PUMP_MODE,
             PUMP_INTERACTION,
             SGNL_MODE,
             SGNL_INTERACTION,
-            SYMMETRY_STEPS,
         ),
-    }
+        SYMMETRY_STEPS,
+    )
 }
 
 const ITERATION: IterationConfig = IterationConfig {
@@ -170,7 +169,7 @@ fn injected_solver_satisfies_active_fibre_boundaries() {
     };
     let fibre = resolved_fibre();
 
-    let profile = TwoModeSolver::new(&fibre)
+    let profile = TwoModeSolver::new(&fibre, STEPS)
         .solve_injected(
             pump,
             signal,
@@ -230,8 +229,8 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
     let sgnl_b = 1.0;
     let laser = dfb_laser();
     let fibre = &laser.fibre;
-    let grid = fibre.grid();
-    let kappas = fibre.kappas();
+    let grid = laser.grid();
+    let kappas = laser.kappas();
     let boundary = FieldState {
         signal: BidirectionalAmplitude {
             forward: 0.0,

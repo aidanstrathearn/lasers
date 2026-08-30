@@ -94,7 +94,7 @@ impl<D: DopantModel, G: GratingModel> DfbLaser<'_, D, G> {
                 backward: pump_backward,
             },
         };
-        PicardSolver::filled(self.fibre.grid().points(), initial)
+        PicardSolver::filled(self.grid().points(), initial)
     }
 
     fn solve_with_picard_solver(
@@ -104,8 +104,8 @@ impl<D: DopantModel, G: GratingModel> DfbLaser<'_, D, G> {
         full_profile: bool,
         solver: &mut PicardSolver<FieldState>,
     ) -> Result<FieldProfile, SolverError> {
-        let grid = self.fibre.grid();
-        let kappas = self.fibre.kappas();
+        let grid = self.grid();
+        let kappas = self.kappas();
         let dz = grid.dz();
         let f = |sgnl_b| -> Result<f64, SolverError> {
             let fields = solve_profile_picard(
