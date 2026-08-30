@@ -230,6 +230,72 @@ fn injected_solver_agrees_with_existing_amplifier() {
 }
 
 #[test]
+fn injected_solver_satisfies_active_fibre_boundaries() {
+    let signal = Signal {
+        total: 1.0,
+        balance: 0.0,
+    };
+    let pump = Pump {
+        total: 1.0,
+        balance: 0.0,
+    };
+    let fibre = resolved_fibre();
+
+    let profile = TwoModeSolver::new(&fibre)
+        .solve_injected(
+            pump,
+            signal,
+            RootFindConfig::Bisection(BISECTION),
+            SYMMETRY_PICARD,
+        )
+        .expect("active-fibre injected solve failed");
+    let left = profile.fields.first().unwrap();
+    let right = profile.fields.last().unwrap();
+
+    assert_close(
+        0,
+        "left signal input",
+        left.signal.forward,
+        signal.forward_amplitude(),
+        SYMMETRY_ABSOLUTE_TOLERANCE,
+        SYMMETRY_RELATIVE_TOLERANCE,
+    );
+    assert_close(
+        profile.fields.len() - 1,
+        "right signal input",
+        right.signal.backward,
+        signal.backward_amplitude(),
+        SYMMETRY_ABSOLUTE_TOLERANCE,
+        SYMMETRY_RELATIVE_TOLERANCE,
+    );
+    assert_close(
+        0,
+        "left pump input",
+        left.pump.forward,
+        pump.forward_amplitude(),
+        SYMMETRY_ABSOLUTE_TOLERANCE,
+        SYMMETRY_RELATIVE_TOLERANCE,
+    );
+    assert_close(
+        profile.fields.len() - 1,
+        "right pump input",
+        right.pump.backward,
+        pump.backward_amplitude(),
+        SYMMETRY_ABSOLUTE_TOLERANCE,
+        SYMMETRY_RELATIVE_TOLERANCE,
+    );
+    assert!(
+        profile.fields.iter().all(|field| {
+            field.signal.forward.is_finite()
+                && field.signal.backward.is_finite()
+                && field.pump.forward.is_finite()
+                && field.pump.backward.is_finite()
+        }),
+        "active-fibre injected solve returned non-finite fields"
+    );
+}
+
+#[test]
 fn direct_and_buffered_picard_profile_solvers_agree() {
     let pump = FORWARD_PUMP;
     let sgnl_b = 1.0;

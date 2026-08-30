@@ -270,4 +270,77 @@ mod tests {
             "grating solve should produce a reflected signal"
         );
     }
+
+    #[test]
+    fn forward_injected_no_grating_solve_preserves_zero_gain_fields() {
+        let fibre = zero_gain_fibre(NoGrating);
+        let fibre = resolve_zero_gain(&fibre, 4);
+        let solver = TwoModeSolver::new(&fibre);
+        let signal = Signal {
+            total: 5.0,
+            balance: 1.0,
+        };
+        let pump = Pump {
+            total: 7.0,
+            balance: 1.0,
+        };
+
+        let profile = solver
+            .solve_injected(
+                pump,
+                signal,
+                BisectionConfig::default().into(),
+                PicardConfig::default(),
+            )
+            .expect("forward-injected no-grating solve should succeed");
+        let expected = FieldState {
+            signal: BidirectionalAmplitude {
+                forward: signal.forward_amplitude(),
+                backward: 0.0,
+            },
+            pump: BidirectionalAmplitude {
+                forward: pump.forward_amplitude(),
+                backward: 0.0,
+            },
+        };
+
+        assert_eq!(profile.fields.len(), fibre.grid().points());
+        for field in profile.fields {
+            assert_near(field.signal.forward, expected.signal.forward);
+            assert_near(field.signal.backward, expected.signal.backward);
+            assert_near(field.pump.forward, expected.pump.forward);
+            assert_near(field.pump.backward, expected.pump.backward);
+        }
+    }
+
+    #[test]
+    fn bidirectional_no_grating_solve_satisfies_all_injected_boundaries() {
+        let fibre = zero_gain_fibre(NoGrating);
+        let fibre = resolve_zero_gain(&fibre, 4);
+        let solver = TwoModeSolver::new(&fibre);
+        let signal = Signal {
+            total: 2.0,
+            balance: 0.0,
+        };
+        let pump = Pump {
+            total: 2.0,
+            balance: 0.0,
+        };
+
+        let profile = solver
+            .solve_injected(
+                pump,
+                signal,
+                BisectionConfig::default().into(),
+                PicardConfig::default(),
+            )
+            .expect("bidirectional no-grating solve should converge");
+        let left = profile.fields.first().unwrap();
+        let right = profile.fields.last().unwrap();
+
+        assert_near(left.signal.forward, signal.forward_amplitude());
+        assert_near(right.signal.backward, signal.backward_amplitude());
+        assert_near(left.pump.forward, pump.forward_amplitude());
+        assert_near(right.pump.backward, pump.backward_amplitude());
+    }
 }
