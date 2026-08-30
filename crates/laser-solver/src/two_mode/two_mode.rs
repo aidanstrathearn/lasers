@@ -69,7 +69,7 @@ pub struct ResolvedFibre<
     sgnl_overlap: f64,
     pump_interaction: D::Interaction,
     sgnl_interaction: D::Interaction,
-    grid: UniformGrid,
+    pub(crate) grid: UniformGrid,
     kappas: Box<[f64]>, // Vec<f64> would also work but Box<[f64]> enforces unalterable grid length
 }
 
