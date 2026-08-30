@@ -1,5 +1,5 @@
 use crate::dopant::{DopantError, DopantModel, TwoLevelDopant};
-use crate::fibre::{Fibre, FieldMode, bidirectional_amplitudes};
+use crate::fibre::{bidirectional_amplitudes, ActiveMode, Fibre, FieldMode};
 use crate::grating::{GratingModel, NoGrating};
 
 use super::fieldstate::FieldState;
@@ -39,28 +39,18 @@ impl<D: DopantModel, G: GratingModel> Fibre<D, G> {
     ) -> ResolvedFibre<'_, D, G> {
         ResolvedFibre {
             fibre: self,
-            pump_mode,
-            sgnl_mode,
-            pump_overlap: self.geometry.mode_overlap(pump_mode),
-            sgnl_overlap: self.geometry.mode_overlap(sgnl_mode),
-            pump_interaction,
-            sgnl_interaction,
+            pump: ActiveMode::new(self, pump_mode, pump_interaction),
+            sgnl: ActiveMode::new(self, sgnl_mode, sgnl_interaction),
         }
     }
 }
 
-pub struct ResolvedFibre<
-    'a,
-    D: DopantModel = TwoLevelDopant,
-    G: GratingModel = NoGrating,
-> {
+
+
+pub struct ResolvedFibre<'a, D: DopantModel = TwoLevelDopant, G: GratingModel = NoGrating> {
     fibre: &'a Fibre<D, G>,
-    pump_mode: FieldMode,
-    sgnl_mode: FieldMode,
-    pump_overlap: f64,
-    sgnl_overlap: f64,
-    pump_interaction: D::Interaction,
-    sgnl_interaction: D::Interaction,
+    pump: ActiveMode<D>,
+    sgnl: ActiveMode<D>,
 }
 
 impl<D: DopantModel, G: GratingModel> ResolvedFibre<'_, D, G> {
@@ -69,19 +59,19 @@ impl<D: DopantModel, G: GratingModel> ResolvedFibre<'_, D, G> {
     }
 
     pub fn pump_mode(&self) -> FieldMode {
-        self.pump_mode
+        self.pump.mode
     }
 
     pub fn sgnl_mode(&self) -> FieldMode {
-        self.sgnl_mode
+        self.sgnl.mode
     }
 
     pub fn pump_overlap(&self) -> f64 {
-        self.pump_overlap
+        self.pump.overlap
     }
 
     pub fn sgnl_overlap(&self) -> f64 {
-        self.sgnl_overlap
+        self.sgnl.overlap
     }
 
     pub fn grating(&self) -> &G {
@@ -90,8 +80,8 @@ impl<D: DopantModel, G: GratingModel> ResolvedFibre<'_, D, G> {
 
     pub fn mode_fluxes(&self, fs: FieldState) -> (f64, f64) {
         (
-            fs.pump.total_power() * self.pump_overlap,
-            fs.signal.total_power() * self.sgnl_overlap,
+            fs.pump.total_power() * self.pump.overlap,
+            fs.signal.total_power() * self.sgnl.overlap,
         )
     }
 
@@ -100,10 +90,10 @@ impl<D: DopantModel, G: GratingModel> ResolvedFibre<'_, D, G> {
         let mut rates = D::Rates::default();
         self.fibre
             .dopant
-            .add_rates(&mut rates, &self.pump_interaction, pump_flux);
+            .add_rates(&mut rates, &self.pump.interaction, pump_flux);
         self.fibre
             .dopant
-            .add_rates(&mut rates, &self.sgnl_interaction, sgnl_flux);
+            .add_rates(&mut rates, &self.sgnl.interaction, sgnl_flux);
         rates
     }
 
@@ -111,12 +101,12 @@ impl<D: DopantModel, G: GratingModel> ResolvedFibre<'_, D, G> {
         let rates = self.rates(fs);
         let populations = self.fibre.dopant.populations(&rates);
         let mut gain = Gain {
-            pump: self.fibre.dopant.gain(&self.pump_interaction, &populations),
-            signal: self.fibre.dopant.gain(&self.sgnl_interaction, &populations),
+            pump: self.fibre.dopant.gain(&self.pump.interaction, &populations),
+            signal: self.fibre.dopant.gain(&self.sgnl.interaction, &populations),
         };
 
-        gain.pump = gain.pump * self.pump_overlap;
-        gain.signal = gain.signal * self.sgnl_overlap;
+        gain.pump *= self.pump.overlap;
+        gain.signal *= self.sgnl.overlap;
         gain
     }
 
@@ -135,16 +125,11 @@ where
     fn clone(&self) -> Self {
         Self {
             fibre: self.fibre,
-            pump_mode: self.pump_mode,
-            sgnl_mode: self.sgnl_mode,
-            pump_overlap: self.pump_overlap,
-            sgnl_overlap: self.sgnl_overlap,
-            pump_interaction: self.pump_interaction.clone(),
-            sgnl_interaction: self.sgnl_interaction.clone(),
+            pump: self.pump.clone(),
+            sgnl: self.sgnl.clone(),
         }
     }
 }
-
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Signal {
@@ -216,7 +201,7 @@ impl Pump {
 mod tests {
     use super::*;
     use crate::fibre::BidirectionalAmplitude;
-    use crate::two_mode::fieldstate::{profile_convergence_error, FieldProfile};
+    use crate::two_mode::fieldstate::{FieldProfile, profile_convergence_error};
 
     const CONVERGENCE_RELATIVE_TOLERANCE: f64 = 1e-6;
     const CONVERGENCE_ABSOLUTE_TOLERANCE: f64 = 1e-10;

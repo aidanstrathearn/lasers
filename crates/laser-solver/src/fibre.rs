@@ -39,6 +39,40 @@ impl Default for FieldMode {
     }
 }
 
+pub struct ActiveMode<D: DopantModel> {
+    pub(crate) mode: FieldMode,
+    pub(crate) overlap: f64,
+    pub(crate) interaction: D::Interaction,
+}
+
+impl<D: DopantModel> ActiveMode<D> {
+    pub(crate) fn new<G: GratingModel>(
+        fibre: &Fibre<D, G>,
+        mode: FieldMode,
+        interaction: D::Interaction,
+    ) -> Self {
+        Self {
+            mode,
+            overlap: fibre.geometry.mode_overlap(mode),
+            interaction,
+        }
+    }
+}
+
+impl<D> Clone for ActiveMode<D>
+where
+    D: DopantModel,
+    D::Interaction: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            mode: self.mode,
+            overlap: self.overlap,
+            interaction: self.interaction.clone(),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct BidirectionalAmplitude {
     pub forward: f64,
