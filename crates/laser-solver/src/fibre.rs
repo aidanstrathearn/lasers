@@ -80,24 +80,24 @@ pub struct BidirectionalAmplitude {
 }
 
 impl BidirectionalAmplitude {
-    pub fn forward_power(self) -> f64 {
+    pub fn forward_flux(self) -> f64 {
         self.forward * self.forward
     }
 
-    pub fn backward_power(self) -> f64 {
+    pub fn backward_flux(self) -> f64 {
         self.backward * self.backward
     }
 
-    pub fn total_power(self) -> f64 {
-        self.forward_power() + self.backward_power()
+    pub fn total_flux(self) -> f64 {
+        self.forward_flux() + self.backward_flux()
     }
 }
 
-pub(crate) fn bidirectional_amplitudes(total_power: f64, balance: f64) -> (f64, f64) {
+pub(crate) fn bidirectional_amplitudes(total_flux: f64, balance: f64) -> (f64, f64) {
     let forward_fraction = (balance + 1.0) * 0.5;
     (
-        (forward_fraction * total_power).sqrt(),
-        ((1.0 - forward_fraction) * total_power).sqrt(),
+        (forward_fraction * total_flux).sqrt(),
+        ((1.0 - forward_fraction) * total_flux).sqrt(),
     )
 }
 

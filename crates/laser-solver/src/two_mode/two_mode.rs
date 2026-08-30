@@ -80,8 +80,8 @@ impl<D: DopantModel, G: GratingModel> ResolvedFibre<'_, D, G> {
 
     pub fn mode_fluxes(&self, fs: FieldState) -> (f64, f64) {
         (
-            fs.pump.total_power() * self.pump.overlap,
-            fs.signal.total_power() * self.sgnl.overlap,
+            fs.pump.total_flux() * self.pump.overlap,
+            fs.signal.total_flux() * self.sgnl.overlap,
         )
     }
 

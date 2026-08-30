@@ -11,7 +11,7 @@ pub struct FieldState {
 
 impl FieldState {
     pub(crate) fn field_powers(self) -> [f64; 2] {
-        [self.signal.total_power(), self.pump.total_power()]
+        [self.signal.total_flux(), self.pump.total_flux()]
     }
 }
 
@@ -121,6 +121,6 @@ impl FieldProfile {
     pub fn output_powers(&self) -> OutputPower {
         let left = self.fields.first().expect("field profile is empty");
         let right = self.fields.last().expect("field profile is empty");
-        (right.signal.forward_power(), left.signal.backward_power())
+        (right.signal.forward_flux(), left.signal.backward_flux())
     }
 }
