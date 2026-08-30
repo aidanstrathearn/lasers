@@ -35,6 +35,42 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         &self.kappas
     }
 
+    /// Evaluates the shooting residual at positive backward-signal photon fluxes.
+    pub fn shooting_residuals(&self, pump: Pump, trial_signal_fluxes: &[f64]) -> Vec<f64> {
+        let (pump_forward, pump_backward) = pump.amplitudes();
+        assert_eq!(
+            pump_backward, 0.0,
+            "shooting residuals require a forward-only pump"
+        );
+
+        let dz = self.grid.dz();
+        let kappas = self.kappas();
+        trial_signal_fluxes
+            .iter()
+            .map(|&trial_signal_flux| {
+                assert!(
+                    trial_signal_flux.is_finite() && trial_signal_flux > 0.0,
+                    "trial signal fluxes must be positive and finite"
+                );
+                let signal_backward = trial_signal_flux.sqrt();
+                let trial = FieldState {
+                    signal: BidirectionalAmplitude {
+                        forward: 0.0,
+                        backward: signal_backward,
+                    },
+                    pump: BidirectionalAmplitude {
+                        forward: pump_forward,
+                        backward: 0.0,
+                    },
+                };
+                out_field_coupled(trial, |fields| self.fibre.gain(fields), dz, kappas)
+                    .signal
+                    .backward
+                    / signal_backward
+            })
+            .collect()
+    }
+
     pub fn solve_injected(
         &self,
         pump: Pump,
@@ -703,5 +739,38 @@ mod tests {
         assert_near(right.signal.backward, signal.backward_amplitude());
         assert_near(left.pump.forward, pump.forward_amplitude());
         assert_near(right.pump.backward, pump.backward_amplitude());
+    }
+
+    #[test]
+    fn shooting_residuals_take_signal_fluxes() {
+        let fibre = active_lasing_fibre();
+        let fibre = resolve_active_lasing(&fibre);
+        let solver = TwoModeSolver::new(&fibre, 20);
+        let trial_signal_flux: f64 = 4.0;
+        let signal_backward = trial_signal_flux.sqrt();
+        let trial = FieldState {
+            signal: BidirectionalAmplitude {
+                forward: 0.0,
+                backward: signal_backward,
+            },
+            pump: BidirectionalAmplitude {
+                forward: LASING_PUMP.forward_amplitude(),
+                backward: 0.0,
+            },
+        };
+        let expected = out_field_coupled(
+            trial,
+            |fields| fibre.gain(fields),
+            solver.grid().dz(),
+            solver.kappas(),
+        )
+        .signal
+        .backward
+            / signal_backward;
+
+        let residuals = solver.shooting_residuals(LASING_PUMP, &[trial_signal_flux]);
+
+        assert_eq!(residuals.len(), 1);
+        assert_near(residuals[0], expected);
     }
 }
