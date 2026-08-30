@@ -24,17 +24,7 @@ pub(crate) fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) -
             )
             .changed();
         ui.end_row();
-
-        ui.label("Lower bracket");
-        changed |= ui
-            .add(
-                egui::Slider::new(&mut config.lower, 1e-9..=1e-2)
-                    // 1e-10 causes slider field box to resize
-                    .logarithmic(true)
-                    .custom_formatter(|value, _| format!("{value:.1e}")),
-            )
-            .changed();
-        ui.end_row();
+        
     });
 
     changed
