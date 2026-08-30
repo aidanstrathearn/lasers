@@ -3,6 +3,7 @@ use crate::fibre::{BidirectionalAmplitude, transfer};
 use crate::grating::GratingModel;
 use crate::lase::{DopantModel, FieldState, profile_convergence_error};
 use crate::maths::picard::{PicardConfig, PicardSolver};
+use crate::maths::rootfind::RootFindConfig;
 use crate::two_mode::propagation::solve_profile;
 use crate::two_mode::{FieldProfile, Pump, ResolvedFibre, Signal};
 
@@ -19,8 +20,11 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         &self,
         pump: Pump,
         signal: Signal,
+        root_find_config: RootFindConfig,
         picard_config: PicardConfig,
     ) -> Result<FieldProfile, SolverError> {
+        // Reserved for injected solves that require shooting/root-finding.
+        let _ = root_find_config;
         let dz = self.fibre.grid.dz();
         let kappas = self.fibre.kappas();
         let (signal_forward, signal_backward) = signal.amplitudes();
@@ -140,6 +144,7 @@ mod tests {
     use crate::dopant::{TwoLevelCrossSections, TwoLevelDopant};
     use crate::fibre::{Fibre, FibreGeometry, FieldMode};
     use crate::grating::{NoGrating, PiShift};
+    use crate::maths::rootfind::BisectionConfig;
 
     fn zero_gain_fibre<G: GratingModel>(grating: G) -> Fibre<TwoLevelDopant, G> {
         Fibre {
@@ -246,7 +251,12 @@ mod tests {
         };
 
         let profile = solver
-            .solve_injected(pump, signal, PicardConfig::default())
+            .solve_injected(
+                pump,
+                signal,
+                BisectionConfig::default().into(),
+                PicardConfig::default(),
+            )
             .expect("forward-injected grating solve should converge");
         let left = profile.fields.first().unwrap();
         let right = profile.fields.last().unwrap();

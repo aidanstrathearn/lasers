@@ -8,12 +8,13 @@ use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::error::SolverError;
 use laser_solver::lase::{
-    Fibre, FibreGeometry, FieldMode, Pump, Signal, TwoLevelCrossSections, TwoLevelDopant,
+    Fibre, FibreGeometry, FieldMode, Pump, ResolvedFibre, Signal, TwoLevelCrossSections,
+    TwoLevelDopant,
 };
 use laser_solver::maths::picard::PicardConfig;
+use laser_solver::maths::rootfind::BisectionConfig;
 use laser_solver::maths::rootfind::Midpoint::Arithmetic;
-use laser_solver::maths::rootfind::{BisectionConfig, RootFindConfig};
-use laser_solver::two_mode::amplifier::{Amplifier, AmplifierSolveConfig};
+use laser_solver::two_mode::TwoModeSolver;
 use std::time::Duration;
 
 #[derive(PartialEq, Default, Copy, Clone)]
@@ -126,30 +127,22 @@ pub(crate) fn signal_slider_grid(signal: &mut Signal, ui: &mut Ui) -> bool {
 }
 
 impl AmplifierMode {
-    pub(crate) fn amplifier(&self) -> Amplifier<'_> {
-        Amplifier {
-            fibre: self.fibre.resolve_with_interactions(
-                self.pump_mode,
-                self.pump_interaction,
-                self.sgnl_mode,
-                self.signal_interaction,
-                self.steps,
-            ),
-        }
+    pub(crate) fn resolved_fibre(&self) -> ResolvedFibre<'_> {
+        self.fibre.resolve_with_interactions(
+            self.pump_mode,
+            self.pump_interaction,
+            self.sgnl_mode,
+            self.signal_interaction,
+            self.steps,
+        )
     }
 
-    pub(crate) fn amplifier_solve_config(
-        &self,
-        root_find: impl Into<RootFindConfig>,
-    ) -> AmplifierSolveConfig {
-        AmplifierSolveConfig {
-            root_find: root_find.into(),
-            picard: PicardConfig {
-                max_iterations: 2000,
-                relative_tolerance: 1e-3, // need higher tolerance than dfb?
-                absolute_tolerance: 1e-3,
-                ..PicardConfig::default()
-            },
+    pub(crate) fn picard_config(&self) -> PicardConfig {
+        PicardConfig {
+            max_iterations: 2000,
+            relative_tolerance: 1e-3, // need higher tolerance than dfb?
+            absolute_tolerance: 1e-3,
+            ..PicardConfig::default()
         }
     }
 
@@ -162,7 +155,6 @@ impl AmplifierMode {
 
 impl AmplifierMode {
     fn profile_plot(&mut self) -> Result<Plotter, SolverError> {
-        let full_profile = true;
         let bc = BisectionConfig {
             upper: self.pump.total.sqrt(),
             lower: 0.0,
@@ -171,11 +163,12 @@ impl AmplifierMode {
         };
 
         let (result, compute_time) = timed(|| {
-            self.amplifier().solve(
-                self.signal,
+            let fibre = self.resolved_fibre();
+            TwoModeSolver::new(&fibre).solve_injected(
                 self.pump,
-                self.amplifier_solve_config(bc),
-                full_profile,
+                self.signal,
+                bc.into(),
+                self.picard_config(),
             )
         });
         self.compute_time = Some(compute_time);

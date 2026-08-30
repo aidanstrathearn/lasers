@@ -213,7 +213,12 @@ fn injected_solver_agrees_with_existing_amplifier() {
     .solve(signal, pump, config, true)
     .expect("existing amplifier solve failed");
     let injected_profile = TwoModeSolver::new(&fibre)
-        .solve_injected(pump, signal, SYMMETRY_PICARD)
+        .solve_injected(
+            pump,
+            signal,
+            RootFindConfig::Bisection(BISECTION),
+            SYMMETRY_PICARD,
+        )
         .expect("new injected-signal solve failed");
 
     assert_eq!(existing_profile.z, injected_profile.z);
