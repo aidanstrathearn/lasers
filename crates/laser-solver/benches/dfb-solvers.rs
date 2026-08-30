@@ -1,5 +1,4 @@
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use laser_solver::dfb::{DfbLaser, DfbSolveConfig};
 use laser_solver::grating::PiShift;
 use laser_solver::lase::{
     Fibre, FibreGeometry, FieldMode, Pump, ResolvedFibre, TwoLevelCrossSections,
@@ -8,6 +7,7 @@ use laser_solver::lase::{
 use laser_solver::maths::picard::PicardConfig;
 use laser_solver::maths::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
 use laser_solver::maths::utils::IterationConfig;
+use laser_solver::two_mode::TwoModeSolver;
 use std::hint::black_box;
 
 const PUMP_FORWARD_AMPLITUDE: f64 = 100.0;
@@ -51,10 +51,6 @@ fn resolved_fibre() -> ResolvedFibre<'static, TwoLevelDopant, PiShift> {
     )
 }
 
-fn dfb_laser() -> DfbLaser<'static> {
-    DfbLaser::new(resolved_fibre(), STEPS)
-}
-
 const ITERATION: IterationConfig = IterationConfig {
     max: 500,
     tol: 1e-10,
@@ -72,16 +68,17 @@ const NEWTON: Newton1dConfig = Newton1dConfig {
     dx: 1e-6,
 };
 
-const NEWTON_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
-    root_find: RootFindConfig::Newton1d(NEWTON),
-    picard: PICARD,
-};
-
 fn benchmark_dfb_solver(c: &mut Criterion) {
     c.bench_function("dfb/shooting", |b| {
         b.iter(|| {
-            let result = dfb_laser()
-                .solve_shooting(FORWARD_PUMP, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
+            let fibre = resolved_fibre();
+            let result = TwoModeSolver::new(&fibre, STEPS)
+                .solve_lasing(
+                    FORWARD_PUMP,
+                    RootFindConfig::Newton1d(NEWTON),
+                    PICARD,
+                    FULL_PROFILE,
+                )
                 .expect("shooting DFB solve failed");
             black_box(result);
         });
@@ -113,13 +110,12 @@ fn benchmark_bisection_midpoints(c: &mut Criterion) {
                 };
 
                 b.iter(|| {
-                    let result = dfb_laser()
-                        .solve_shooting(
+                    let fibre = resolved_fibre();
+                    let result = TwoModeSolver::new(&fibre, STEPS)
+                        .solve_lasing(
                             FORWARD_PUMP,
-                            DfbSolveConfig {
-                                root_find: RootFindConfig::Bisection(config),
-                                picard: PICARD,
-                            },
+                            RootFindConfig::Bisection(config),
+                            PICARD,
                             FULL_PROFILE,
                         )
                         .expect("shooting DFB solve failed");
@@ -144,11 +140,17 @@ fn benchmark_picard_solvers(c: &mut Criterion) {
     };
     let mut group = c.benchmark_group("dfb/picard");
 
-    group.bench_function("buffered", |b| {
+    group.bench_function("lasing", |b| {
         b.iter(|| {
-            let result = dfb_laser()
-                .solve_picard(pump, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
-                .expect("buffered Picard DFB solve failed");
+            let fibre = resolved_fibre();
+            let result = TwoModeSolver::new(&fibre, STEPS)
+                .solve_lasing(
+                    pump,
+                    RootFindConfig::Newton1d(NEWTON),
+                    PICARD,
+                    FULL_PROFILE,
+                )
+                .expect("Picard DFB solve failed");
             black_box(result);
         });
     });

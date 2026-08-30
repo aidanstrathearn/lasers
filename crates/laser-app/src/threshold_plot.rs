@@ -5,6 +5,7 @@ use eframe::egui::Ui;
 use laser_solver::error::SolverError;
 use laser_solver::maths::rootfind::BisectionConfig;
 use laser_solver::maths::utils::linspace;
+use laser_solver::two_mode::TwoModeSolver;
 
 #[derive(Copy, Clone)]
 pub struct ThresholdRange {
@@ -40,8 +41,13 @@ impl DfbMode {
             self.threshold_range.num,
         );
         let (threshold, compute_time) = timed(|| {
-            self.dfb_laser()
-                .pump_scan(&pumps, self.pump.balance, self.dfb_solve_config(bc))
+            let fibre = self.resolved_fibre();
+            TwoModeSolver::new(&fibre, self.steps).pump_scan(
+                &pumps,
+                self.pump.balance,
+                bc.into(),
+                self.picard_config,
+            )
         });
         self.compute_time = Some(compute_time);
         let threshold = threshold?;

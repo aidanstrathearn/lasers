@@ -1,12 +1,12 @@
 use crate::plotter::Plotter;
 use crate::{Points, dfb::DfbMode, field_profile_plot, power_points, timed};
 use eframe::egui;
-use laser_solver::dfb::{DfbLaser, DfbSolveConfig};
 use laser_solver::error::SolverError;
 use laser_solver::grating::PiShift;
 use laser_solver::lase::{Fibre, FieldMode, Pump, TwoLevelCrossSections, TwoLevelDopant};
 use laser_solver::maths::rootfind::{BisectionConfig, Newton1dConfig};
 use laser_solver::maths::utils::IterationConfig;
+use laser_solver::two_mode::TwoModeSolver;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
 use std::thread;
@@ -20,8 +20,13 @@ impl DfbMode {
         };
 
         let (result, compute_time) = timed(|| {
-            self.dfb_laser()
-                .solve(self.pump, self.dfb_solve_config(bc), full_profile)
+            let fibre = self.resolved_fibre();
+            TwoModeSolver::new(&fibre, self.steps).solve_lasing(
+                self.pump,
+                bc.into(),
+                self.picard_config,
+                full_profile,
+            )
         });
         self.compute_time = Some(compute_time);
         Ok(field_profile_plot(&result?))
@@ -81,13 +86,11 @@ impl ProfilePlot {
                 sgnl_mode,
                 signal_interaction,
             );
-            let laser = DfbLaser::new(fibre, steps);
-            let result = laser.solve_shooting(
+            let laser = TwoModeSolver::new(&fibre, steps);
+            let result = laser.solve_lasing(
                 pump,
-                DfbSolveConfig {
-                    root_find: nc.into(),
-                    picard: Default::default(),
-                },
+                nc.into(),
+                Default::default(),
                 full_profile,
             )?;
             Ok([

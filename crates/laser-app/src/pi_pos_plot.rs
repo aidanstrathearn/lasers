@@ -1,10 +1,10 @@
 use crate::plotter::Plotter;
 use crate::{Points, dfb::DfbMode, timed};
-use laser_solver::dfb::DfbLaser;
 use laser_solver::grating::PiShift;
 use laser_solver::error::SolverError;
 use laser_solver::maths::rootfind::BisectionConfig;
 use laser_solver::maths::utils::linspace;
+use laser_solver::two_mode::TwoModeSolver;
 use std::time::Duration;
 
 const PI_POSITION_INTERVALS: usize = 40;
@@ -37,9 +37,10 @@ impl DfbMode {
                     self.sgnl_mode,
                     self.signal_interaction,
                 );
-                DfbLaser::new(fibre, self.steps).solve(
+                TwoModeSolver::new(&fibre, self.steps).solve_lasing(
                     self.pump,
-                    self.dfb_solve_config(bc),
+                    bc.into(),
+                    self.picard_config,
                     false,
                 )
             });

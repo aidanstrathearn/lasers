@@ -8,14 +8,13 @@ use crate::residual_plot::{ResidualRange, residual_slider_grid};
 use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
 use eframe::egui::Ui;
-use laser_solver::dfb::{DfbLaser, DfbSolveConfig};
 use laser_solver::error::SolverError;
 use laser_solver::grating::PiShift;
 use laser_solver::lase::{
     Fibre, FibreGeometry, FieldMode, Pump, ResolvedFibre, TwoLevelCrossSections, TwoLevelDopant,
 };
 use laser_solver::maths::picard::PicardConfig;
-use laser_solver::maths::rootfind::{BisectionConfig, RootFindConfig};
+use laser_solver::maths::rootfind::BisectionConfig;
 use std::time::Duration;
 
 #[derive(PartialEq, Default, Copy, Clone)]
@@ -143,17 +142,6 @@ impl DfbMode {
             self.sgnl_mode,
             self.signal_interaction,
         )
-    }
-
-    pub(crate) fn dfb_laser(&self) -> DfbLaser<'_> {
-        DfbLaser::new(self.resolved_fibre(), self.steps)
-    }
-
-    pub(crate) fn dfb_solve_config(&self, root_find: impl Into<RootFindConfig>) -> DfbSolveConfig {
-        DfbSolveConfig {
-            root_find: root_find.into(),
-            picard: self.picard_config,
-        }
     }
 
     fn compute_plot(&mut self) -> Result<Plotter, SolverError> {

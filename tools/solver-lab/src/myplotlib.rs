@@ -33,6 +33,7 @@ pub struct ReferenceLine {
     label: Option<String>,
 }
 
+#[allow(dead_code)]
 impl ReferenceLine {
     pub fn label(&mut self, label: impl Into<String>) -> &mut Self {
         self.label = Some(label.into());
@@ -72,6 +73,7 @@ impl Plotter {
         self.series.last_mut().unwrap()
     }
 
+    #[allow(dead_code)]
     pub fn axhline(&mut self, y: f64) -> &mut ReferenceLine {
         self.horizontal_lines.push(ReferenceLine {
             value: y,
@@ -81,6 +83,7 @@ impl Plotter {
         self.horizontal_lines.last_mut().unwrap()
     }
 
+    #[allow(dead_code)]
     pub fn axvline(&mut self, x: f64) -> &mut ReferenceLine {
         self.vertical_lines.push(ReferenceLine {
             value: x,

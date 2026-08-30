@@ -1,4 +1,3 @@
-pub mod dfb;
 pub mod dopant;
 pub mod error;
 pub mod fibre;

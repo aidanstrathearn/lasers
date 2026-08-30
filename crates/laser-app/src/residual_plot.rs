@@ -6,6 +6,7 @@ use laser_solver::error::SolverError;
 use laser_solver::lase::{BidirectionalAmplitude, FieldState};
 use laser_solver::two_mode::propagation::out_field_coupled;
 use laser_solver::maths::utils::linspace;
+use laser_solver::two_mode::TwoModeSolver;
 
 #[derive(Copy, Clone)]
 pub struct ResidualRange {
@@ -32,8 +33,8 @@ impl DfbMode {
             self.residual_range.num,
         );
 
-        let solver = self.dfb_laser();
-        let fibre = &solver.fibre;
+        let fibre = self.resolved_fibre();
+        let solver = TwoModeSolver::new(&fibre, self.steps);
         let grid = solver.grid();
         let kappas = solver.kappas();
         let dz = grid.dz();

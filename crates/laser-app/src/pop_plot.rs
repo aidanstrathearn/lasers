@@ -2,6 +2,7 @@ use crate::plotter::Plotter;
 use crate::{Points, dfb::DfbMode, timed};
 use laser_solver::error::SolverError;
 use laser_solver::maths::rootfind::BisectionConfig;
+use laser_solver::two_mode::TwoModeSolver;
 
 impl DfbMode {
     pub fn pops_plot(&mut self) -> Result<Plotter, SolverError> {
@@ -12,8 +13,13 @@ impl DfbMode {
         };
 
         let (result, compute_time) = timed(|| {
-            self.dfb_laser()
-                .solve(self.pump, self.dfb_solve_config(bc), full_profile)
+            let fibre = self.resolved_fibre();
+            TwoModeSolver::new(&fibre, self.steps).solve_lasing(
+                self.pump,
+                bc.into(),
+                self.picard_config,
+                full_profile,
+            )
         });
         self.compute_time = Some(compute_time);
         let result = result?;

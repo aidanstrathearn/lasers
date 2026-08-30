@@ -1,20 +1,18 @@
 mod myplotlib;
 mod plots;
 
-use crate::plots::plot_profile_diff;
-use laser_solver::dfb::picard::solve_profile_picard;
-use laser_solver::dfb::{DfbLaser, DfbSolveConfig};
 use laser_solver::grating::PiShift;
 use laser_solver::lase::{
-    BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldProfile, FieldState, Pump,
-    ResolvedFibre, TwoLevelCrossSections, TwoLevelDopant, profile_max_diff,
+    BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldState, Pump, ResolvedFibre,
+    TwoLevelCrossSections, TwoLevelDopant,
 };
-use laser_solver::maths::picard::{PicardConfig, PicardSolver};
+use laser_solver::maths::picard::PicardConfig;
 use laser_solver::maths::rootfind::{
     BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig, rootfind_1d,
 };
 use laser_solver::maths::utils::{IterationConfig, linspace};
-use laser_solver::two_mode::propagation::{out_field_coupled, solve_profile_coupled};
+use laser_solver::two_mode::TwoModeSolver;
+use laser_solver::two_mode::propagation::out_field_coupled;
 use myplotlib::Plotter;
 use plots::show_field_profile;
 use std::time::Instant;
@@ -60,10 +58,6 @@ fn resolved_fibre() -> ResolvedFibre<'static, TwoLevelDopant, PiShift> {
     )
 }
 
-fn dfb_laser() -> DfbLaser<'static> {
-    DfbLaser::new(resolved_fibre(), STEPS)
-}
-
 const ITERATION: IterationConfig = IterationConfig {
     max: 500,
     tol: 1e-10,
@@ -88,16 +82,6 @@ const NEWTON: Newton1dConfig = Newton1dConfig {
     dx: 1e-6,
 };
 
-const NEWTON_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
-    root_find: RootFindConfig::Newton1d(NEWTON),
-    picard: PICARD,
-};
-
-const BISECTION_SOLVE_CONFIG: DfbSolveConfig = DfbSolveConfig {
-    root_find: RootFindConfig::Bisection(BISECTION),
-    picard: PICARD,
-};
-
 const SHOW_PLOTS: bool = true;
 
 fn main() -> eframe::Result {
@@ -106,14 +90,12 @@ fn main() -> eframe::Result {
     run_pump_scan(SHOW_PLOTS)?;
     plot_pump_scan_derivatives(SHOW_PLOTS)?;
     inspect_grating(SHOW_PLOTS)?;
-    compare_profile_solvers(SHOW_PLOTS)?;
-    compare_dfb_solvers(SHOW_PLOTS)?;
 
     Ok(())
 }
 fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
-    let solver = dfb_laser();
-    let fibre = &solver.fibre;
+    let fibre = resolved_fibre();
+    let solver = TwoModeSolver::new(&fibre, STEPS);
     let grid = solver.grid();
     let kappas = solver.kappas();
     let dz = grid.dz();
@@ -148,8 +130,14 @@ fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
     Ok(())
 }
 fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
-    let result = dfb_laser()
-        .solve_shooting(FORWARD_PUMP, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
+    let fibre = resolved_fibre();
+    let result = TwoModeSolver::new(&fibre, STEPS)
+        .solve_lasing(
+            FORWARD_PUMP,
+            RootFindConfig::Newton1d(NEWTON),
+            PICARD,
+            FULL_PROFILE,
+        )
         .unwrap();
     show_field_profile(&result, show_plots)?;
 
@@ -159,8 +147,14 @@ fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
 fn run_pump_scan(show_plots: bool) -> eframe::Result {
     let pumps = linspace(0.0, 10.0, 200);
     let start = Instant::now();
-    let threshold = dfb_laser()
-        .pump_scan(&pumps, 1.0, BISECTION_SOLVE_CONFIG)
+    let fibre = resolved_fibre();
+    let threshold = TwoModeSolver::new(&fibre, STEPS)
+        .pump_scan(
+            &pumps,
+            1.0,
+            RootFindConfig::Bisection(BISECTION),
+            PICARD,
+        )
         .expect("pump scan failed");
     let elapsed = start.elapsed();
     println!("pump sweep {:.3}", elapsed.as_secs_f64());
@@ -196,12 +190,14 @@ fn plot_pump_scan_derivatives(show_plot: bool) -> eframe::Result {
     };
     let pumps = linspace(0.0, 10.0, 200);
     let balance = 0.95;
-    let solve_config = DfbSolveConfig {
-        picard: pc,
-        ..BISECTION_SOLVE_CONFIG
-    };
-    let outputs = dfb_laser()
-        .pump_scan(&pumps, balance, solve_config)
+    let fibre = resolved_fibre();
+    let outputs = TwoModeSolver::new(&fibre, STEPS)
+        .pump_scan(
+            &pumps,
+            balance,
+            RootFindConfig::Bisection(BISECTION),
+            pc,
+        )
         .expect("pump scan failed");
     let outputs: Vec<(f64, f64)> = outputs
         .into_iter()
@@ -223,31 +219,11 @@ fn plot_pump_scan_derivatives(show_plot: bool) -> eframe::Result {
         .map(|(pump, output)| (output[1].1 - output[0].1) / (pump[1] - pump[0]))
         .collect();
 
-    let threshold_config = IterationConfig { tol: 1e-3, max: 20 };
-    let (forward_slope, backward_slope, threshold) = dfb_laser()
-        .find_threshold_and_slope(
-            Pump {
-                total: 2.0,
-                balance,
-            },
-            1.0,
-            threshold_config,
-            solve_config,
-        )
-        .expect("threshold not found");
-
-    println!(
-        "forward slope {forward_slope}, backward slope {backward_slope}, threshold {threshold}"
-    );
-
     let mut plot = Plotter::new();
     plot.plot(&derivative_pumps, &forward_derivative)
         .label("Forward derivative");
     plot.plot(&derivative_pumps, &backward_derivative)
         .label("Backward derivative");
-    plot.axhline(forward_slope).label("Forward slope");
-    plot.axhline(backward_slope).label("Backward slope");
-    plot.axvline(threshold).label("Threshold");
     plot.xlabel("Pump power");
     plot.ylabel("d(output power) / d(pump power)");
     plot.title("Pump-scan slope efficiency");
@@ -259,7 +235,8 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
         return Ok(());
     }
 
-    let solver = dfb_laser();
+    let fibre = resolved_fibre();
+    let solver = TwoModeSolver::new(&fibre, STEPS);
     let grid = solver.grid();
     let z = grid.positions().take(grid.steps()).collect::<Vec<_>>();
     let kappas = solver.kappas();
@@ -269,104 +246,4 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
     plot.ylabel("Kappa");
     plot.title("Coupling Profile");
     plot.show()
-}
-
-fn compare_profile_solvers(show_plots: bool) -> eframe::Result {
-    let comparison_pump = FORWARD_PUMP;
-    let comparison_sgnl_b = 1.0;
-    let solver = dfb_laser();
-    let fibre = &solver.fibre;
-    let grid = solver.grid();
-    let comparison_kappas = solver.kappas();
-    let comparison_boundary = FieldState {
-        signal: BidirectionalAmplitude {
-            forward: 0.0,
-            backward: comparison_sgnl_b,
-        },
-        pump: BidirectionalAmplitude {
-            forward: comparison_pump.forward_amplitude(),
-            backward: 0.0,
-        },
-    };
-    let direct_profile = FieldProfile::new(
-        grid.positions().collect(),
-        solve_profile_coupled(
-            comparison_boundary,
-            |fields| fibre.gain(fields),
-            grid.dz(),
-            comparison_kappas,
-        ),
-    );
-
-    let mut picard_solver = PicardSolver::filled(grid.points(), comparison_boundary);
-    let picard_fields = solve_profile_picard(
-        &mut picard_solver,
-        comparison_sgnl_b,
-        comparison_pump,
-        &fibre,
-        PICARD,
-        comparison_kappas,
-        grid.dz(),
-    )
-    .expect("Picard profile comparison did not converge")
-    .to_vec();
-    let picard_profile = FieldProfile::new(direct_profile.z.clone(), picard_fields);
-
-    let max_diff = profile_max_diff(&direct_profile.fields, &picard_profile.fields);
-    println!("Picard/direct profile max diff: {max_diff:e}");
-
-    if show_plots {
-        plot_profile_diff(
-            &direct_profile,
-            &picard_profile,
-            "shooting vs picard profile",
-        )?;
-    }
-
-    Ok(())
-}
-
-fn compare_dfb_solvers(show_plots: bool) -> eframe::Result {
-    let comparison_pump = FORWARD_PUMP;
-
-    let start = Instant::now();
-    let laser = dfb_laser();
-    let shooting_profile = laser
-        .solve_shooting(comparison_pump, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
-        .expect("shooting DFB solve failed");
-    let shooting_elapsed = start.elapsed();
-
-    let start = Instant::now();
-    let picard_profile = laser
-        .solve_picard(comparison_pump, NEWTON_SOLVE_CONFIG, FULL_PROFILE)
-        .expect("Picard DFB solve failed");
-    let picard_elapsed = start.elapsed();
-
-    let max_diff = profile_max_diff(&shooting_profile.fields, &picard_profile.fields);
-    println!(
-        "shooting DFB solve: {:.3} ms",
-        shooting_elapsed.as_secs_f64() * 1_000.0
-    );
-    println!(
-        "Picard DFB solve: {:.3} ms",
-        picard_elapsed.as_secs_f64() * 1_000.0
-    );
-    println!("shooting/Picard profile max diff: {max_diff:e}");
-
-    if show_plots {
-        plot_profile_diff(
-            &shooting_profile,
-            &picard_profile,
-            "shooting vs picard DFB solution",
-        )?;
-    }
-
-    Ok(())
-}
-
-fn difference(left: &[f64], right: &[f64]) -> Vec<f64> {
-    left.iter()
-        .zip(right)
-        .map(|(left, right)| left - right)
-        .collect()
 }
