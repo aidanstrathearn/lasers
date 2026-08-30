@@ -1,4 +1,3 @@
-pub mod amplifier;
 pub mod fieldstate;
 pub mod propagation;
 mod solver;
