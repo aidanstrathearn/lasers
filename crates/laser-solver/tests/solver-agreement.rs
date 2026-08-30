@@ -8,7 +8,10 @@ use laser_solver::lase::{
 use laser_solver::maths::picard::{PicardConfig, PicardSolver};
 use laser_solver::maths::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
 use laser_solver::maths::utils::IterationConfig;
-use laser_solver::two_mode::amplifier::{AmplifierSolveConfig, solve_amp_picard, solve_shooting};
+use laser_solver::two_mode::TwoModeSolver;
+use laser_solver::two_mode::amplifier::{
+    Amplifier, AmplifierSolveConfig, solve_amp_picard, solve_shooting,
+};
 use laser_solver::two_mode::propagation::solve_profile_coupled;
 
 const PUMP_FORWARD_AMPLITUDE: f64 = 100.0;
@@ -157,7 +160,7 @@ const MAX_RELATIVE_DIFFERENCE: f64 = 1e-16;
 const MIRRORED_PUMP: f64 = PUMP_FORWARD_AMPLITUDE;
 const SYMMETRY_ABSOLUTE_TOLERANCE: f64 = 1e-8;
 const SYMMETRY_RELATIVE_TOLERANCE: f64 = 5e-3;
-const AMPLIFIER_PROFILE_TOLERANCE: f64 = 1e-8;
+const AMPLIFIER_PROFILE_TOLERANCE: f64 = 1e-11;
 
 #[test]
 fn shooting_and_picard_amplifier_profiles_agree() {
@@ -189,6 +192,39 @@ fn shooting_and_picard_amplifier_profiles_agree() {
 }
 
 #[test]
+fn injected_solver_agrees_with_existing_amplifier() {
+    let signal = Signal {
+        total: 1.0,
+        balance: 1.0,
+    };
+    let pump = Pump {
+        total: 1.0,
+        balance: 0.0,
+    };
+    let config = AmplifierSolveConfig {
+        root_find: RootFindConfig::Bisection(BISECTION),
+        picard: SYMMETRY_PICARD,
+    };
+    let fibre = resolved_fibre();
+
+    let existing_profile = Amplifier {
+        fibre: fibre.clone(),
+    }
+    .solve(signal, pump, config, true)
+    .expect("existing amplifier solve failed");
+    let injected_profile = TwoModeSolver::new(&fibre)
+        .solve_injected(pump, signal, SYMMETRY_PICARD)
+        .expect("new injected-signal solve failed");
+
+    assert_eq!(existing_profile.z, injected_profile.z);
+    let max_diff = profile_max_diff(&existing_profile.fields, &injected_profile.fields);
+    assert!(
+        max_diff <= AMPLIFIER_PROFILE_TOLERANCE,
+        "existing amplifier and injected solver profiles differ by {max_diff:e}, exceeding {AMPLIFIER_PROFILE_TOLERANCE:e}"
+    );
+}
+
+#[test]
 fn direct_and_buffered_picard_profile_solvers_agree() {
     let pump = FORWARD_PUMP;
     let sgnl_b = 1.0;
@@ -208,12 +244,7 @@ fn direct_and_buffered_picard_profile_solvers_agree() {
     };
     let direct_profile = FieldProfile::new(
         grid.positions().collect(),
-        solve_profile_coupled(
-            boundary,
-            |fields| fibre.gain(fields),
-            grid.dz(),
-            kappas,
-        ),
+        solve_profile_coupled(boundary, |fields| fibre.gain(fields), grid.dz(), kappas),
     );
     let mut picard_solver = PicardSolver::filled(grid.points(), boundary);
     let picard_fields = solve_profile_picard(

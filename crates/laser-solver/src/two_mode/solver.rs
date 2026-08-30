@@ -3,15 +3,18 @@ use crate::fibre::{BidirectionalAmplitude, transfer};
 use crate::grating::GratingModel;
 use crate::lase::{DopantModel, FieldState, profile_convergence_error};
 use crate::maths::picard::{PicardConfig, PicardSolver};
-use crate::two_mode::amplifier::find_b_fields;
-use crate::two_mode::propagation::{solve_profile, solve_profile_uncoupled};
+use crate::two_mode::propagation::solve_profile;
 use crate::two_mode::{FieldProfile, Pump, ResolvedFibre, Signal};
 
 pub struct TwoModeSolver<'a, D: DopantModel, G: GratingModel> {
     fibre: &'a ResolvedFibre<'a, D, G>,
 }
 
-impl<D: DopantModel, G: GratingModel> TwoModeSolver<'_, D, G> {
+impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
+    pub fn new(fibre: &'a ResolvedFibre<'a, D, G>) -> Self {
+        Self { fibre }
+    }
+
     pub fn solve_injected(
         &self,
         pump: Pump,
@@ -222,5 +225,39 @@ mod tests {
 
         assert_near(propagated_signal.backward, signal.backward_amplitude());
         assert_near(boundary.pump.backward, pump.backward_amplitude());
+    }
+
+    #[test]
+    fn forward_injected_grating_solve_satisfies_both_signal_boundaries() {
+        let fibre = zero_gain_fibre(PiShift {
+            kappa_left: 0.7,
+            kappa_right: 0.3,
+            pi_shift_position: 0.5,
+        });
+        let fibre = resolve_zero_gain(&fibre, 4);
+        let solver = TwoModeSolver::new(&fibre);
+        let signal = Signal {
+            total: 5.0,
+            balance: 1.0,
+        };
+        let pump = Pump {
+            total: 7.0,
+            balance: 1.0,
+        };
+
+        let profile = solver
+            .solve_injected(pump, signal, PicardConfig::default())
+            .expect("forward-injected grating solve should converge");
+        let left = profile.fields.first().unwrap();
+        let right = profile.fields.last().unwrap();
+
+        assert_near(left.signal.forward, signal.forward_amplitude());
+        assert_near(right.signal.backward, signal.backward_amplitude());
+        assert_near(left.pump.forward, pump.forward_amplitude());
+        assert_near(right.pump.backward, pump.backward_amplitude());
+        assert!(
+            left.signal.backward.abs() > 1e-6,
+            "grating solve should produce a reflected signal"
+        );
     }
 }
