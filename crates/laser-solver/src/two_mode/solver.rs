@@ -1,8 +1,10 @@
 use crate::error::SolverError;
 use crate::fibre::{BidirectionalAmplitude, transfer};
 use crate::grating::GratingModel;
-use crate::lase::{DopantModel, FieldState};
-use crate::maths::picard::PicardConfig;
+use crate::lase::{DopantModel, FieldState, profile_convergence_error};
+use crate::maths::picard::{PicardConfig, PicardSolver};
+use crate::two_mode::amplifier::find_b_fields;
+use crate::two_mode::propagation::{solve_profile, solve_profile_uncoupled};
 use crate::two_mode::{FieldProfile, Pump, ResolvedFibre, Signal};
 
 pub struct TwoModeSolver<'a, D: DopantModel, G: GratingModel> {
@@ -16,14 +18,49 @@ impl<D: DopantModel, G: GratingModel> TwoModeSolver<'_, D, G> {
         signal: Signal,
         picard_config: PicardConfig,
     ) -> Result<FieldProfile, SolverError> {
-        let use_shooting = pump.balance == 1.0 && signal.balance == 1.0;
+        let dz = self.fibre.grid.dz();
+        let kappas = self.fibre.kappas();
+        let (signal_forward, signal_backward) = signal.amplitudes();
+        let (pump_forward, pump_backward) = pump.amplitudes();
+        let left_boundary = FieldState {
+            signal: BidirectionalAmplitude {
+                forward: signal_forward,
+                backward: signal_backward,
+            },
+            pump: BidirectionalAmplitude {
+                forward: pump_forward,
+                backward: pump_backward,
+            },
+        };
+        let use_shooting = pump_backward == 0.0
+            && signal_backward == 0.0
+            && kappas.iter().all(|&kappa| kappa == 0.0); // reflections affect boundary
+
         let solution = if use_shooting {
-            vec![FieldState::default(); self.fibre.grid.points()]
+            solve_profile(left_boundary, |fields| self.fibre.gain(fields), dz, kappas)
         } else {
-            vec![FieldState::default(); self.fibre.grid.points()]
+            let mut solver = PicardSolver::filled(self.fibre.grid.points(), left_boundary);
+            let set_boundary =
+                |current: &[FieldState]| self.injected_left_boundary(pump, signal, current);
+            let step = |new_previous: &FieldState, old_current: &FieldState, i| {
+                new_previous.step_if(self.fibre.gain(*old_current), kappas[i], dz)
+            };
+
+            let error = |current: &[FieldState], previous: &[FieldState]| {
+                profile_convergence_error(
+                    current,
+                    previous,
+                    picard_config.absolute_tolerance,
+                    picard_config.relative_tolerance,
+                )
+            };
+
+            solver.solve(picard_config.max_iterations, set_boundary, step, error)?;
+
+            solver.profile().to_vec()
         };
 
-        Result::Ok::<FieldProfile, SolverError>(FieldProfile::new(
+        Ok(FieldProfile::new(
             self.fibre.grid.positions().collect(),
             solution,
         ))
@@ -65,6 +102,7 @@ impl<D: DopantModel, G: GratingModel> TwoModeSolver<'_, D, G> {
         let (pump_forward, pump_backward_right) = pump.amplitudes();
         let (t21, t22) = signal_transfer_bottom_row;
 
+        // todo: need to catch when t22=0
         FieldState {
             signal: BidirectionalAmplitude {
                 forward: signal_forward,

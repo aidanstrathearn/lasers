@@ -15,7 +15,7 @@ impl FieldState {
         }
     }
 
-    fn step_if(self, gain: Gain, kappa: f64, dz: f64) -> FieldState {
+    pub(crate) fn step_if(self, gain: Gain, kappa: f64, dz: f64) -> FieldState {
         if kappa == 0.0 {
             self.uncoupled_step(gain, dz)
         } else {
@@ -66,6 +66,22 @@ pub fn solve_profile_coupled(
     result.push(current);
     for &kappa in kappas {
         current = current.coupled_step(gain(current), kappa, dz);
+        result.push(current);
+    }
+    result
+}
+
+pub fn solve_profile(
+    fs: FieldState,
+    gain: impl Fn(FieldState) -> Gain,
+    dz: f64,
+    kappas: &[f64],
+) -> Vec<FieldState> {
+    let mut current = fs;
+    let mut result = Vec::with_capacity(kappas.len() + 1);
+    result.push(current);
+    for &kappa in kappas {
+        current = current.step_if(gain(current), kappa, dz);
         result.push(current);
     }
     result
