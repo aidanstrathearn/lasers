@@ -7,8 +7,6 @@ use laser_solver::maths::rootfind::BisectionConfig;
 use laser_solver::maths::utils::linspace;
 use laser_solver::two_mode::TwoModeSolver;
 
-const DEFAULT_PUMP_FLUX_PER_WATT: f64 = 9_714.604_996_881;
-
 #[derive(Copy, Clone)]
 pub struct ThresholdRange {
     lower: f64,
@@ -16,13 +14,12 @@ pub struct ThresholdRange {
     num: usize,
 }
 
-impl Default for ThresholdRange {
-    fn default() -> Self {
-        Self {
-            lower: 1e-6 / DEFAULT_PUMP_FLUX_PER_WATT,
-            upper: 10.0 / DEFAULT_PUMP_FLUX_PER_WATT,
-            num: 20,
-        }
+impl ThresholdRange {
+    pub(crate) fn new_watts(lower: f64, upper: f64, num: usize) -> Self {
+        assert!(lower.is_finite() && lower >= 0.0);
+        assert!(upper.is_finite() && upper >= lower);
+        assert!(num > 1);
+        Self { lower, upper, num }
     }
 }
 
@@ -71,8 +68,7 @@ impl DfbMode {
         plt.ylabel("Output power (mW)");
         plt.add_points(sgnl_f_points).label("Forward");
         plt.add_points(sgnl_b_points).label("Backward");
-        plt.axvline(1_000.0 * self.pump.total)
-            .label("Current pump");
+        plt.axvline(1_000.0 * self.pump.total).label("Current pump");
         plt.xlim(
             1_000.0 * self.threshold_range.lower,
             1_000.0 * self.threshold_range.upper,
@@ -85,11 +81,12 @@ pub fn threshold_slider_grid(tr: &mut ThresholdRange, ui: &mut Ui) -> bool {
     let mut changed = false;
     let mut upper_mw = 1_000.0 * tr.upper;
     let mut lower_mw = 1_000.0 * tr.lower;
+    let upper_limit_mw = (upper_mw).max(100.0);
 
     egui::Grid::new("threshold").show(ui, |ui| {
         ui.label("High (mW)");
         changed |= ui
-            .add(egui::Slider::new(&mut upper_mw, 1e-9..=10.0).step_by(0.001))
+            .add(egui::Slider::new(&mut upper_mw, 1e-9..=upper_limit_mw).step_by(0.001))
             .changed();
         ui.end_row();
 
@@ -110,4 +107,21 @@ pub fn threshold_slider_grid(tr: &mut ThresholdRange, ui: &mut Ui) -> bool {
     tr.lower = lower_mw / 1_000.0;
 
     changed
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_threshold_range_preserves_legacy_flux_bounds() {
+        let mode = DfbMode::default();
+        let fibre = mode.resolved_fibre();
+
+        let lower_flux = fibre.pump_flux(mode.threshold_range.lower);
+        let upper_flux = fibre.pump_flux(mode.threshold_range.upper);
+
+        assert!((lower_flux / 1e-6 - 1.0).abs() < 1e-12);
+        assert!((upper_flux / 10.0 - 1.0).abs() < 1e-12);
+    }
 }

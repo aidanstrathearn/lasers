@@ -113,14 +113,17 @@ impl Default for DfbMode {
         let sgnl_mode = FieldMode::new(1060e-9);
         let pump_interaction = TwoLevelCrossSections::new(1.0, 0.0);
         let signal_interaction = TwoLevelCrossSections::new(0.0, 1.0);
-        let pump_total = {
+        let (pump_total, threshold_range) = {
             let resolved = fibre.resolve_with_interactions(
                 pump_mode,
                 pump_interaction,
                 sgnl_mode,
                 signal_interaction,
             );
-            resolved.pump_power(10.0)
+            (
+                resolved.pump_power(10.0),
+                ThresholdRange::new_watts(resolved.pump_power(1e-6), resolved.pump_power(10.0), 20),
+            )
         };
 
         Self {
@@ -141,7 +144,7 @@ impl Default for DfbMode {
                 relative_tolerance: 1e-6,
                 absolute_tolerance: 1e-10,
             },
-            threshold_range: ThresholdRange::default(),
+            threshold_range,
             residual_range: ResidualRange::default(),
             cached_plotter: None,
             compute_time: None,
