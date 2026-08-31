@@ -21,6 +21,14 @@ impl ThresholdRange {
         assert!(num > 1);
         Self { lower, upper, num }
     }
+
+    pub(crate) fn bisection_config(self, config: BisectionConfig) -> BisectionConfig {
+        BisectionConfig {
+            lower: self.lower,
+            upper: self.upper,
+            ..config
+        }
+    }
 }
 
 impl DfbMode {

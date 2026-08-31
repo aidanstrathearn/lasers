@@ -24,14 +24,20 @@ pub(crate) enum DfbView {
     Kappa,
     Threshold,
     PiPosition,
+    PiPositionThreshold,
 }
 
-const VIEW_OPTIONS: [(DfbView, &str, egui::Key); 5] = [
+const VIEW_OPTIONS: [(DfbView, &str, egui::Key); 6] = [
     (DfbView::Profile, "[1] Profile", egui::Key::Num1),
     (DfbView::Populations, "[2] Populations", egui::Key::Num2),
     (DfbView::Kappa, "[3] Kappa", egui::Key::Num3),
     (DfbView::Threshold, "[4] Threshold", egui::Key::Num4),
     (DfbView::PiPosition, "[5] Pi position", egui::Key::Num5),
+    (
+        DfbView::PiPositionThreshold,
+        "[6] Pi threshold",
+        egui::Key::Num6,
+    ),
 ];
 
 impl DfbView {
@@ -42,6 +48,7 @@ impl DfbView {
             Self::Populations => "population-plot",
             Self::Kappa => "kappa-plot",
             Self::PiPosition => "pi-position-output-plot",
+            Self::PiPositionThreshold => "pi-position-threshold-plot",
         }
     }
 
@@ -163,6 +170,7 @@ impl DfbMode {
             DfbView::Populations => self.pops_plot(),
             DfbView::Kappa => self.kappa_plot(),
             DfbView::PiPosition => self.pi_pos_plot(),
+            DfbView::PiPositionThreshold => self.pi_pos_threshold_plot(),
         }
     }
 }
@@ -200,7 +208,7 @@ impl ModeUi for DfbMode {
             });
 
             match self.view {
-                DfbView::Threshold => {
+                DfbView::Threshold | DfbView::PiPositionThreshold => {
                     ui.vertical(|ui| {
                         ui.heading("Threshold");
                         changed |= threshold_slider_grid(&mut self.threshold_range, ui);

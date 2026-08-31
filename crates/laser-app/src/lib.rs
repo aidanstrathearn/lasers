@@ -2,6 +2,7 @@ mod controls;
 mod dfb;
 mod kappa_plot;
 mod pi_pos_plot;
+mod pi_pos_threshold_plot;
 mod plotter;
 mod pop_plot;
 mod profile_plot;
