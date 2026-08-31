@@ -106,6 +106,20 @@ impl FieldProfile {
         }
     }
 
+    pub(crate) fn into_endpoints(self) -> Self {
+        let first_z = *self.z.first().expect("field profile is empty");
+        let last_z = *self.z.last().expect("field profile is empty");
+        let first_field = *self.fields.first().expect("field profile is empty");
+        let last_field = *self.fields.last().expect("field profile is empty");
+
+        Self {
+            z: vec![first_z, last_z],
+            fields: vec![first_field, last_field],
+            pump_flux_per_watt: self.pump_flux_per_watt,
+            signal_flux_per_watt: self.signal_flux_per_watt,
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.fields.len()
     }

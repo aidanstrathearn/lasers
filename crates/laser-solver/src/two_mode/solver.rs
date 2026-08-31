@@ -121,11 +121,17 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         picard_config: PicardConfig,
         full_profile: bool,
     ) -> Result<FieldProfile, SolverError> {
-        if self.fibre.pump_flux_amplitudes(pump).1 > 0.0 {
-            self.solve_lasing_picard(pump, root_find_config, picard_config, full_profile)
+        let profile = if self.fibre.pump_flux_amplitudes(pump).1 > 0.0 {
+            self.solve_lasing_picard(pump, root_find_config, picard_config)?
         } else {
-            self.solve_lasing_shooting(pump, root_find_config, full_profile)
-        }
+            self.solve_lasing_shooting(pump, root_find_config)?
+        };
+
+        Ok(if full_profile {
+            profile
+        } else {
+            profile.into_endpoints()
+        })
     }
 
     pub fn pump_scan(
@@ -158,7 +164,6 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         &self,
         pump: Pump,
         root_find_config: RootFindConfig,
-        full_profile: bool,
     ) -> Result<FieldProfile, SolverError> {
         let (pump_forward, pump_backward) = self.fibre.pump_flux_amplitudes(pump);
         assert_eq!(
@@ -191,31 +196,15 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         };
         let sgnl_b = rootfind_1d(residual, root_find_config)?;
 
-        if full_profile {
-            Ok(self.field_profile(
-                grid.positions().collect(),
-                solve_profile_coupled(
-                    trial(sgnl_b),
-                    |fields| self.fibre.gain(fields),
-                    dz,
-                    kappas,
-                ),
-            ))
-        } else {
-            let out_left = trial(sgnl_b);
-            Ok(self.field_profile(
-                vec![0.0, self.fibre.length()],
-                vec![
-                    out_left,
-                    out_field_coupled(
-                        out_left,
-                        |fields| self.fibre.gain(fields),
-                        dz,
-                        kappas,
-                    ),
-                ],
-            ))
-        }
+        Ok(self.field_profile(
+            grid.positions().collect(),
+            solve_profile_coupled(
+                trial(sgnl_b),
+                |fields| self.fibre.gain(fields),
+                dz,
+                kappas,
+            ),
+        ))
     }
 
     fn solve_lasing_picard(
@@ -223,7 +212,6 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         pump: Pump,
         root_find_config: RootFindConfig,
         picard_config: PicardConfig,
-        full_profile: bool,
     ) -> Result<FieldProfile, SolverError> {
         let (pump_forward, pump_backward) = self.fibre.pump_flux_amplitudes(pump);
         let initial = FieldState {
@@ -250,18 +238,10 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         };
         let _sgnl_b = try_rootfind_1d(residual, root_find_config)?;
 
-        if full_profile {
-            Ok(self.field_profile(
-                self.grid.positions().collect(),
-                solver.profile().to_vec(),
-            ))
-        } else {
-            let fields = solver.profile();
-            Ok(self.field_profile(
-                vec![0.0, self.fibre.length()],
-                vec![fields[0], fields.last().copied().unwrap()],
-            ))
-        }
+        Ok(self.field_profile(
+            self.grid.positions().collect(),
+            solver.profile().to_vec(),
+        ))
     }
 
     fn lasing_pump_backward(&self, pump_backward: f64, profile: &[FieldState]) -> f64 {
@@ -449,13 +429,43 @@ mod tests {
         let solver = TwoModeSolver::new(&fibre, LASING_STEPS);
         let pump = pump_for_flux(&fibre, LASING_PUMP_FLUX, 1.0);
         let shooting = solver
-            .solve_lasing_shooting(pump, root_find_config, true)
+            .solve_lasing_shooting(pump, root_find_config)
             .expect("shooting lasing solve failed");
         let picard = solver
-            .solve_lasing_picard(pump, root_find_config, LASING_PICARD, true)
+            .solve_lasing_picard(pump, root_find_config, LASING_PICARD)
             .expect("Picard lasing solve failed");
 
         assert_profiles_identical(&shooting, &picard);
+    }
+
+    #[test]
+    fn reduced_lasing_profile_preserves_full_profile_endpoints() {
+        let fibre = active_lasing_fibre();
+        let fibre = resolve_active_lasing(&fibre);
+        let solver = TwoModeSolver::new(&fibre, LASING_STEPS);
+        let pump = pump_for_flux(&fibre, LASING_PUMP_FLUX, 1.0);
+        let full = solver
+            .solve_lasing(
+                pump,
+                RootFindConfig::Newton1d(LASING_NEWTON),
+                LASING_PICARD,
+                true,
+            )
+            .expect("full lasing solve failed");
+        let reduced = solver
+            .solve_lasing(
+                pump,
+                RootFindConfig::Newton1d(LASING_NEWTON),
+                LASING_PICARD,
+                false,
+            )
+            .expect("reduced lasing solve failed");
+        let expected_fields = [full.fields[0], *full.fields.last().unwrap()];
+
+        assert_eq!(reduced.z, [full.z[0], *full.z.last().unwrap()]);
+        assert_eq!(reduced.len(), 2);
+        assert_eq!(profile_max_diff(&reduced.fields, &expected_fields), 0.0);
+        assert_eq!(reduced.output_powers(), full.output_powers());
     }
 
     #[test]
