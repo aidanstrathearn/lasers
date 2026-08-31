@@ -1,6 +1,7 @@
 pub mod fieldstate;
 pub mod propagation;
 mod solver;
+mod threshold_solver;
 mod two_mode;
 
 pub use fieldstate::*;
