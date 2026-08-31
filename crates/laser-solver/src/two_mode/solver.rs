@@ -134,6 +134,52 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         })
     }
 
+    pub fn find_threshold_shooting(
+        &self,
+        root_find_config: RootFindConfig,
+    ) -> Result<f64, SolverError> {
+        rootfind_1d(
+            |pump_total| self.threshold_residual_shooting(pump_total),
+            root_find_config,
+        )
+        .map_err(SolverError::from)
+    }
+
+    fn threshold_residual_shooting(&self, pump_total: f64) -> f64 {
+        let (pump_forward, pump_backward) = self.fibre.pump_flux_amplitudes(Pump {
+            total: pump_total,
+            balance: 1.0,
+        });
+        assert_eq!(
+            pump_backward, 0.0,
+            "shooting threshold requires a forward-only pump"
+        );
+        let initial = FieldState {
+            signal: BidirectionalAmplitude {
+                forward: 0.0,
+                backward: 1.0,
+            },
+            pump: BidirectionalAmplitude {
+                forward: pump_forward,
+                backward: 0.0,
+            },
+        };
+
+        out_field_coupled(
+            initial,
+            |fields| {
+                self.fibre.gain(FieldState {
+                    signal: BidirectionalAmplitude::default(),
+                    ..fields
+                })
+            },
+            self.grid.dz(),
+            self.kappas(),
+        )
+        .signal
+        .backward
+    }
+
     pub fn pump_scan(
         &self,
         pump_totals: &[f64],
@@ -436,6 +482,30 @@ mod tests {
             .expect("Picard lasing solve failed");
 
         assert_profiles_identical(&shooting, &picard);
+    }
+
+    #[test]
+    fn shooting_threshold_zeros_small_signal_residual() {
+        let fibre = active_lasing_fibre();
+        let fibre = resolve_active_lasing(&fibre);
+        let solver = TwoModeSolver::new(&fibre, LASING_STEPS);
+        let lower = fibre.pump_power(1e-6);
+        let upper = fibre.pump_power(LASING_PUMP_FLUX);
+        let config = BisectionConfig {
+            iteration: LASING_ITERATION,
+            lower,
+            upper,
+            midpoint: Midpoint::Geometric,
+        };
+
+        let threshold = solver
+            .find_threshold_shooting(config.into())
+            .expect("shooting threshold solve failed");
+
+        assert!(threshold > lower && threshold < upper);
+        assert!(
+            solver.threshold_residual_shooting(threshold).abs() < LASING_ITERATION.tol
+        );
     }
 
     #[test]
