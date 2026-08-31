@@ -35,9 +35,19 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         &self.kappas
     }
 
+    fn field_profile(&self, z: Vec<f64>, fields: Vec<FieldState>) -> FieldProfile {
+        let (pump_flux_per_watt, signal_flux_per_watt) = self.fibre.flux_per_watt();
+        FieldProfile::new(
+            z,
+            fields,
+            pump_flux_per_watt,
+            signal_flux_per_watt,
+        )
+    }
+
     /// Evaluates the shooting residual at positive backward-signal photon fluxes.
     pub fn shooting_residuals(&self, pump: Pump, trial_signal_fluxes: &[f64]) -> Vec<f64> {
-        let (pump_forward, pump_backward) = pump.amplitudes();
+        let (pump_forward, pump_backward) = self.fibre.pump_flux_amplitudes(pump);
         assert_eq!(
             pump_backward, 0.0,
             "shooting residuals require a forward-only pump"
@@ -82,8 +92,8 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         let _ = root_find_config;
         let dz = self.grid.dz();
         let kappas = self.kappas();
-        let (signal_forward, signal_backward) = signal.amplitudes();
-        let (pump_forward, pump_backward) = pump.amplitudes();
+        let (signal_forward, signal_backward) = self.fibre.signal_flux_amplitudes(signal);
+        let (pump_forward, pump_backward) = self.fibre.pump_flux_amplitudes(pump);
         let left_boundary = FieldState {
             signal: BidirectionalAmplitude {
                 forward: signal_forward,
@@ -122,7 +132,7 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
             solver.profile().to_vec()
         };
 
-        Ok(FieldProfile::new(
+        Ok(self.field_profile(
             self.grid.positions().collect(),
             solution,
         ))
@@ -135,7 +145,7 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         picard_config: PicardConfig,
         full_profile: bool,
     ) -> Result<FieldProfile, SolverError> {
-        if pump.backward_amplitude() > 0.0 {
+        if self.fibre.pump_flux_amplitudes(pump).1 > 0.0 {
             self.solve_lasing_picard(pump, root_find_config, picard_config, full_profile)
         } else {
             self.solve_lasing_shooting(pump, root_find_config, full_profile)
@@ -174,7 +184,7 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         root_find_config: RootFindConfig,
         full_profile: bool,
     ) -> Result<FieldProfile, SolverError> {
-        let (pump_forward, pump_backward) = pump.amplitudes();
+        let (pump_forward, pump_backward) = self.fibre.pump_flux_amplitudes(pump);
         assert_eq!(
             pump_backward, 0.0,
             "shooting solver requires a forward-only pump"
@@ -206,7 +216,7 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         let sgnl_b = rootfind_1d(residual, root_find_config)?;
 
         if full_profile {
-            Ok(FieldProfile::new(
+            Ok(self.field_profile(
                 grid.positions().collect(),
                 solve_profile_coupled(
                     trial(sgnl_b),
@@ -217,7 +227,7 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
             ))
         } else {
             let out_left = trial(sgnl_b);
-            Ok(FieldProfile::new(
+            Ok(self.field_profile(
                 vec![0.0, self.fibre.length()],
                 vec![
                     out_left,
@@ -239,7 +249,7 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         picard_config: PicardConfig,
         full_profile: bool,
     ) -> Result<FieldProfile, SolverError> {
-        let (pump_forward, pump_backward) = pump.amplitudes();
+        let (pump_forward, pump_backward) = self.fibre.pump_flux_amplitudes(pump);
         let initial = FieldState {
             signal: BidirectionalAmplitude::default(),
             pump: BidirectionalAmplitude {
@@ -260,13 +270,13 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         let _sgnl_b = try_rootfind_1d(residual, root_find_config)?;
 
         if full_profile {
-            Ok(FieldProfile::new(
+            Ok(self.field_profile(
                 self.grid.positions().collect(),
                 solver.profile().to_vec(),
             ))
         } else {
             let fields = solver.profile();
-            Ok(FieldProfile::new(
+            Ok(self.field_profile(
                 vec![0.0, self.fibre.length()],
                 vec![fields[0], fields.last().copied().unwrap()],
             ))
@@ -281,7 +291,7 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         config: PicardConfig,
     ) -> Result<&'b [FieldState], PicardError> {
         assert_eq!(self.kappas.len() + 1, solver.profile().len());
-        let (pump_forward, pump_backward) = pump.amplitudes();
+        let (pump_forward, pump_backward) = self.fibre.pump_flux_amplitudes(pump);
         let dz = self.grid.dz();
         let set_boundary = |current: &[FieldState]| FieldState {
             signal: BidirectionalAmplitude {
@@ -346,8 +356,9 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
             );
         }
 
-        let (signal_forward, signal_backward_right) = signal.amplitudes();
-        let (pump_forward, pump_backward_right) = pump.amplitudes();
+        let (signal_forward, signal_backward_right) =
+            self.fibre.signal_flux_amplitudes(signal);
+        let (pump_forward, pump_backward_right) = self.fibre.pump_flux_amplitudes(pump);
         let (t21, t22) = signal_transfer_bottom_row;
 
         // todo: need to catch when t22=0
@@ -391,10 +402,7 @@ mod tests {
 
     const LASING_STEPS: usize = 500;
     const LASING_PUMP_AMPLITUDE: f64 = 100.0;
-    const LASING_PUMP: Pump = Pump {
-        total: LASING_PUMP_AMPLITUDE * LASING_PUMP_AMPLITUDE,
-        balance: 1.0,
-    };
+    const LASING_PUMP_FLUX: f64 = LASING_PUMP_AMPLITUDE * LASING_PUMP_AMPLITUDE;
     const LASING_ITERATION: IterationConfig = IterationConfig {
         max: 500,
         tol: 1e-10,
@@ -476,6 +484,17 @@ mod tests {
         assert!((actual - expected).abs() < 1e-12, "{actual} != {expected}");
     }
 
+    fn pump_for_flux<D: DopantModel, G: GratingModel>(
+        fibre: &ResolvedFibre<'_, D, G>,
+        total_flux: f64,
+        balance: f64,
+    ) -> Pump {
+        Pump {
+            total: fibre.pump_power(total_flux),
+            balance,
+        }
+    }
+
     fn assert_profiles_identical(left: &FieldProfile, right: &FieldProfile) {
         assert_eq!(left.z, right.z);
         assert_eq!(left.fields.len(), right.fields.len());
@@ -486,11 +505,12 @@ mod tests {
         let fibre = active_lasing_fibre();
         let fibre = resolve_active_lasing(&fibre);
         let solver = TwoModeSolver::new(&fibre, LASING_STEPS);
+        let pump = pump_for_flux(&fibre, LASING_PUMP_FLUX, 1.0);
         let shooting = solver
-            .solve_lasing_shooting(LASING_PUMP, root_find_config, true)
+            .solve_lasing_shooting(pump, root_find_config, true)
             .expect("shooting lasing solve failed");
         let picard = solver
-            .solve_lasing_picard(LASING_PUMP, root_find_config, LASING_PICARD, true)
+            .solve_lasing_picard(pump, root_find_config, LASING_PICARD, true)
             .expect("Picard lasing solve failed");
 
         assert_profiles_identical(&shooting, &picard);
@@ -502,17 +522,19 @@ mod tests {
         let fibre = resolve_active_lasing(&fibre);
         let solver = TwoModeSolver::new(&fibre, LASING_STEPS);
         let sgnl_b = 1.0;
+        let pump = pump_for_flux(&fibre, LASING_PUMP_FLUX, 1.0);
+        let pump_forward = fibre.pump_flux_amplitudes(pump).0;
         let boundary = FieldState {
             signal: BidirectionalAmplitude {
                 forward: 0.0,
                 backward: sgnl_b,
             },
             pump: BidirectionalAmplitude {
-                forward: LASING_PUMP.forward_amplitude(),
+                forward: pump_forward,
                 backward: 0.0,
             },
         };
-        let direct = FieldProfile::new(
+        let direct = solver.field_profile(
             solver.grid.positions().collect(),
             solve_profile_coupled(
                 boundary,
@@ -522,13 +544,13 @@ mod tests {
             ),
         );
         let mut picard_solver = PicardSolver::filled(solver.grid.points(), boundary);
-        let picard = FieldProfile::new(
+        let picard = solver.field_profile(
             direct.z.clone(),
             solver
                 .solve_lasing_picard_profile(
                     &mut picard_solver,
                     sgnl_b,
-                    LASING_PUMP,
+                    pump,
                     LASING_PICARD,
                 )
                 .expect("Picard profile solve failed")
@@ -591,8 +613,8 @@ mod tests {
         let profile = vec![FieldState::default(); solver.grid().points()];
 
         let boundary = solver.injected_left_boundary(pump, signal, &profile);
-        let (signal_forward, signal_backward) = signal.amplitudes();
-        let (pump_forward, pump_backward) = pump.amplitudes();
+        let (signal_forward, signal_backward) = fibre.signal_flux_amplitudes(signal);
+        let (pump_forward, pump_backward) = fibre.pump_flux_amplitudes(pump);
 
         assert_eq!(boundary.signal.forward, signal_forward);
         assert_eq!(boundary.signal.backward, signal_backward);
@@ -625,8 +647,14 @@ mod tests {
             propagated_signal = propagated_signal.coupled_step(0.0, kappa, solver.grid().dz());
         }
 
-        assert_near(propagated_signal.backward, signal.backward_amplitude());
-        assert_near(boundary.pump.backward, pump.backward_amplitude());
+        assert_near(
+            propagated_signal.backward,
+            fibre.signal_flux_amplitudes(signal).1,
+        );
+        assert_near(
+            boundary.pump.backward,
+            fibre.pump_flux_amplitudes(pump).1,
+        );
     }
 
     #[test]
@@ -657,11 +685,13 @@ mod tests {
             .expect("forward-injected grating solve should converge");
         let left = profile.fields.first().unwrap();
         let right = profile.fields.last().unwrap();
+        let (signal_forward, signal_backward) = fibre.signal_flux_amplitudes(signal);
+        let (pump_forward, pump_backward) = fibre.pump_flux_amplitudes(pump);
 
-        assert_near(left.signal.forward, signal.forward_amplitude());
-        assert_near(right.signal.backward, signal.backward_amplitude());
-        assert_near(left.pump.forward, pump.forward_amplitude());
-        assert_near(right.pump.backward, pump.backward_amplitude());
+        assert_near(left.signal.forward, signal_forward);
+        assert_near(right.signal.backward, signal_backward);
+        assert_near(left.pump.forward, pump_forward);
+        assert_near(right.pump.backward, pump_backward);
         assert!(
             left.signal.backward.abs() > 1e-6,
             "grating solve should produce a reflected signal"
@@ -692,11 +722,11 @@ mod tests {
             .expect("forward-injected no-grating solve should succeed");
         let expected = FieldState {
             signal: BidirectionalAmplitude {
-                forward: signal.forward_amplitude(),
+                forward: fibre.signal_flux_amplitudes(signal).0,
                 backward: 0.0,
             },
             pump: BidirectionalAmplitude {
-                forward: pump.forward_amplitude(),
+                forward: fibre.pump_flux_amplitudes(pump).0,
                 backward: 0.0,
             },
         };
@@ -734,11 +764,13 @@ mod tests {
             .expect("bidirectional no-grating solve should converge");
         let left = profile.fields.first().unwrap();
         let right = profile.fields.last().unwrap();
+        let (signal_forward, signal_backward) = fibre.signal_flux_amplitudes(signal);
+        let (pump_forward, pump_backward) = fibre.pump_flux_amplitudes(pump);
 
-        assert_near(left.signal.forward, signal.forward_amplitude());
-        assert_near(right.signal.backward, signal.backward_amplitude());
-        assert_near(left.pump.forward, pump.forward_amplitude());
-        assert_near(right.pump.backward, pump.backward_amplitude());
+        assert_near(left.signal.forward, signal_forward);
+        assert_near(right.signal.backward, signal_backward);
+        assert_near(left.pump.forward, pump_forward);
+        assert_near(right.pump.backward, pump_backward);
     }
 
     #[test]
@@ -746,6 +778,7 @@ mod tests {
         let fibre = active_lasing_fibre();
         let fibre = resolve_active_lasing(&fibre);
         let solver = TwoModeSolver::new(&fibre, 20);
+        let pump = pump_for_flux(&fibre, LASING_PUMP_FLUX, 1.0);
         let trial_signal_flux: f64 = 4.0;
         let signal_backward = trial_signal_flux.sqrt();
         let trial = FieldState {
@@ -754,7 +787,7 @@ mod tests {
                 backward: signal_backward,
             },
             pump: BidirectionalAmplitude {
-                forward: LASING_PUMP.forward_amplitude(),
+                forward: fibre.pump_flux_amplitudes(pump).0,
                 backward: 0.0,
             },
         };
@@ -768,7 +801,7 @@ mod tests {
         .backward
             / signal_backward;
 
-        let residuals = solver.shooting_residuals(LASING_PUMP, &[trial_signal_flux]);
+        let residuals = solver.shooting_residuals(pump, &[trial_signal_flux]);
 
         assert_eq!(residuals.len(), 1);
         assert_near(residuals[0], expected);

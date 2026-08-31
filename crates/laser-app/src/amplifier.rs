@@ -1,5 +1,5 @@
 use crate::controls::{
-    bisection_slider_grid, fibre_params_slider_grid, pump_slider_grid,
+    bisection_slider_grid, fibre_params_slider_grid, power_slider_mw, pump_slider_grid,
     steps_slider,
 };
 use crate::plotter::Plotter;
@@ -75,29 +75,47 @@ pub(crate) struct AmplifierMode {
 
 impl Default for AmplifierMode {
     fn default() -> Self {
+        let fibre = Fibre {
+            geometry: FibreGeometry {
+                core_radius: 4e-6,
+                numerical_aperture: 0.1,
+                length: 5.0,
+            },
+            dopant: TwoLevelDopant {
+                density: 0.50,
+                lifetime: 1.0,
+            },
+            grating: Default::default(),
+        };
+        let pump_mode = FieldMode::new(970e-9);
+        let sgnl_mode = FieldMode::new(1060e-9);
+        let pump_interaction = TwoLevelCrossSections::new(1.0, 0.0);
+        let signal_interaction = TwoLevelCrossSections::new(0.0, 1.0);
+        let (pump_total, signal_total) = {
+            let resolved = fibre.resolve_with_interactions(
+                pump_mode,
+                pump_interaction,
+                sgnl_mode,
+                signal_interaction,
+            );
+            (resolved.pump_power(10.0), resolved.signal_power(1.0))
+        };
+
         Self {
             view: AmplifierView::default(),
             pump: Pump {
-                total: 10.0,
+                total: pump_total,
                 balance: 1.0,
             },
-            signal: Signal::default(),
-            fibre: Fibre {
-                geometry: FibreGeometry {
-                    core_radius: 4e-6,
-                    numerical_aperture: 0.1,
-                    length: 5.0,
-                },
-                dopant: TwoLevelDopant {
-                    density: 0.50,
-                    lifetime: 1.0,
-                },
-                grating: Default::default(),
+            signal: Signal {
+                total: signal_total,
+                ..Signal::default()
             },
-            pump_mode: FieldMode::new(970e-9),
-            sgnl_mode: FieldMode::new(1060e-9),
-            pump_interaction: TwoLevelCrossSections::new(1.0, 0.0),
-            signal_interaction: TwoLevelCrossSections::new(0.0, 1.0),
+            fibre,
+            pump_mode,
+            sgnl_mode,
+            pump_interaction,
+            signal_interaction,
             steps: 100,
             config: BisectionConfig::default(),
             cached_plotter: None,
@@ -110,10 +128,8 @@ pub(crate) fn signal_slider_grid(signal: &mut Signal, ui: &mut Ui) -> bool {
     let mut changed = false;
 
     egui::Grid::new("signal").show(ui, |ui| {
-        ui.label("Total power");
-        changed |= ui
-            .add(egui::Slider::new(&mut signal.total, 0.0..=100.0).step_by(0.01))
-            .changed();
+        ui.label("Total power (mW)");
+        changed |= power_slider_mw(&mut signal.total, ui);
         ui.end_row();
 
         ui.label("Balance");
@@ -154,15 +170,14 @@ impl AmplifierMode {
 
 impl AmplifierMode {
     fn profile_plot(&mut self) -> Result<Plotter, SolverError> {
-        let bc = BisectionConfig {
-            upper: self.pump.total.sqrt(),
-            lower: 0.0,
-            midpoint: Arithmetic,
-            ..self.config
-        };
-
         let (result, compute_time) = timed(|| {
             let fibre = self.resolved_fibre();
+            let bc = BisectionConfig {
+                upper: fibre.pump_flux(self.pump.total).sqrt(),
+                lower: 0.0,
+                midpoint: Arithmetic,
+                ..self.config
+            };
             TwoModeSolver::new(&fibre, self.steps).solve_injected(
                 self.pump,
                 self.signal,

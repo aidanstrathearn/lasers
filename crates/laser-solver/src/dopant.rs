@@ -39,6 +39,7 @@ pub trait DopantModel {
 
 #[derive(Clone, Copy)]
 pub struct TwoLevelDopant {
+    /// Active-ion density in units of 10²⁵ m⁻³.
     pub density: f64,
     pub lifetime: f64,
 }
@@ -57,7 +58,9 @@ pub struct TwoLevelRates {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TwoLevelCrossSections {
+    /// Absorption cross section in units of 10⁻²⁵ m².
     pub absorption: f64,
+    /// Emission cross section in units of 10⁻²⁵ m².
     pub emission: f64,
 }
 

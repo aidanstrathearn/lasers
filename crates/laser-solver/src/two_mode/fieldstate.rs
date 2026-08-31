@@ -84,32 +84,58 @@ pub fn profile_avg_diff(p1: &[FieldState], p2: &[FieldState]) -> f64 {
 
 #[derive(Clone)]
 pub struct FieldProfile {
-    pub z: Vec<f64>,
-    pub fields: Vec<FieldState>,
+    pub(crate) z: Vec<f64>,
+    pub(crate) fields: Vec<FieldState>,
+    pump_flux_per_watt: f64,
+    signal_flux_per_watt: f64,
 }
 
 impl FieldProfile {
-    pub fn new(z: Vec<f64>, fields: Vec<FieldState>) -> Self {
+    pub(crate) fn new(
+        z: Vec<f64>,
+        fields: Vec<FieldState>,
+        pump_flux_per_watt: f64,
+        signal_flux_per_watt: f64,
+    ) -> Self {
         assert_eq!(z.len(), fields.len());
-        Self { z, fields }
+        Self {
+            z,
+            fields,
+            pump_flux_per_watt,
+            signal_flux_per_watt,
+        }
     }
 
-    pub fn sgnl_f(&self) -> impl Iterator<Item = f64> + '_ {
-        // borrows from self so '_ lifetime needs to match self
-        // but looks like rust can infer this so doesnt need to be explicit
-        self.fields.iter().map(|x| x.signal.forward)
+    pub fn len(&self) -> usize {
+        self.fields.len()
     }
 
-    pub fn sgnl_b(&self) -> impl Iterator<Item = f64> {
-        self.fields.iter().map(|x| x.signal.backward)
+    pub fn is_empty(&self) -> bool {
+        self.fields.is_empty()
     }
 
-    pub fn pump_f(&self) -> impl Iterator<Item = f64> {
-        self.fields.iter().map(|x| x.pump.forward)
+    pub fn signal_forward_power(&self) -> impl Iterator<Item = f64> + '_ {
+        self.fields
+            .iter()
+            .map(|x| x.signal.forward_flux() / self.signal_flux_per_watt)
     }
 
-    pub fn pump_b(&self) -> impl Iterator<Item = f64> {
-        self.fields.iter().map(|x| x.pump.backward)
+    pub fn signal_backward_power(&self) -> impl Iterator<Item = f64> + '_ {
+        self.fields
+            .iter()
+            .map(|x| x.signal.backward_flux() / self.signal_flux_per_watt)
+    }
+
+    pub fn pump_forward_power(&self) -> impl Iterator<Item = f64> + '_ {
+        self.fields
+            .iter()
+            .map(|x| x.pump.forward_flux() / self.pump_flux_per_watt)
+    }
+
+    pub fn pump_backward_power(&self) -> impl Iterator<Item = f64> + '_ {
+        self.fields
+            .iter()
+            .map(|x| x.pump.backward_flux() / self.pump_flux_per_watt)
     }
 
     pub fn z(&self) -> impl Iterator<Item = f64> {
@@ -121,6 +147,9 @@ impl FieldProfile {
     pub fn output_powers(&self) -> OutputPower {
         let left = self.fields.first().expect("field profile is empty");
         let right = self.fields.last().expect("field profile is empty");
-        (right.signal.forward_flux(), left.signal.backward_flux())
+        (
+            right.signal.forward_flux() / self.signal_flux_per_watt,
+            left.signal.backward_flux() / self.signal_flux_per_watt,
+        )
     }
 }

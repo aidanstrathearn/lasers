@@ -2,7 +2,9 @@ use crate::dopant::{DopantModel, TwoLevelDopant};
 use crate::grating::{GratingModel, NoGrating};
 
 const TWO_PI: f64 = 2.0 * std::f64::consts::PI;
+const PLANCK_CONSTANT_JS: f64 = 6.626_070_15e-34;
 const SPEED_OF_LIGHT_MS: f64 = 299_792_458.0;
+const PARTICLE_SCALE: f64 = 1e25;
 
 fn numerical_aperture(n_core: f64, n_cladding: f64) -> f64 {
     (n_core * n_core - n_cladding * n_cladding).sqrt()
@@ -42,6 +44,7 @@ impl Default for FieldMode {
 pub struct ActiveMode<D: DopantModel> {
     pub(crate) mode: FieldMode,
     pub(crate) overlap: f64,
+    pub(crate) flux_per_watt: f64,
     pub(crate) interaction: D::Interaction,
 }
 
@@ -54,8 +57,25 @@ impl<D: DopantModel> ActiveMode<D> {
         Self {
             mode,
             overlap: fibre.geometry.mode_overlap(mode),
+            flux_per_watt: mode.wavelength()
+                / (fibre.geometry.core_area()
+                    * PLANCK_CONSTANT_JS
+                    * SPEED_OF_LIGHT_MS
+                    * PARTICLE_SCALE),
             interaction,
         }
+    }
+
+    pub(crate) fn flux_from_power(&self, power: f64) -> f64 {
+        power * self.flux_per_watt
+    }
+
+    pub(crate) fn power_from_flux(&self, flux: f64) -> f64 {
+        flux / self.flux_per_watt
+    }
+
+    pub(crate) fn flux_amplitudes(&self, total_power: f64, balance: f64) -> (f64, f64) {
+        bidirectional_amplitudes(self.flux_from_power(total_power), balance)
     }
 }
 
@@ -68,6 +88,7 @@ where
         Self {
             mode: self.mode,
             overlap: self.overlap,
+            flux_per_watt: self.flux_per_watt,
             interaction: self.interaction.clone(),
         }
     }
@@ -75,7 +96,9 @@ where
 
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct BidirectionalAmplitude {
+    /// Square root of the scaled forward photon flux.
     pub forward: f64,
+    /// Square root of the scaled backward photon flux.
     pub backward: f64,
 }
 
@@ -109,6 +132,10 @@ pub struct FibreGeometry {
 }
 
 impl FibreGeometry {
+    fn core_area(&self) -> f64 {
+        std::f64::consts::PI * self.core_radius * self.core_radius
+    }
+
     fn single_mode_cutoff_wavelength(&self) -> f64 {
         TWO_PI * self.core_radius * self.numerical_aperture / 2.405
     }

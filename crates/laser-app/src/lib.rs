@@ -26,24 +26,24 @@ fn timed<T>(compute: impl FnOnce() -> T) -> (T, Duration) {
     (result, start.elapsed())
 }
 
-fn power_points(z: impl Iterator<Item = f64>, amplitude: impl Iterator<Item = f64>) -> Points {
-    z.zip(amplitude)
-        .map(|(z, amplitude)| [z, amplitude.powi(2)])
+fn power_points(z: impl Iterator<Item = f64>, power_watts: impl Iterator<Item = f64>) -> Points {
+    z.zip(power_watts)
+        .map(|(z, power_watts)| [z, 1_000.0 * power_watts])
         .collect()
 }
 
 fn field_profile_plot(profile: &FieldProfile) -> Plotter {
     let mut plot = Plotter::new();
-    plot.add_points(power_points(profile.z(), profile.sgnl_f()))
+    plot.add_points(power_points(profile.z(), profile.signal_forward_power()))
         .label("Forward signal");
-    plot.add_points(power_points(profile.z(), profile.sgnl_b()))
+    plot.add_points(power_points(profile.z(), profile.signal_backward_power()))
         .label("Backward signal");
-    plot.add_points(power_points(profile.z(), profile.pump_f()))
+    plot.add_points(power_points(profile.z(), profile.pump_forward_power()))
         .label("Forward pump");
-    plot.add_points(power_points(profile.z(), profile.pump_b()))
+    plot.add_points(power_points(profile.z(), profile.pump_backward_power()))
         .label("Backward pump");
-    plot.xlabel("z");
-    plot.ylabel("Power");
+    plot.xlabel("Position (m)");
+    plot.ylabel("Power (mW)");
     plot
 }
 

@@ -3,8 +3,7 @@ mod plots;
 
 use laser_solver::grating::PiShift;
 use laser_solver::lase::{
-    BidirectionalAmplitude, Fibre, FibreGeometry, FieldMode, FieldState, Pump, ResolvedFibre,
-    TwoLevelCrossSections, TwoLevelDopant,
+    Fibre, FibreGeometry, FieldMode, Pump, ResolvedFibre, TwoLevelCrossSections, TwoLevelDopant,
 };
 use laser_solver::maths::picard::PicardConfig;
 use laser_solver::maths::rootfind::{
@@ -12,16 +11,12 @@ use laser_solver::maths::rootfind::{
 };
 use laser_solver::maths::utils::{IterationConfig, linspace};
 use laser_solver::two_mode::TwoModeSolver;
-use laser_solver::two_mode::propagation::out_field_coupled;
 use myplotlib::Plotter;
 use plots::show_field_profile;
 use std::time::Instant;
 
 const PUMP_FORWARD_AMPLITUDE: f64 = 100.0;
-const FORWARD_PUMP: Pump = Pump {
-    total: PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE,
-    balance: 1.0,
-};
+const FORWARD_PUMP_FLUX: f64 = PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE;
 
 static FIBRE: Fibre<TwoLevelDopant, PiShift> = Fibre {
     geometry: FibreGeometry {
@@ -56,6 +51,13 @@ fn resolved_fibre() -> ResolvedFibre<'static, TwoLevelDopant, PiShift> {
         SGNL_MODE,
         SGNL_INTERACTION,
     )
+}
+
+fn forward_pump(fibre: &ResolvedFibre<'_, TwoLevelDopant, PiShift>) -> Pump {
+    Pump {
+        total: fibre.pump_power(FORWARD_PUMP_FLUX),
+        balance: 1.0,
+    }
 }
 
 const ITERATION: IterationConfig = IterationConfig {
@@ -96,34 +98,26 @@ fn main() -> eframe::Result {
 fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
     let fibre = resolved_fibre();
     let solver = TwoModeSolver::new(&fibre, STEPS);
-    let grid = solver.grid();
-    let kappas = solver.kappas();
-    let dz = grid.dz();
-    let trial = |sgnl_b| FieldState {
-        signal: BidirectionalAmplitude {
-            forward: 0.0,
-            backward: sgnl_b,
-        },
-        pump: BidirectionalAmplitude {
-            forward: 2.0,
-            backward: 0.0, // shooting method requires zero backward pump amplitude
-        },
+    let pump = Pump {
+        total: fibre.pump_power(4.0),
+        balance: 1.0,
     };
-    let f = |sgnl_b| {
-        out_field_coupled(trial(sgnl_b), |fields| fibre.gain(fields), dz, kappas)
-            .signal
-            .backward
-            / sgnl_b
+    let f = |signal_amplitude: f64| {
+        solver.shooting_residuals(pump, &[signal_amplitude * signal_amplitude])[0]
     };
     let root = rootfind_1d(f, BISECTION).expect("root not found");
     println!("root is at {}", root);
-    println!("residual at 0 {}", f(0.0));
 
-    let sgnl_bs = linspace(1e-8, 5.0 * root, 1000);
-    let residuals: Vec<f64> = sgnl_bs.iter().map(|&s| f(s).abs().log10()).collect();
+    let trial_fluxes = linspace(1e-16, (5.0 * root).powi(2), 1000);
+    let residuals: Vec<f64> = solver
+        .shooting_residuals(pump, &trial_fluxes)
+        .into_iter()
+        .map(|residual| residual.abs().log10())
+        .collect();
     if show_plots {
         let mut plot = Plotter::new();
-        plot.plot(&sgnl_bs, &residuals);
+        plot.plot(&trial_fluxes, &residuals);
+        plot.xlabel("Trial backward signal flux (10²⁵ photons m⁻² s⁻¹)");
         plot.title("Residuals");
         plot.show()?;
     }
@@ -133,7 +127,7 @@ fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
     let fibre = resolved_fibre();
     let result = TwoModeSolver::new(&fibre, STEPS)
         .solve_lasing(
-            FORWARD_PUMP,
+            forward_pump(&fibre),
             RootFindConfig::Newton1d(NEWTON),
             PICARD,
             FULL_PROFILE,
@@ -145,9 +139,12 @@ fn inspect_field_profiles(show_plots: bool) -> eframe::Result {
 }
 
 fn run_pump_scan(show_plots: bool) -> eframe::Result {
-    let pumps = linspace(0.0, 10.0, 200);
     let start = Instant::now();
     let fibre = resolved_fibre();
+    let pumps = linspace(0.0, 10.0, 200)
+        .into_iter()
+        .map(|flux| fibre.pump_power(flux))
+        .collect::<Vec<_>>();
     let threshold = TwoModeSolver::new(&fibre, STEPS)
         .pump_scan(
             &pumps,
@@ -172,6 +169,8 @@ fn run_pump_scan(show_plots: bool) -> eframe::Result {
         let mut plot = Plotter::new();
         plot.plot(&pumps, &sgnl_f).label("Forward");
         plot.plot(&pumps, &sgnl_b).label("Back");
+        plot.xlabel("Pump power (W)");
+        plot.ylabel("Output power (W)");
         plot.title("threshold shooting");
         plot.show()?;
     }
@@ -188,9 +187,12 @@ fn plot_pump_scan_derivatives(show_plot: bool) -> eframe::Result {
         relative_tolerance: 1e-6,
         absolute_tolerance: 1e-6,
     };
-    let pumps = linspace(0.0, 10.0, 200);
     let balance = 0.95;
     let fibre = resolved_fibre();
+    let pumps = linspace(0.0, 10.0, 200)
+        .into_iter()
+        .map(|flux| fibre.pump_power(flux))
+        .collect::<Vec<_>>();
     let outputs = TwoModeSolver::new(&fibre, STEPS)
         .pump_scan(
             &pumps,
@@ -224,8 +226,8 @@ fn plot_pump_scan_derivatives(show_plot: bool) -> eframe::Result {
         .label("Forward derivative");
     plot.plot(&derivative_pumps, &backward_derivative)
         .label("Backward derivative");
-    plot.xlabel("Pump power");
-    plot.ylabel("d(output power) / d(pump power)");
+    plot.xlabel("Pump power (W)");
+    plot.ylabel("d(output power) / d(pump power) (W/W)");
     plot.title("Pump-scan slope efficiency");
     plot.show()
 }
@@ -242,8 +244,8 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
     let kappas = solver.kappas();
     let mut plot = Plotter::new();
     plot.plot(&z, &kappas);
-    plot.xlabel("z");
-    plot.ylabel("Kappa");
+    plot.xlabel("Position (m)");
+    plot.ylabel("Kappa (m⁻¹)");
     plot.title("Coupling Profile");
     plot.show()
 }

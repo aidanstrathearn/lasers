@@ -93,32 +93,47 @@ pub(crate) struct DfbMode {
 
 impl Default for DfbMode {
     fn default() -> Self {
+        let fibre = Fibre {
+            geometry: FibreGeometry {
+                core_radius: 4e-6,
+                numerical_aperture: 0.1,
+                length: 5.0,
+            },
+            dopant: TwoLevelDopant {
+                density: 0.50,
+                lifetime: 1.0,
+            },
+            grating: PiShift {
+                kappa_left: 0.6,
+                kappa_right: 0.6,
+                pi_shift_position: 0.5,
+            },
+        };
+        let pump_mode = FieldMode::new(970e-9);
+        let sgnl_mode = FieldMode::new(1060e-9);
+        let pump_interaction = TwoLevelCrossSections::new(1.0, 0.0);
+        let signal_interaction = TwoLevelCrossSections::new(0.0, 1.0);
+        let pump_total = {
+            let resolved = fibre.resolve_with_interactions(
+                pump_mode,
+                pump_interaction,
+                sgnl_mode,
+                signal_interaction,
+            );
+            resolved.pump_power(10.0)
+        };
+
         Self {
             view: DfbView::default(),
             pump: Pump {
-                total: 10.0,
+                total: pump_total,
                 balance: 1.0,
             },
-            fibre: Fibre {
-                geometry: FibreGeometry {
-                    core_radius: 4e-6,
-                    numerical_aperture: 0.1,
-                    length: 5.0,
-                },
-                dopant: TwoLevelDopant {
-                    density: 0.50,
-                    lifetime: 1.0,
-                },
-                grating: PiShift {
-                    kappa_left: 0.6,
-                    kappa_right: 0.6,
-                    pi_shift_position: 0.5,
-                },
-            },
-            pump_mode: FieldMode::new(970e-9),
-            sgnl_mode: FieldMode::new(1060e-9),
-            pump_interaction: TwoLevelCrossSections::new(1.0, 0.0),
-            signal_interaction: TwoLevelCrossSections::new(0.0, 1.0),
+            fibre,
+            pump_mode,
+            sgnl_mode,
+            pump_interaction,
+            signal_interaction,
             steps: 100,
             config: BisectionConfig::default(),
             picard_config: PicardConfig {

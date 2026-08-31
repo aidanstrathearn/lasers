@@ -1,26 +1,19 @@
 use crate::plotter::Plotter;
-use crate::{Points, dfb::DfbMode, field_profile_plot, power_points, timed};
-use eframe::egui;
+use crate::{dfb::DfbMode, field_profile_plot, timed};
 use laser_solver::error::SolverError;
-use laser_solver::grating::PiShift;
-use laser_solver::lase::{Fibre, FieldMode, Pump, TwoLevelCrossSections, TwoLevelDopant};
-use laser_solver::maths::rootfind::{BisectionConfig, Newton1dConfig};
-use laser_solver::maths::utils::IterationConfig;
+use laser_solver::maths::rootfind::BisectionConfig;
 use laser_solver::two_mode::TwoModeSolver;
-use std::sync::mpsc;
-use std::sync::mpsc::Receiver;
-use std::thread;
 
 impl DfbMode {
     pub fn profile_plot(&mut self) -> Result<Plotter, SolverError> {
         let full_profile = true;
-        let bc = BisectionConfig {
-            upper: 2.0 * self.pump.total.sqrt(),
-            ..self.config
-        };
 
         let (result, compute_time) = timed(|| {
             let fibre = self.resolved_fibre();
+            let bc = BisectionConfig {
+                upper: 2.0 * fibre.pump_flux(self.pump.total).sqrt(),
+                ..self.config
+            };
             TwoModeSolver::new(&fibre, self.steps).solve_lasing(
                 self.pump,
                 bc.into(),

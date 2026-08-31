@@ -43,7 +43,7 @@ impl DfbMode {
         self.compute_time = Some(compute_time);
 
         let mut plt = Plotter::new();
-        plt.xlabel("Trial backward signal flux");
+        plt.xlabel("Trial backward signal flux (10²⁵ photons m⁻² s⁻¹)");
         plt.ylabel("log(|residual|)");
         plt.add_points(residual_points);
         Ok(plt)

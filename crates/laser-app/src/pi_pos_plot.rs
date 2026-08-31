@@ -11,10 +11,6 @@ const PI_POSITION_INTERVALS: usize = 40;
 
 impl DfbMode {
     pub fn pi_pos_plot(&mut self) -> Result<Plotter, SolverError> {
-        let bc = BisectionConfig {
-            upper: 2.0 * self.pump.total.sqrt(),
-            ..self.config
-        };
         let pi_positions = linspace(0.0, 1.0, PI_POSITION_INTERVALS);
         let mut forward_output: Points = Vec::with_capacity(pi_positions.len());
         let mut backward_output: Points = Vec::with_capacity(pi_positions.len());
@@ -37,6 +33,10 @@ impl DfbMode {
                     self.sgnl_mode,
                     self.signal_interaction,
                 );
+                let bc = BisectionConfig {
+                    upper: 2.0 * fibre.pump_flux(self.pump.total).sqrt(),
+                    ..self.config
+                };
                 TwoModeSolver::new(&fibre, self.steps).solve_lasing(
                     self.pump,
                     bc.into(),
@@ -48,8 +48,8 @@ impl DfbMode {
 
             if let Ok(profile) = profile {
                 let (forward, backward) = profile.output_powers();
-                forward_output.push([pi_position, forward]);
-                backward_output.push([pi_position, backward]);
+                forward_output.push([pi_position, 1_000.0 * forward]);
+                backward_output.push([pi_position, 1_000.0 * backward]);
             }
         }
         self.compute_time = Some(compute_time);
@@ -60,7 +60,7 @@ impl DfbMode {
         plot.axvline(self.fibre.grating.pi_shift_position)
             .label("Current position");
         plot.xlabel("Pi shift position");
-        plot.ylabel("Output power");
+        plot.ylabel("Output power (mW)");
         plot.xlim(0.0, 1.0);
         Ok(plot)
     }

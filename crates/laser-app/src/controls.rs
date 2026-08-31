@@ -4,6 +4,15 @@ use laser_solver::grating::{GratingModel, PiShift};
 use laser_solver::lase::{Fibre, Pump, TwoLevelCrossSections, TwoLevelDopant};
 use laser_solver::maths::rootfind::BisectionConfig;
 
+pub(crate) fn power_slider_mw(power_watts: &mut f64, ui: &mut Ui) -> bool {
+    let mut power_mw = 1_000.0 * *power_watts;
+    let changed = ui
+        .add(egui::Slider::new(&mut power_mw, 0.0..=10.0).step_by(0.001))
+        .changed();
+    *power_watts = power_mw / 1_000.0;
+    changed
+}
+
 pub(crate) fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) -> bool {
     let mut changed = false;
 
@@ -48,13 +57,13 @@ pub(crate) fn grating_slider_grid(grating: &mut PiShift, ui: &mut Ui) -> bool {
     let mut changed = false;
 
     egui::Grid::new("grating").show(ui, |ui| {
-        ui.label("Kappa left");
+        ui.label("Kappa left (m⁻¹)");
         changed |= ui
             .add(egui::Slider::new(&mut grating.kappa_left, 0.1..=10.0).step_by(0.01))
             .changed();
         ui.end_row();
 
-        ui.label("Kappa right");
+        ui.label("Kappa right (m⁻¹)");
         changed |= ui
             .add(egui::Slider::new(&mut grating.kappa_right, 0.1..=10.0).step_by(0.01))
             .changed();
@@ -74,10 +83,8 @@ pub(crate) fn pump_slider_grid(pump: &mut Pump, ui: &mut Ui) -> bool {
     let mut changed = false;
 
     egui::Grid::new("pump").show(ui, |ui| {
-        ui.label("Total power");
-        changed |= ui
-            .add(egui::Slider::new(&mut pump.total, 0.0..=100.0).step_by(0.01))
-            .changed();
+        ui.label("Total power (mW)");
+        changed |= power_slider_mw(&mut pump.total, ui);
         ui.end_row();
 
         ui.label("Balance");
@@ -101,25 +108,25 @@ pub(crate) fn fibre_params_slider_grid<G: GratingModel>(
 
     egui::Grid::new("params").show(ui, |ui| {
         egui::Grid::new("params1").show(ui, |ui| {
-            ui.label("Pump em.");
+            ui.label("Pump em. (10⁻²⁵ m²)");
             changed |= ui
                 .add(egui::Slider::new(&mut pump_interaction.emission, 0.0..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
-            ui.label("Pump abs.");
+            ui.label("Pump abs. (10⁻²⁵ m²)");
             changed |= ui
                 .add(egui::Slider::new(&mut pump_interaction.absorption, 0.05..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
-            ui.label("Signl em.");
+            ui.label("Signl em. (10⁻²⁵ m²)");
             changed |= ui
                 .add(egui::Slider::new(&mut signal_interaction.emission, 0.05..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
-            ui.label("Signl abs.");
+            ui.label("Signl abs. (10⁻²⁵ m²)");
             changed |= ui
                 .add(
                     egui::Slider::new(&mut signal_interaction.absorption, 0.0..=10.0).step_by(0.01),
@@ -129,19 +136,19 @@ pub(crate) fn fibre_params_slider_grid<G: GratingModel>(
         });
 
         egui::Grid::new("params2").show(ui, |ui| {
-            ui.label("Dopant density");
+            ui.label("Dopant density (10²⁵ m⁻³)");
             changed |= ui
                 .add(egui::Slider::new(&mut dopant.density, 0.1..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
-            ui.label("Lifetime");
+            ui.label("Lifetime (s)");
             changed |= ui
                 .add(egui::Slider::new(&mut dopant.lifetime, 0.1..=2.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
-            ui.label("Length");
+            ui.label("Length (m)");
             changed |= ui
                 .add(egui::Slider::new(&mut params.geometry.length, 0.1..=15.0).step_by(0.01))
                 .changed();

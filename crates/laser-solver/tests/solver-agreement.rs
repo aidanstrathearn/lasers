@@ -116,21 +116,21 @@ const BISECTION: BisectionConfig = BisectionConfig {
     midpoint: Midpoint::Geometric,
 };
 
-const MIRRORED_PUMP: f64 = PUMP_FORWARD_AMPLITUDE;
+const MIRRORED_PUMP_FLUX: f64 = PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE;
 const SYMMETRY_ABSOLUTE_TOLERANCE: f64 = 1e-8;
 const SYMMETRY_RELATIVE_TOLERANCE: f64 = 5e-3;
 
 #[test]
 fn injected_solver_satisfies_active_fibre_boundaries() {
+    let fibre = resolved_fibre();
     let signal = Signal {
-        total: 1.0,
+        total: fibre.signal_power(1.0),
         balance: 0.0,
     };
     let pump = Pump {
-        total: 1.0,
+        total: fibre.pump_power(1.0),
         balance: 0.0,
     };
-    let fibre = resolved_fibre();
 
     let profile = TwoModeSolver::new(&fibre, STEPS)
         .solve_injected(
@@ -140,57 +140,59 @@ fn injected_solver_satisfies_active_fibre_boundaries() {
             SYMMETRY_PICARD,
         )
         .expect("active-fibre injected solve failed");
-    let left = profile.fields.first().unwrap();
-    let right = profile.fields.last().unwrap();
+    let left_signal_forward = profile.signal_forward_power().next().unwrap();
+    let right_signal_backward = profile.signal_backward_power().last().unwrap();
+    let left_pump_forward = profile.pump_forward_power().next().unwrap();
+    let right_pump_backward = profile.pump_backward_power().last().unwrap();
 
     assert_close(
         0,
         "left signal input",
-        left.signal.forward,
-        signal.forward_amplitude(),
+        left_signal_forward,
+        0.5 * signal.total,
         SYMMETRY_ABSOLUTE_TOLERANCE,
         SYMMETRY_RELATIVE_TOLERANCE,
     );
     assert_close(
-        profile.fields.len() - 1,
+        profile.len() - 1,
         "right signal input",
-        right.signal.backward,
-        signal.backward_amplitude(),
+        right_signal_backward,
+        0.5 * signal.total,
         SYMMETRY_ABSOLUTE_TOLERANCE,
         SYMMETRY_RELATIVE_TOLERANCE,
     );
     assert_close(
         0,
         "left pump input",
-        left.pump.forward,
-        pump.forward_amplitude(),
+        left_pump_forward,
+        0.5 * pump.total,
         SYMMETRY_ABSOLUTE_TOLERANCE,
         SYMMETRY_RELATIVE_TOLERANCE,
     );
     assert_close(
-        profile.fields.len() - 1,
+        profile.len() - 1,
         "right pump input",
-        right.pump.backward,
-        pump.backward_amplitude(),
+        right_pump_backward,
+        0.5 * pump.total,
         SYMMETRY_ABSOLUTE_TOLERANCE,
         SYMMETRY_RELATIVE_TOLERANCE,
     );
     assert!(
-        profile.fields.iter().all(|field| {
-            field.signal.forward.is_finite()
-                && field.signal.backward.is_finite()
-                && field.pump.forward.is_finite()
-                && field.pump.backward.is_finite()
-        }),
+        profile
+            .signal_forward_power()
+            .chain(profile.signal_backward_power())
+            .chain(profile.pump_forward_power())
+            .chain(profile.pump_backward_power())
+            .all(f64::is_finite),
         "active-fibre injected solve returned non-finite fields"
     );
 }
 
 #[test]
 fn pump_scan_matches_independent_lasing_solves() {
-    let pump_totals = [2.0, 4.0, 6.0, 8.0, 10.0];
-    let balance = 0.95;
     let fibre = resolved_dfb_fibre();
+    let pump_totals = [2.0, 4.0, 6.0, 8.0, 10.0].map(|flux| fibre.pump_power(flux));
+    let balance = 0.95;
     let solver = TwoModeSolver::new(&fibre, STEPS);
     let scan = solver
         .pump_scan(
@@ -218,16 +220,17 @@ fn pump_scan_matches_independent_lasing_solves() {
 
 #[test]
 fn backward_pumped_picard_is_reverse_of_forward_pumped_shooting() {
+    let fibre = resolved_symmetric_dfb_fibre();
+    let pump_power = fibre.pump_power(MIRRORED_PUMP_FLUX);
     let shooting_pump = Pump {
-        total: MIRRORED_PUMP * MIRRORED_PUMP,
+        total: pump_power,
         balance: 1.0,
     };
     let picard_pump = Pump {
-        total: MIRRORED_PUMP * MIRRORED_PUMP,
+        total: pump_power,
         balance: -1.0,
     };
 
-    let fibre = resolved_symmetric_dfb_fibre();
     let solver = TwoModeSolver::new(&fibre, SYMMETRY_STEPS);
     let shooting_profile = solver
         .solve_lasing(
@@ -253,63 +256,68 @@ fn backward_pumped_picard_is_reverse_of_forward_pumped_shooting() {
 
 fn assert_nontrivial_signal(label: &str, profile: &FieldProfile) {
     let max_signal = profile
-        .fields
-        .iter()
-        .flat_map(|field| [field.signal.forward.abs(), field.signal.backward.abs()])
+        .signal_forward_power()
+        .chain(profile.signal_backward_power())
         .fold(0.0_f64, f64::max);
     assert!(
-        max_signal > BISECTION.lower,
+        max_signal > 0.0,
         "{label} solver converged to the trivial zero-signal solution"
     );
 }
 
 fn assert_mirrored_profiles_agree(picard: &FieldProfile, shooting: &FieldProfile) {
-    assert_eq!(picard.fields.len(), shooting.fields.len());
+    assert_eq!(picard.len(), shooting.len());
 
-    for (index, ((&picard_z, picard_field), (&shooting_z, shooting_field))) in picard
-        .z
-        .iter()
-        .zip(&picard.fields)
-        .zip(shooting.z.iter().rev().zip(shooting.fields.iter().rev()))
-        .enumerate()
-    {
+    let picard_z = picard.z().collect::<Vec<_>>();
+    let shooting_z = shooting.z().collect::<Vec<_>>();
+    let picard_signal_forward = picard.signal_forward_power().collect::<Vec<_>>();
+    let picard_signal_backward = picard.signal_backward_power().collect::<Vec<_>>();
+    let picard_pump_forward = picard.pump_forward_power().collect::<Vec<_>>();
+    let picard_pump_backward = picard.pump_backward_power().collect::<Vec<_>>();
+    let shooting_signal_forward = shooting.signal_forward_power().collect::<Vec<_>>();
+    let shooting_signal_backward = shooting.signal_backward_power().collect::<Vec<_>>();
+    let shooting_pump_forward = shooting.pump_forward_power().collect::<Vec<_>>();
+    let shooting_pump_backward = shooting.pump_backward_power().collect::<Vec<_>>();
+
+    for index in 0..picard.len() {
+        let reverse = shooting.len() - 1 - index;
         assert_close(
             index,
             "z",
-            picard_z,
-            FIBRE.geometry.length - shooting_z,
+            picard_z[index],
+            FIBRE.geometry.length - shooting_z[reverse],
             1e-12,
             0.0,
         );
         assert_close(
             index,
             "sgnl_f",
-            picard_field.signal.forward,
-            shooting_field.signal.backward,
+            picard_signal_forward[index],
+            shooting_signal_backward[reverse],
             SYMMETRY_ABSOLUTE_TOLERANCE,
             SYMMETRY_RELATIVE_TOLERANCE,
         );
         assert_close(
             index,
             "sgnl_b",
-            picard_field.signal.backward,
-            shooting_field.signal.forward,
+            picard_signal_backward[index],
+            shooting_signal_forward[reverse],
             SYMMETRY_ABSOLUTE_TOLERANCE,
             SYMMETRY_RELATIVE_TOLERANCE,
         );
         assert_close(
             index,
             "pump_f",
-            picard_field.pump.forward,
-            shooting_field.pump.backward,
+            picard_pump_forward[index],
+            shooting_pump_backward[reverse],
             SYMMETRY_ABSOLUTE_TOLERANCE,
             SYMMETRY_RELATIVE_TOLERANCE,
         );
         assert_close(
             index,
             "pump_b",
-            picard_field.pump.backward,
-            shooting_field.pump.forward,
+            picard_pump_backward[index],
+            shooting_pump_forward[reverse],
             SYMMETRY_ABSOLUTE_TOLERANCE,
             SYMMETRY_RELATIVE_TOLERANCE,
         );

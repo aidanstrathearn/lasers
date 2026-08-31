@@ -1,8 +1,8 @@
 use crate::dopant::{DopantError, DopantModel, TwoLevelDopant};
-use crate::fibre::{bidirectional_amplitudes, ActiveMode, Fibre, FieldMode};
+use crate::fibre::{ActiveMode, Fibre, FieldMode};
 use crate::grating::{GratingModel, NoGrating};
 
-use super::fieldstate::FieldState;
+use super::fieldstate::{FieldProfile, FieldState};
 
 pub type OutputPower = (f64, f64);
 
@@ -78,6 +78,36 @@ impl<D: DopantModel, G: GratingModel> ResolvedFibre<'_, D, G> {
         &self.fibre.grating
     }
 
+    pub fn pump_flux(&self, power_watts: f64) -> f64 {
+        self.pump.flux_from_power(power_watts)
+    }
+
+    pub fn signal_flux(&self, power_watts: f64) -> f64 {
+        self.sgnl.flux_from_power(power_watts)
+    }
+
+    pub fn pump_power(&self, flux: f64) -> f64 {
+        self.pump.power_from_flux(flux)
+    }
+
+    pub fn signal_power(&self, flux: f64) -> f64 {
+        self.sgnl.power_from_flux(flux)
+    }
+
+    pub(crate) fn pump_flux_amplitudes(&self, pump: Pump) -> (f64, f64) {
+        pump.validate();
+        self.pump.flux_amplitudes(pump.total, pump.balance)
+    }
+
+    pub(crate) fn signal_flux_amplitudes(&self, signal: Signal) -> (f64, f64) {
+        signal.validate();
+        self.sgnl.flux_amplitudes(signal.total, signal.balance)
+    }
+
+    pub(crate) fn flux_per_watt(&self) -> (f64, f64) {
+        (self.pump.flux_per_watt, self.sgnl.flux_per_watt)
+    }
+
     pub fn mode_fluxes(&self, fs: FieldState) -> (f64, f64) {
         (
             fs.pump.total_flux() * self.pump.overlap,
@@ -114,6 +144,14 @@ impl<D: DopantModel, G: GratingModel> ResolvedFibre<'_, D, G> {
         let rates = self.rates(fs);
         self.fibre.dopant.populations(&rates)
     }
+
+    pub fn profile_populations(&self, profile: &FieldProfile) -> Vec<D::Populations> {
+        profile
+            .fields
+            .iter()
+            .map(|&field| self.populations(field))
+            .collect()
+    }
 }
 
 impl<D, G> Clone for ResolvedFibre<'_, D, G>
@@ -133,6 +171,7 @@ where
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Signal {
+    /// Total injected signal power in watts.
     pub total: f64,
     pub balance: f64,
 }
@@ -140,32 +179,24 @@ pub struct Signal {
 impl Default for Signal {
     fn default() -> Self {
         Self {
-            total: 1.0,
+            total: 1e-4,
             balance: 1.0,
         }
     }
 }
 
 impl Signal {
-    pub fn amplitudes(self) -> (f64, f64) {
+    fn validate(self) {
         assert!(
             self.total >= 0.0 && (-1.0..=1.0).contains(&self.balance),
             "signal total must be non-negative and balance must be between -1 and 1"
         );
-        bidirectional_amplitudes(self.total, self.balance)
-    }
-
-    pub fn forward_amplitude(self) -> f64 {
-        self.amplitudes().0
-    }
-
-    pub fn backward_amplitude(self) -> f64 {
-        self.amplitudes().1
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Pump {
+    /// Total injected pump power in watts.
     pub total: f64,
     pub balance: f64,
 }
@@ -173,27 +204,18 @@ pub struct Pump {
 impl Default for Pump {
     fn default() -> Self {
         Self {
-            total: 100.0,
+            total: 1e-2,
             balance: 1.0,
         }
     }
 }
 
 impl Pump {
-    pub fn amplitudes(self) -> (f64, f64) {
+    fn validate(self) {
         assert!(
             self.total >= 0.0 && (-1.0..=1.0).contains(&self.balance),
             "pump total must be non-negative and balance must be between -1 and 1"
         );
-        bidirectional_amplitudes(self.total, self.balance)
-    }
-
-    pub fn forward_amplitude(self) -> f64 {
-        self.amplitudes().0
-    }
-
-    pub fn backward_amplitude(self) -> f64 {
-        self.amplitudes().1
     }
 }
 
@@ -316,39 +338,52 @@ mod tests {
     }
 
     #[test]
-    fn pump_converts_power_and_balance_to_amplitudes() {
-        for (pump, expected) in [
-            (
-                Pump {
-                    total: 100.0,
-                    balance: 1.0,
-                },
-                (10.0, 0.0),
-            ),
-            (
-                Pump {
-                    total: 100.0,
-                    balance: -1.0,
-                },
-                (0.0, 10.0),
-            ),
-            (
-                Pump {
-                    total: 100.0,
-                    balance: 0.0,
-                },
-                (50.0_f64.sqrt(), 50.0_f64.sqrt()),
-            ),
-            (
-                Pump {
-                    total: 0.0,
-                    balance: 0.25,
-                },
-                (0.0, 0.0),
-            ),
+    fn active_mode_converts_power_and_balance_to_flux_amplitudes() {
+        let fibre = Fibre::<TwoLevelDopant, NoGrating>::default();
+        let fibre = fibre.resolve_with_interactions(
+            FieldMode::new(970e-9),
+            crate::dopant::TwoLevelCrossSections::new(1.0, 0.0),
+            FieldMode::new(1060e-9),
+            crate::dopant::TwoLevelCrossSections::new(0.0, 1.0),
+        );
+        let hundred_flux_power = fibre.pump_power(100.0);
+
+        for (balance, expected) in [
+            (1.0, (10.0, 0.0)),
+            (-1.0, (0.0, 10.0)),
+            (0.0, (50.0_f64.sqrt(), 50.0_f64.sqrt())),
         ] {
-            assert_eq!(pump.amplitudes(), expected);
+            assert_eq!(
+                fibre.pump_flux_amplitudes(Pump {
+                    total: hundred_flux_power,
+                    balance,
+                }),
+                expected
+            );
         }
+
+        assert_eq!(
+            fibre.pump_flux_amplitudes(Pump {
+                total: 0.0,
+                balance: 0.25,
+            }),
+            (0.0, 0.0)
+        );
+    }
+
+    #[test]
+    fn active_mode_uses_scaled_photon_flux_per_watt() {
+        let fibre = Fibre::<TwoLevelDopant, NoGrating>::default();
+        let fibre = fibre.resolve_with_interactions(
+            FieldMode::new(970e-9),
+            crate::dopant::TwoLevelCrossSections::new(1.0, 0.0),
+            FieldMode::new(1060e-9),
+            crate::dopant::TwoLevelCrossSections::new(0.0, 1.0),
+        );
+
+        let expected = 9_714.604_996_881;
+        assert!((fibre.pump_flux(1.0) / expected - 1.0).abs() < 1e-12);
+        assert!((fibre.pump_power(expected) - 1.0).abs() < 1e-12);
     }
 
     #[test]
@@ -358,7 +393,7 @@ mod tests {
             total: -1.0,
             balance: 0.0,
         }
-        .amplitudes();
+        .validate();
     }
 
     #[test]
@@ -368,7 +403,7 @@ mod tests {
             total: 1.0,
             balance: 2.0,
         }
-        .amplitudes();
+        .validate();
     }
 
     #[test]
@@ -391,8 +426,10 @@ mod tests {
                     ..FieldState::default()
                 },
             ],
+            5.0,
+            2.0,
         );
 
-        assert_eq!(profile.output_powers(), (4.0, 9.0));
+        assert_eq!(profile.output_powers(), (2.0, 4.5));
     }
 }

@@ -11,10 +11,7 @@ use laser_solver::two_mode::TwoModeSolver;
 use std::hint::black_box;
 
 const PUMP_FORWARD_AMPLITUDE: f64 = 100.0;
-const FORWARD_PUMP: Pump = Pump {
-    total: PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE,
-    balance: 1.0,
-};
+const FORWARD_PUMP_FLUX: f64 = PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE;
 
 static FIBRE: Fibre<TwoLevelDopant, PiShift> = Fibre {
     geometry: FibreGeometry {
@@ -51,6 +48,17 @@ fn resolved_fibre() -> ResolvedFibre<'static, TwoLevelDopant, PiShift> {
     )
 }
 
+fn pump_for_flux(
+    fibre: &ResolvedFibre<'_, TwoLevelDopant, PiShift>,
+    total_flux: f64,
+    balance: f64,
+) -> Pump {
+    Pump {
+        total: fibre.pump_power(total_flux),
+        balance,
+    }
+}
+
 const ITERATION: IterationConfig = IterationConfig {
     max: 500,
     tol: 1e-10,
@@ -74,7 +82,7 @@ fn benchmark_dfb_solver(c: &mut Criterion) {
             let fibre = resolved_fibre();
             let result = TwoModeSolver::new(&fibre, STEPS)
                 .solve_lasing(
-                    FORWARD_PUMP,
+                    pump_for_flux(&fibre, FORWARD_PUMP_FLUX, 1.0),
                     RootFindConfig::Newton1d(NEWTON),
                     PICARD,
                     FULL_PROFILE,
@@ -113,7 +121,7 @@ fn benchmark_bisection_midpoints(c: &mut Criterion) {
                     let fibre = resolved_fibre();
                     let result = TwoModeSolver::new(&fibre, STEPS)
                         .solve_lasing(
-                            FORWARD_PUMP,
+                            pump_for_flux(&fibre, FORWARD_PUMP_FLUX, 1.0),
                             RootFindConfig::Bisection(config),
                             PICARD,
                             FULL_PROFILE,
@@ -130,19 +138,17 @@ fn benchmark_bisection_midpoints(c: &mut Criterion) {
 
 fn benchmark_picard_solvers(c: &mut Criterion) {
     let backward_amplitude = 20.0;
-    let pump = Pump {
-        total: PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE
-            + backward_amplitude * backward_amplitude,
-        balance: (PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE
-            - backward_amplitude * backward_amplitude)
-            / (PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE
-                + backward_amplitude * backward_amplitude),
-    };
+    let total_flux = PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE
+        + backward_amplitude * backward_amplitude;
+    let balance = (PUMP_FORWARD_AMPLITUDE * PUMP_FORWARD_AMPLITUDE
+        - backward_amplitude * backward_amplitude)
+        / total_flux;
     let mut group = c.benchmark_group("dfb/picard");
 
     group.bench_function("lasing", |b| {
         b.iter(|| {
             let fibre = resolved_fibre();
+            let pump = pump_for_flux(&fibre, total_flux, balance);
             let result = TwoModeSolver::new(&fibre, STEPS)
                 .solve_lasing(
                     pump,
