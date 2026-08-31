@@ -7,7 +7,7 @@ use laser_solver::maths::rootfind::BisectionConfig;
 pub(crate) fn power_slider_mw(power_watts: &mut f64, ui: &mut Ui) -> bool {
     let mut power_mw = 1_000.0 * *power_watts;
     let changed = ui
-        .add(egui::Slider::new(&mut power_mw, 0.0..=10.0).step_by(0.001))
+        .add(egui::Slider::new(&mut power_mw, 0.0..=100.0).step_by(0.001))
         .changed();
     *power_watts = power_mw / 1_000.0;
     changed
@@ -143,7 +143,7 @@ pub(crate) fn fibre_params_slider_grid<G: GratingModel>(
 
             ui.label("Lifetime (s)");
             changed |= ui
-                .add(egui::Slider::new(&mut dopant.lifetime, 0.1..=2.0).step_by(0.01))
+                .add(egui::Slider::new(&mut dopant.lifetime, 0.01..=2.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
