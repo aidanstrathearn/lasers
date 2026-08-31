@@ -4,8 +4,8 @@ members = [
     "apps/web",
     "crates/laser-app",
     "crates/laser-solver",
-    "tools/solver-lab",
 ]
+exclude = ["tools/solver-lab"]
 resolver = "3"
 
 [workspace.package]

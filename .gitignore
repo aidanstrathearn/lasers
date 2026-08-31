@@ -2,3 +2,4 @@
 .idea/
 /scratch/
 /crates/laser-solver/src/sketches.rs
+/tools/solver-lab/
