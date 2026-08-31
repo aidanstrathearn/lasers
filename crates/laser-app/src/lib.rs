@@ -5,7 +5,6 @@ mod pi_pos_plot;
 mod plotter;
 mod pop_plot;
 mod profile_plot;
-mod residual_plot;
 mod threshold_plot;
 mod amplifier;
 

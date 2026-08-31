@@ -4,7 +4,6 @@ use crate::controls::{
     steps_slider,
 };
 use crate::plotter::Plotter;
-use crate::residual_plot::{ResidualRange, residual_slider_grid};
 use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
 use eframe::egui;
 use eframe::egui::Ui;
@@ -21,20 +20,18 @@ use std::time::Duration;
 pub(crate) enum DfbView {
     #[default]
     Profile,
-    Residual,
     Populations,
     Kappa,
     Threshold,
     PiPosition,
 }
 
-const VIEW_OPTIONS: [(DfbView, &str, egui::Key); 6] = [
+const VIEW_OPTIONS: [(DfbView, &str, egui::Key); 5] = [
     (DfbView::Profile, "[1] Profile", egui::Key::Num1),
     (DfbView::Populations, "[2] Populations", egui::Key::Num2),
     (DfbView::Kappa, "[3] Kappa", egui::Key::Num3),
     (DfbView::Threshold, "[4] Threshold", egui::Key::Num4),
     (DfbView::PiPosition, "[5] Pi position", egui::Key::Num5),
-    (DfbView::Residual, "[6] Residual", egui::Key::Num6),
 ];
 
 impl DfbView {
@@ -42,7 +39,6 @@ impl DfbView {
         match self {
             Self::Threshold => "threshold-plot",
             Self::Profile => "profile-plot",
-            Self::Residual => "residual-plot",
             Self::Populations => "population-plot",
             Self::Kappa => "kappa-plot",
             Self::PiPosition => "pi-position-output-plot",
@@ -86,7 +82,6 @@ pub(crate) struct DfbMode {
     pub(crate) config: BisectionConfig,
     pub(crate) picard_config: PicardConfig,
     pub(crate) threshold_range: ThresholdRange,
-    pub(crate) residual_range: ResidualRange,
     cached_plotter: Option<Result<Plotter, SolverError>>,
     pub(crate) compute_time: Option<Duration>,
 }
@@ -145,7 +140,6 @@ impl Default for DfbMode {
                 absolute_tolerance: 1e-10,
             },
             threshold_range,
-            residual_range: ResidualRange::default(),
             cached_plotter: None,
             compute_time: None,
         }
@@ -166,7 +160,6 @@ impl DfbMode {
         match self.view {
             DfbView::Threshold => self.threshold_plot(),
             DfbView::Profile => self.profile_plot(),
-            DfbView::Residual => self.residual_plot(),
             DfbView::Populations => self.pops_plot(),
             DfbView::Kappa => self.kappa_plot(),
             DfbView::PiPosition => self.pi_pos_plot(),
@@ -211,12 +204,6 @@ impl ModeUi for DfbMode {
                     ui.vertical(|ui| {
                         ui.heading("Threshold");
                         changed |= threshold_slider_grid(&mut self.threshold_range, ui);
-                    });
-                }
-                DfbView::Residual => {
-                    ui.vertical(|ui| {
-                        ui.heading("Residual");
-                        changed |= residual_slider_grid(&mut self.residual_range, ui);
                     });
                 }
                 _ => (),
