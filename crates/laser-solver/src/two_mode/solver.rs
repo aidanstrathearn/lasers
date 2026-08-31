@@ -45,6 +45,30 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         )
     }
 
+    fn solve_picard(
+        &self,
+        solver: &mut PicardSolver<FieldState>,
+        config: PicardConfig,
+        set_boundary: impl FnMut(&[FieldState]) -> FieldState,
+    ) -> Result<(), PicardError> {
+        let dz = self.grid.dz();
+        let step = |new_previous: &FieldState, old_current: &FieldState, i| {
+            new_previous.step_if(self.fibre.gain(*old_current), self.kappas[i], dz)
+        };
+        let error = |current: &[FieldState], previous: &[FieldState]| {
+            profile_convergence_error(
+                current,
+                previous,
+                config.absolute_tolerance,
+                config.relative_tolerance,
+            )
+        };
+
+        solver
+            .solve(config.max_iterations, set_boundary, step, error)
+            .map(|_| ())
+    }
+
     pub fn solve_injected(
         &self,
         pump: Pump,
@@ -78,20 +102,7 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
             let mut solver = PicardSolver::filled(self.grid.points(), left_boundary);
             let set_boundary =
                 |current: &[FieldState]| self.injected_left_boundary(pump, signal, current);
-            let step = |new_previous: &FieldState, old_current: &FieldState, i| {
-                new_previous.step_if(self.fibre.gain(*old_current), kappas[i], dz)
-            };
-
-            let error = |current: &[FieldState], previous: &[FieldState]| {
-                profile_convergence_error(
-                    current,
-                    previous,
-                    picard_config.absolute_tolerance,
-                    picard_config.relative_tolerance,
-                )
-            };
-
-            solver.solve(picard_config.max_iterations, set_boundary, step, error)?;
+            self.solve_picard(&mut solver, picard_config, set_boundary)?;
 
             solver.profile().to_vec()
         };
@@ -256,7 +267,6 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
     ) -> Result<&'b [FieldState], PicardError> {
         assert_eq!(self.kappas.len() + 1, solver.profile().len());
         let (pump_forward, pump_backward) = self.fibre.pump_flux_amplitudes(pump);
-        let dz = self.grid.dz();
         let set_boundary = |current: &[FieldState]| FieldState {
             signal: BidirectionalAmplitude {
                 forward: 0.0,
@@ -267,23 +277,9 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
                 backward: self.lasing_pump_backward(pump_backward, current),
             },
         };
-        let step = |new_previous: &FieldState, old_current: &FieldState, i| {
-            new_previous.coupled_step(
-                self.fibre.gain(*old_current),
-                self.kappas[i],
-                dz,
-            )
-        };
-        let error = |current: &[FieldState], previous: &[FieldState]| {
-            profile_convergence_error(
-                current,
-                previous,
-                config.absolute_tolerance,
-                config.relative_tolerance,
-            )
-        };
+        self.solve_picard(solver, config, set_boundary)?;
 
-        solver.solve(config.max_iterations, set_boundary, step, error)
+        Ok(solver.profile())
     }
 
     fn lasing_pump_backward(&self, pump_backward: f64, profile: &[FieldState]) -> f64 {
