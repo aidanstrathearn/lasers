@@ -51,6 +51,7 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         config: PicardConfig,
         set_boundary: impl FnMut(&[FieldState]) -> FieldState,
     ) -> Result<(), PicardError> {
+        assert_eq!(self.kappas.len() + 1, solver.profile().len());
         let dz = self.grid.dz();
         let step = |new_previous: &FieldState, old_current: &FieldState, i| {
             new_previous.step_if(self.fibre.gain(*old_current), self.kappas[i], dz)
@@ -234,13 +235,18 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         };
         let mut solver = PicardSolver::filled(self.grid.points(), initial);
         let residual = |sgnl_b| -> Result<f64, SolverError> {
-            let fields = self.solve_lasing_picard_profile(
-                &mut solver,
-                sgnl_b,
-                pump,
-                picard_config,
-            )?;
-            Ok(fields.last().unwrap().signal.backward / sgnl_b)
+            let set_boundary = |current: &[FieldState]| FieldState {
+                signal: BidirectionalAmplitude {
+                    forward: 0.0,
+                    backward: sgnl_b,
+                },
+                pump: BidirectionalAmplitude {
+                    forward: pump_forward,
+                    backward: self.lasing_pump_backward(pump_backward, current),
+                },
+            };
+            self.solve_picard(&mut solver, picard_config, set_boundary)?;
+            Ok(solver.profile().last().unwrap().signal.backward / sgnl_b)
         };
         let _sgnl_b = try_rootfind_1d(residual, root_find_config)?;
 
@@ -256,30 +262,6 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
                 vec![fields[0], fields.last().copied().unwrap()],
             ))
         }
-    }
-
-    fn solve_lasing_picard_profile<'b>(
-        &self,
-        solver: &'b mut PicardSolver<FieldState>,
-        sgnl_b: f64,
-        pump: Pump,
-        config: PicardConfig,
-    ) -> Result<&'b [FieldState], PicardError> {
-        assert_eq!(self.kappas.len() + 1, solver.profile().len());
-        let (pump_forward, pump_backward) = self.fibre.pump_flux_amplitudes(pump);
-        let set_boundary = |current: &[FieldState]| FieldState {
-            signal: BidirectionalAmplitude {
-                forward: 0.0,
-                backward: sgnl_b,
-            },
-            pump: BidirectionalAmplitude {
-                forward: pump_forward,
-                backward: self.lasing_pump_backward(pump_backward, current),
-            },
-        };
-        self.solve_picard(solver, config, set_boundary)?;
-
-        Ok(solver.profile())
     }
 
     fn lasing_pump_backward(&self, pump_backward: f64, profile: &[FieldState]) -> f64 {
@@ -504,17 +486,16 @@ mod tests {
             ),
         );
         let mut picard_solver = PicardSolver::filled(solver.grid.points(), boundary);
+        solver
+            .solve_picard(
+                &mut picard_solver,
+                LASING_PICARD,
+                |_: &[FieldState]| boundary,
+            )
+            .expect("Picard profile solve failed");
         let picard = solver.field_profile(
             direct.z.clone(),
-            solver
-                .solve_lasing_picard_profile(
-                    &mut picard_solver,
-                    sgnl_b,
-                    pump,
-                    LASING_PICARD,
-                )
-                .expect("Picard profile solve failed")
-                .to_vec(),
+            picard_solver.profile().to_vec(),
         );
 
         assert_profiles_identical(&direct, &picard);
