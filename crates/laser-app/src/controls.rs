@@ -33,7 +33,6 @@ pub(crate) fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) -
             )
             .changed();
         ui.end_row();
-        
     });
 
     changed
@@ -57,13 +56,13 @@ pub(crate) fn grating_slider_grid(grating: &mut PiShift, ui: &mut Ui) -> bool {
     let mut changed = false;
 
     egui::Grid::new("grating").show(ui, |ui| {
-        ui.label("Kappa left (m⁻¹)");
+        ui.label("Kappa left (1/m)");
         changed |= ui
             .add(egui::Slider::new(&mut grating.kappa_left, 0.1..=10.0).step_by(0.01))
             .changed();
         ui.end_row();
 
-        ui.label("Kappa right (m⁻¹)");
+        ui.label("Kappa right (1/m)");
         changed |= ui
             .add(egui::Slider::new(&mut grating.kappa_right, 0.1..=10.0).step_by(0.01))
             .changed();
@@ -108,25 +107,25 @@ pub(crate) fn fibre_params_slider_grid<G: GratingModel>(
 
     egui::Grid::new("params").show(ui, |ui| {
         egui::Grid::new("params1").show(ui, |ui| {
-            ui.label("Pump em. (10⁻²⁵ m²)");
+            ui.label("Pump em. (1e-25 m²)");
             changed |= ui
                 .add(egui::Slider::new(&mut pump_interaction.emission, 0.0..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
-            ui.label("Pump abs. (10⁻²⁵ m²)");
+            ui.label("Pump abs. (1e-25 m²)");
             changed |= ui
                 .add(egui::Slider::new(&mut pump_interaction.absorption, 0.05..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
-            ui.label("Signl em. (10⁻²⁵ m²)");
+            ui.label("Signl em. (1e-25 m²)");
             changed |= ui
                 .add(egui::Slider::new(&mut signal_interaction.emission, 0.05..=10.0).step_by(0.01))
                 .changed();
             ui.end_row();
 
-            ui.label("Signl abs. (10⁻²⁵ m²)");
+            ui.label("Signl abs. (1e-25 m²)");
             changed |= ui
                 .add(
                     egui::Slider::new(&mut signal_interaction.absorption, 0.0..=10.0).step_by(0.01),
@@ -136,7 +135,7 @@ pub(crate) fn fibre_params_slider_grid<G: GratingModel>(
         });
 
         egui::Grid::new("params2").show(ui, |ui| {
-            ui.label("Dopant density (10²⁵ m⁻³)");
+            ui.label("Dopant density (1e25/m³)");
             changed |= ui
                 .add(egui::Slider::new(&mut dopant.density, 0.1..=10.0).step_by(0.01))
                 .changed();

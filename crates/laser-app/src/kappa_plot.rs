@@ -20,7 +20,7 @@ impl DfbMode {
         let mut plot = Plotter::new();
         plot.add_points(points).label("Kappa");
         plot.xlabel("Position (m)");
-        plot.ylabel("Kappa (m⁻¹)");
+        plot.ylabel("Kappa (1/m)");
         Ok(plot)
     }
 }

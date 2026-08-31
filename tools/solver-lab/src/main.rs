@@ -117,7 +117,7 @@ fn inspect_resiudal_curve(show_plots: bool) -> eframe::Result {
     if show_plots {
         let mut plot = Plotter::new();
         plot.plot(&trial_fluxes, &residuals);
-        plot.xlabel("Trial backward signal flux (10²⁵ photons m⁻² s⁻¹)");
+        plot.xlabel("Trial backward signal flux (1e25 photons/(m² s))");
         plot.title("Residuals");
         plot.show()?;
     }
@@ -245,7 +245,7 @@ fn inspect_grating(show_plot: bool) -> eframe::Result {
     let mut plot = Plotter::new();
     plot.plot(&z, &kappas);
     plot.xlabel("Position (m)");
-    plot.ylabel("Kappa (m⁻¹)");
+    plot.ylabel("Kappa (1/m)");
     plot.title("Coupling Profile");
     plot.show()
 }
