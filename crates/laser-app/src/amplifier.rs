@@ -1,16 +1,13 @@
 use crate::controls::{
-    bisection_slider_grid, fibre_params_slider_grid, power_slider_mw, pump_slider_grid,
-    steps_slider,
+    bisection_slider_grid, fibre_params_slider_grid, grating_slider_grid, power_slider_mw,
+    pump_slider_grid, steps_slider,
 };
 use crate::plotter::Plotter;
-use crate::{ModeUi, field_profile_plot, timed};
+use crate::{LaserParameters, ModeUi, field_profile_plot, timed};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::error::SolverError;
-use laser_solver::lase::{
-    Fibre, FibreGeometry, FieldMode, Pump, ResolvedFibre, Signal, TwoLevelCrossSections,
-    TwoLevelDopant,
-};
+use laser_solver::lase::Signal;
 use laser_solver::maths::picard::PicardConfig;
 use laser_solver::maths::rootfind::BisectionConfig;
 use laser_solver::maths::rootfind::Midpoint::Arithmetic;
@@ -61,61 +58,21 @@ impl AmplifierView {
 pub(crate) struct AmplifierMode {
     pub(crate) view: AmplifierView,
     pub(crate) signal: Signal,
-    pub(crate) pump: Pump,
-    pub(crate) fibre: Fibre,
-    pub(crate) pump_mode: FieldMode,
-    pub(crate) sgnl_mode: FieldMode,
-    pub(crate) pump_interaction: TwoLevelCrossSections,
-    pub(crate) signal_interaction: TwoLevelCrossSections,
     pub(crate) steps: usize,
     pub(crate) config: BisectionConfig,
     cached_plotter: Option<Result<Plotter, SolverError>>,
     pub(crate) compute_time: Option<Duration>,
 }
 
-impl Default for AmplifierMode {
-    fn default() -> Self {
-        let fibre = Fibre {
-            geometry: FibreGeometry {
-                core_radius: 4e-6,
-                numerical_aperture: 0.1,
-                length: 5.0,
-            },
-            dopant: TwoLevelDopant {
-                density: 0.50,
-                lifetime: 1.0,
-            },
-            grating: Default::default(),
-        };
-        let pump_mode = FieldMode::new(970e-9);
-        let sgnl_mode = FieldMode::new(1060e-9);
-        let pump_interaction = TwoLevelCrossSections::new(1.0, 0.0);
-        let signal_interaction = TwoLevelCrossSections::new(0.0, 1.0);
-        let (pump_total, signal_total) = {
-            let resolved = fibre.resolve_with_interactions(
-                pump_mode,
-                pump_interaction,
-                sgnl_mode,
-                signal_interaction,
-            );
-            (resolved.pump_power(10.0), resolved.signal_power(1.0))
-        };
-
+impl AmplifierMode {
+    pub(crate) fn new(parameters: &LaserParameters) -> Self {
+        let signal_total = parameters.resolved_fibre().signal_power(1.0);
         Self {
             view: AmplifierView::default(),
-            pump: Pump {
-                total: pump_total,
-                balance: 1.0,
-            },
             signal: Signal {
                 total: signal_total,
                 ..Signal::default()
             },
-            fibre,
-            pump_mode,
-            sgnl_mode,
-            pump_interaction,
-            signal_interaction,
             steps: 100,
             config: BisectionConfig::default(),
             cached_plotter: None,
@@ -143,43 +100,34 @@ pub(crate) fn signal_slider_grid(signal: &mut Signal, ui: &mut Ui) -> bool {
 }
 
 impl AmplifierMode {
-    pub(crate) fn resolved_fibre(&self) -> ResolvedFibre<'_> {
-        self.fibre.resolve_with_interactions(
-            self.pump_mode,
-            self.pump_interaction,
-            self.sgnl_mode,
-            self.signal_interaction,
-        )
-    }
-
     pub(crate) fn picard_config(&self) -> PicardConfig {
         PicardConfig {
-            max_iterations: 2000,
+            max_iterations: 5000,
             relative_tolerance: 1e-3, // need higher tolerance than dfb?
             absolute_tolerance: 1e-3,
             ..PicardConfig::default()
         }
     }
 
-    fn compute_plot(&mut self) -> Result<Plotter, SolverError> {
+    fn compute_plot(&mut self, parameters: &LaserParameters) -> Result<Plotter, SolverError> {
         match self.view {
-            AmplifierView::Profile => self.profile_plot(),
+            AmplifierView::Profile => self.profile_plot(parameters),
         }
     }
 }
 
 impl AmplifierMode {
-    fn profile_plot(&mut self) -> Result<Plotter, SolverError> {
+    fn profile_plot(&mut self, parameters: &LaserParameters) -> Result<Plotter, SolverError> {
         let (result, compute_time) = timed(|| {
-            let fibre = self.resolved_fibre();
+            let fibre = parameters.resolved_fibre();
             let bc = BisectionConfig {
-                upper: fibre.pump_flux(self.pump.total).sqrt(),
+                upper: fibre.pump_flux(parameters.pump.total).sqrt(),
                 lower: 0.0,
                 midpoint: Arithmetic,
                 ..self.config
             };
             TwoModeSolver::new(&fibre, self.steps).solve_injected(
-                self.pump,
+                parameters.pump,
                 self.signal,
                 bc.into(),
                 self.picard_config(),
@@ -195,22 +143,26 @@ impl ModeUi for AmplifierMode {
         self.view.selectors(ui)
     }
 
-    fn draw_controls(&mut self, ui: &mut Ui) -> bool {
+    fn draw_controls(&mut self, parameters: &mut LaserParameters, ui: &mut Ui) -> bool {
         let mut changed = false;
 
         egui::Grid::new("global-params").show(ui, |ui| {
             ui.vertical(|ui| {
                 ui.heading("Fibre");
                 changed |= fibre_params_slider_grid(
-                    &mut self.fibre,
-                    &mut self.pump_interaction,
-                    &mut self.signal_interaction,
+                    &mut parameters.fibre,
+                    &mut parameters.pump_interaction,
+                    &mut parameters.signal_interaction,
                     ui,
                 );
             });
             ui.vertical(|ui| {
+                ui.heading("Bragg");
+                changed |= grating_slider_grid(&mut parameters.fibre.grating, ui);
+            });
+            ui.vertical(|ui| {
                 ui.heading("Pump");
-                changed |= pump_slider_grid(&mut self.pump, ui);
+                changed |= pump_slider_grid(&mut parameters.pump, ui);
                 ui.heading("Signal");
                 changed |= signal_slider_grid(&mut self.signal, ui)
             });
@@ -230,19 +182,23 @@ impl ModeUi for AmplifierMode {
         changed
     }
 
-    fn reset(&mut self) {
+    fn reset(&mut self, parameters: &LaserParameters) {
         *self = Self {
             view: self.view,
-            ..Self::default()
+            ..Self::new(parameters)
         };
+    }
+
+    fn clear_cached_plot(&mut self) {
+        self.cached_plotter = None;
     }
 
     fn has_cached_plot(&self) -> bool {
         self.cached_plotter.is_some()
     }
 
-    fn recompute_plot(&mut self) {
-        self.cached_plotter = Some(self.compute_plot());
+    fn recompute_plot(&mut self, parameters: &LaserParameters) {
+        self.cached_plotter = Some(self.compute_plot(parameters));
     }
 
     fn compute_time(&self) -> Option<Duration> {
@@ -257,5 +213,19 @@ impl ModeUi for AmplifierMode {
             }
             None => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn injected_mode_uses_shared_pi_shift_grating() {
+        let parameters = LaserParameters::default();
+        let fibre = parameters.resolved_fibre();
+        let solver = TwoModeSolver::new(&fibre, AmplifierMode::new(&parameters).steps);
+
+        assert!(solver.kappas().iter().any(|&kappa| kappa != 0.0));
     }
 }

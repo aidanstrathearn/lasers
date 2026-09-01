@@ -1,5 +1,5 @@
 use crate::plotter::Plotter;
-use crate::{Points, dfb::DfbMode, timed};
+use crate::{LaserParameters, Points, dfb::DfbMode, timed};
 use eframe::egui;
 use eframe::egui::Ui;
 use laser_solver::error::SolverError;
@@ -32,21 +32,21 @@ impl ThresholdRange {
 }
 
 impl DfbMode {
-    pub fn threshold_plot(&mut self) -> Result<Plotter, SolverError> {
+    pub fn threshold_plot(&mut self, parameters: &LaserParameters) -> Result<Plotter, SolverError> {
         let pumps = linspace(
             self.threshold_range.lower,
             self.threshold_range.upper,
             self.threshold_range.num,
         );
         let (threshold, compute_time) = timed(|| {
-            let fibre = self.resolved_fibre();
+            let fibre = parameters.resolved_fibre();
             let bc = BisectionConfig {
                 upper: fibre.pump_flux(self.threshold_range.upper).sqrt(),
                 ..self.config
             };
             TwoModeSolver::new(&fibre, self.steps).pump_scan(
                 &pumps,
-                self.pump.balance,
+                parameters.pump.balance,
                 bc.into(),
                 self.picard_config,
             )
@@ -76,7 +76,8 @@ impl DfbMode {
         plt.ylabel("Output power (mW)");
         plt.add_points(sgnl_f_points).label("Forward");
         plt.add_points(sgnl_b_points).label("Backward");
-        plt.axvline(1_000.0 * self.pump.total).label("Current pump");
+        plt.axvline(1_000.0 * parameters.pump.total)
+            .label("Current pump");
         plt.xlim(
             1_000.0 * self.threshold_range.lower,
             1_000.0 * self.threshold_range.upper,
@@ -123,8 +124,9 @@ mod tests {
 
     #[test]
     fn default_threshold_range_preserves_legacy_flux_bounds() {
-        let mode = DfbMode::default();
-        let fibre = mode.resolved_fibre();
+        let parameters = LaserParameters::default();
+        let mode = DfbMode::new(&parameters);
+        let fibre = parameters.resolved_fibre();
 
         let lower_flux = fibre.pump_flux(mode.threshold_range.lower);
         let upper_flux = fibre.pump_flux(mode.threshold_range.upper);

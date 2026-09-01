@@ -1,21 +1,21 @@
 use crate::plotter::Plotter;
-use crate::{dfb::DfbMode, field_profile_plot, timed};
+use crate::{LaserParameters, dfb::DfbMode, field_profile_plot, timed};
 use laser_solver::error::SolverError;
 use laser_solver::maths::rootfind::BisectionConfig;
 use laser_solver::two_mode::TwoModeSolver;
 
 impl DfbMode {
-    pub fn profile_plot(&mut self) -> Result<Plotter, SolverError> {
+    pub fn profile_plot(&mut self, parameters: &LaserParameters) -> Result<Plotter, SolverError> {
         let full_profile = true;
 
         let (result, compute_time) = timed(|| {
-            let fibre = self.resolved_fibre();
+            let fibre = parameters.resolved_fibre();
             let bc = BisectionConfig {
-                upper: 2.0 * fibre.pump_flux(self.pump.total).sqrt(),
+                upper: 2.0 * fibre.pump_flux(parameters.pump.total).sqrt(),
                 ..self.config
             };
             TwoModeSolver::new(&fibre, self.steps).solve_lasing(
-                self.pump,
+                parameters.pump,
                 bc.into(),
                 self.picard_config,
                 full_profile,
