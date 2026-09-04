@@ -6,6 +6,5 @@ publish = false
 
 [dependencies]
 eframe.workspace = true
-egui_plot.workspace = true
 laser-solver.workspace = true
-web-time.workspace = true
+plot-app.workspace = true

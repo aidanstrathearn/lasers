@@ -121,10 +121,9 @@ impl Plotter {
 
     pub fn show(&self, ui: &mut Ui, id: impl Hash) {
         let plot_id = egui::Id::new(id);
-        ui.style_mut().text_styles.insert(
-            egui::TextStyle::Body,
-            egui::FontId::proportional(24.0), // this is for ticks + legend text
-        );
+        ui.style_mut()
+            .text_styles
+            .insert(egui::TextStyle::Body, egui::FontId::proportional(24.0));
         Plot::new(plot_id)
             .legend(Legend::default())
             .x_axis_label(egui::RichText::new(&self.x_label).size(24.0))

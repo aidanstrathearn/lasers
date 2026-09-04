@@ -4,10 +4,9 @@ use laser_solver::lase::{
     Fibre, FibreGeometry, FieldMode, Pump, ResolvedFibre, TwoLevelCrossSections,
     TwoLevelDopant,
 };
-use laser_solver::maths::picard::PicardConfig;
 use laser_solver::maths::rootfind::{BisectionConfig, Midpoint, Newton1dConfig, RootFindConfig};
 use laser_solver::maths::utils::IterationConfig;
-use laser_solver::two_mode::TwoModeSolver;
+use laser_solver::two_mode::{PicardConfig, TwoModeSolver};
 use std::hint::black_box;
 
 const PUMP_FORWARD_AMPLITUDE: f64 = 100.0;
@@ -68,6 +67,7 @@ const PICARD: PicardConfig = PicardConfig {
     max_iterations: 500,
     relative_tolerance: 1e-10,
     absolute_tolerance: 1e-12,
+    relaxation: 1.0,
 };
 
 const NEWTON: Newton1dConfig = Newton1dConfig {

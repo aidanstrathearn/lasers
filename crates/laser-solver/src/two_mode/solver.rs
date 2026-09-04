@@ -5,10 +5,29 @@ use crate::lase::{
     DopantModel, FieldState, PumpScan, UniformGrid, profile_convergence_error,
     pump_scan as scan_pump_totals,
 };
-use crate::maths::picard::{PicardConfig, PicardError, PicardSolver};
+use crate::maths::picard::{PicardError, PicardSolver};
 use crate::maths::rootfind::{RootFindConfig, rootfind_1d, try_rootfind_1d};
 use crate::two_mode::propagation::{out_field_coupled, solve_profile, solve_profile_coupled};
 use crate::two_mode::{FieldProfile, OutputPower, Pump, ResolvedFibre, Signal};
+
+#[derive(Copy, Clone, Debug)]
+pub struct PicardConfig {
+    pub max_iterations: usize,
+    pub relative_tolerance: f64,
+    pub absolute_tolerance: f64,
+    pub relaxation: f64,
+}
+
+impl Default for PicardConfig {
+    fn default() -> Self {
+        Self {
+            max_iterations: 500,
+            relative_tolerance: 1e-8,
+            absolute_tolerance: 1e-12,
+            relaxation: 1.0,
+        }
+    }
+}
 
 pub struct TwoModeSolver<'a, D: DopantModel, G: GratingModel> {
     fibre: &'a ResolvedFibre<'a, D, G>,
@@ -56,6 +75,12 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
         set_boundary: impl FnMut(&[FieldState]) -> FieldState,
     ) -> Result<(), PicardError> {
         assert_eq!(self.kappas.len() + 1, solver.profile().len());
+        assert!(
+            config.relaxation.is_finite()
+                && config.relaxation > 0.0
+                && config.relaxation <= 1.0,
+            "Picard relaxation must be finite, greater than zero, and at most one",
+        );
         let dz = self.grid.dz();
         let step = |new_previous: &FieldState, old_current: &FieldState, i| {
             new_previous.step_if(self.fibre.gain(*old_current), self.kappas[i], dz)
@@ -68,10 +93,22 @@ impl<'a, D: DopantModel, G: GratingModel> TwoModeSolver<'a, D, G> {
                 config.relative_tolerance,
             )
         };
+        let relax = |new: &mut FieldState, current: &FieldState| {
+            let relax_amplitude = |new: &mut f64, current: f64| {
+                *new = current + config.relaxation * (*new - current);
+            };
+            relax_amplitude(&mut new.signal.forward, current.signal.forward);
+            relax_amplitude(&mut new.signal.backward, current.signal.backward);
+            relax_amplitude(&mut new.pump.forward, current.pump.forward);
+            relax_amplitude(&mut new.pump.backward, current.pump.backward);
+        };
 
-        solver
-            .solve(config.max_iterations, set_boundary, step, error)
-            .map(|_| ())
+        let result = if config.relaxation == 1.0 {
+            solver.solve(config.max_iterations, set_boundary, step, error)
+        } else {
+            solver.solve_relaxed(config.max_iterations, set_boundary, step, error, relax)
+        };
+        result.map(|_| ())
     }
 
     pub fn solve_injected(
@@ -337,6 +374,7 @@ mod tests {
         max_iterations: 500,
         relative_tolerance: 1e-10,
         absolute_tolerance: 1e-12,
+        relaxation: 1.0,
     };
     const LASING_BISECTION: BisectionConfig = BisectionConfig {
         iteration: LASING_ITERATION,
@@ -651,6 +689,45 @@ mod tests {
             left.signal.backward.abs() > 1e-6,
             "grating solve should produce a reflected signal"
         );
+    }
+
+    #[test]
+    fn relaxation_stabilizes_active_injected_grating_solve() {
+        let fibre = Fibre {
+            geometry: FibreGeometry {
+                core_radius: 4e-6,
+                numerical_aperture: 0.1,
+                length: 5.0,
+            },
+            dopant: TwoLevelDopant {
+                density: 0.5,
+                lifetime: 1.0,
+            },
+            grating: PiShift {
+                kappa_left: 0.6,
+                kappa_right: 0.6,
+                pi_shift_position: 0.5,
+            },
+        };
+        let fibre = resolve_active_lasing(&fibre);
+        let pump = Pump {
+            total: fibre.pump_power(10.0),
+            balance: 1.0,
+        };
+        let signal = Signal {
+            total: fibre.signal_power(1.0),
+            balance: 1.0,
+        };
+        let config = PicardConfig {
+            max_iterations: 500,
+            relative_tolerance: 1e-3,
+            absolute_tolerance: 1e-3,
+            relaxation: 0.5,
+        };
+
+        TwoModeSolver::new(&fibre, 100)
+            .solve_injected(pump, signal, BisectionConfig::default().into(), config)
+            .expect("relaxed active-grating solve should converge");
     }
 
     #[test]

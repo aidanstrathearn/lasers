@@ -5,5 +5,4 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-eframe = { workspace = true, features = ["default_fonts", "glow", "wayland", "x11"] }
 laser-app.workspace = true

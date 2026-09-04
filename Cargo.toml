@@ -4,6 +4,7 @@ members = [
     "apps/web",
     "crates/laser-app",
     "crates/laser-solver",
+    "crates/plot-app",
 ]
 exclude = ["tools/solver-lab"]
 resolver = "3"
@@ -17,4 +18,5 @@ eframe = { version = "0.33.3", default-features = false }
 egui_plot = "0.34.1"
 laser-app = { path = "crates/laser-app" }
 laser-solver = { path = "crates/laser-solver" }
+plot-app = { path = "crates/plot-app" }
 web-time = "1.1.0"

@@ -1,12 +1,11 @@
-use crate::plotter::Plotter;
-use crate::{LaserParameters, dfb::DfbMode, timed};
-use laser_solver::error::SolverError;
+use crate::dfb::LaserParameters;
 use laser_solver::two_mode::TwoModeSolver;
+use plot_app::{AppResult, Plotter};
 
-impl DfbMode {
-    pub fn kappa_plot(&mut self, parameters: &LaserParameters) -> Result<Plotter, SolverError> {
-        let (points, compute_time) = timed(|| {
-            let fibre = parameters.resolved_fibre();
+impl LaserParameters {
+    pub fn kappa_plot(&mut self) -> AppResult {
+        let points = {
+            let fibre = self.resolved_fibre();
             let solver = TwoModeSolver::new(&fibre, self.steps);
             solver
                 .grid()
@@ -14,8 +13,7 @@ impl DfbMode {
                 .zip(solver.kappas().iter().copied())
                 .map(|(z, kappa)| [z, kappa])
                 .collect()
-        });
-        self.compute_time = Some(compute_time);
+        };
 
         let mut plot = Plotter::new();
         plot.add_points(points).label("Kappa");

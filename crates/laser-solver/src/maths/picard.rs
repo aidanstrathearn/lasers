@@ -17,23 +17,6 @@ impl fmt::Display for PicardError {
 
 impl std::error::Error for PicardError {}
 
-#[derive(Copy, Clone, Debug)]
-pub struct PicardConfig {
-    pub max_iterations: usize,
-    pub relative_tolerance: f64,
-    pub absolute_tolerance: f64,
-}
-
-impl Default for PicardConfig {
-    fn default() -> Self {
-        Self {
-            max_iterations: 500,
-            relative_tolerance: 1e-8,
-            absolute_tolerance: 1e-12,
-        }
-    }
-}
-
 pub struct PicardSolver<T> {
     current: Vec<T>,
     new: Vec<T>,

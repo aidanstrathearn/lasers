@@ -1238,16 +1238,14 @@ name = "laser-app"
 version = "0.1.0"
 dependencies = [
  "eframe",
- "egui_plot",
  "laser-solver",
- "web-time",
+ "plot-app",
 ]
 
 [[package]]
 name = "laser-desktop"
 version = "0.1.0"
 dependencies = [
- "eframe",
  "laser-app",
 ]
 
@@ -1262,11 +1260,8 @@ dependencies = [
 name = "laser-web"
 version = "0.1.0"
 dependencies = [
- "eframe",
  "laser-app",
  "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
 ]
 
 [[package]]
@@ -1847,6 +1842,18 @@ name = "plain"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
+
+[[package]]
+name = "plot-app"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui_plot",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "web-time",
+]
 
 [[package]]
 name = "plotters"

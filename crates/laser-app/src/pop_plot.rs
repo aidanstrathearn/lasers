@@ -1,29 +1,27 @@
-use crate::plotter::Plotter;
-use crate::{LaserParameters, Points, dfb::DfbMode, timed};
-use laser_solver::error::SolverError;
+use crate::dfb::LaserParameters;
 use laser_solver::maths::rootfind::BisectionConfig;
 use laser_solver::two_mode::TwoModeSolver;
+use plot_app::{AppResult, Plotter, Points};
 
-impl DfbMode {
-    pub fn pops_plot(&mut self, parameters: &LaserParameters) -> Result<Plotter, SolverError> {
+impl LaserParameters {
+    pub fn pops_plot(&mut self) -> AppResult {
         let full_profile = true;
 
-        let (result, compute_time) = timed(|| {
-            let fibre = parameters.resolved_fibre();
+        let result = {
+            let fibre = self.resolved_fibre();
             let bc = BisectionConfig {
-                upper: 2.0 * fibre.pump_flux(parameters.pump.total).sqrt(),
+                upper: 2.0 * fibre.pump_flux(self.pump.total).sqrt(),
                 ..self.config
             };
             TwoModeSolver::new(&fibre, self.steps).solve_lasing(
-                parameters.pump,
+                self.pump,
                 bc.into(),
                 self.picard_config,
                 full_profile,
             )
-        });
-        self.compute_time = Some(compute_time);
+        };
         let result = result?;
-        let fibre = parameters.resolved_fibre();
+        let fibre = self.resolved_fibre();
         let populations = fibre.profile_populations(&result);
 
         let (ground, excited): (Points, Points) = result

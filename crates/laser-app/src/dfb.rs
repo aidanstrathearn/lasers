@@ -1,202 +1,203 @@
-use crate::controls::{
-    bisection_slider_grid, fibre_params_slider_grid, grating_slider_grid, pump_slider_grid,
-    steps_slider,
+use crate::controls::{fibre_param_sliders, grating_sliders, pump_sliders, solver_sliders};
+use crate::threshold_plot::{ThresholdRange, threshold_sliders};
+use laser_solver::grating::PiShift;
+use laser_solver::lase::{
+    Fibre, FibreGeometry, FieldMode, FieldProfile, Pump, ResolvedFibre, TwoLevelCrossSections,
+    TwoLevelDopant,
 };
-use crate::plotter::Plotter;
-use crate::threshold_plot::{ThresholdRange, threshold_slider_grid};
-use crate::{LaserParameters, ModeUi};
-use eframe::egui;
-use eframe::egui::Ui;
-use laser_solver::error::SolverError;
-use laser_solver::maths::picard::PicardConfig;
 use laser_solver::maths::rootfind::BisectionConfig;
-use std::time::Duration;
+use laser_solver::two_mode::PicardConfig;
+use plot_app::{AppDefinition, Plotter, Points, SliderGrid, ViewOption};
 
-#[derive(PartialEq, Default, Copy, Clone)]
-pub(crate) enum DfbView {
-    #[default]
-    Profile,
-    Populations,
-    Kappa,
-    Threshold,
-    PiPosition,
-    PiPositionThreshold,
-}
-
-const VIEW_OPTIONS: [(DfbView, &str, egui::Key); 6] = [
-    (DfbView::Profile, "[1] Profile", egui::Key::Num1),
-    (DfbView::Populations, "[2] Populations", egui::Key::Num2),
-    (DfbView::Kappa, "[3] Kappa", egui::Key::Num3),
-    (DfbView::Threshold, "[4] Threshold", egui::Key::Num4),
-    (DfbView::PiPosition, "[5] Pi position", egui::Key::Num5),
-    (
-        DfbView::PiPositionThreshold,
-        "[6] Pi threshold",
-        egui::Key::Num6,
-    ),
-];
-
-impl DfbView {
-    fn plot_id(self) -> &'static str {
-        match self {
-            Self::Threshold => "threshold-plot",
-            Self::Profile => "profile-plot",
-            Self::Populations => "population-plot",
-            Self::Kappa => "kappa-plot",
-            Self::PiPosition => "pi-position-output-plot",
-            Self::PiPositionThreshold => "pi-position-threshold-plot",
-        }
-    }
-
-    fn selectors(&mut self, ui: &mut Ui) -> bool {
-        let mut changed = false;
-
-        if !ui.ctx().wants_keyboard_input() {
-            for &(view, _, key) in &VIEW_OPTIONS {
-                let shortcut = egui::KeyboardShortcut::new(egui::Modifiers::NONE, key);
-
-                if ui.input_mut(|input| input.consume_shortcut(&shortcut)) {
-                    changed |= *self != view;
-                    *self = view;
-                    break;
-                }
-            }
-        }
-
-        ui.horizontal(|ui| {
-            for &(view, label, _) in &VIEW_OPTIONS {
-                changed |= ui.selectable_value(self, view, label).changed();
-            }
-        });
-
-        changed
-    }
-}
-
-pub(crate) struct DfbMode {
-    pub(crate) view: DfbView,
+pub(crate) struct LaserParameters {
+    pub(crate) fibre: Fibre<TwoLevelDopant, PiShift>,
+    pub(crate) pump_mode: FieldMode,
+    pub(crate) sgnl_mode: FieldMode,
+    pub(crate) pump_interaction: TwoLevelCrossSections,
+    pub(crate) signal_interaction: TwoLevelCrossSections,
+    pub(crate) pump: Pump,
     pub(crate) steps: usize,
     pub(crate) config: BisectionConfig,
     pub(crate) picard_config: PicardConfig,
     pub(crate) threshold_range: ThresholdRange,
-    cached_plotter: Option<Result<Plotter, SolverError>>,
-    pub(crate) compute_time: Option<Duration>,
 }
 
-impl DfbMode {
-    pub(crate) fn new(parameters: &LaserParameters) -> Self {
-        let fibre = parameters.resolved_fibre();
+impl LaserParameters {
+    pub(crate) fn resolved_fibre(&self) -> ResolvedFibre<'_, TwoLevelDopant, PiShift> {
+        self.fibre.resolve_with_interactions(
+            self.pump_mode,
+            self.pump_interaction,
+            self.sgnl_mode,
+            self.signal_interaction,
+        )
+    }
+}
+
+impl Default for LaserParameters {
+    fn default() -> Self {
+        let fibre = Fibre {
+            geometry: FibreGeometry {
+                core_radius: 4e-6,
+                numerical_aperture: 0.1,
+                length: 5.0,
+            },
+            dopant: TwoLevelDopant {
+                density: 0.50,
+                lifetime: 1.0,
+            },
+            grating: PiShift {
+                kappa_left: 0.6,
+                kappa_right: 0.6,
+                pi_shift_position: 0.5,
+            },
+        };
+        let pump_mode = FieldMode::new(970e-9);
+        let sgnl_mode = FieldMode::new(1060e-9);
+        let pump_interaction = TwoLevelCrossSections::new(1.0, 0.0);
+        let signal_interaction = TwoLevelCrossSections::new(0.0, 1.0);
+        let resolved_fibre = fibre.resolve_with_interactions(
+            pump_mode,
+            pump_interaction,
+            sgnl_mode,
+            signal_interaction,
+        );
+        let pump_total = resolved_fibre.pump_power(10.0);
+        let threshold_range = ThresholdRange::new_watts(
+            resolved_fibre.pump_power(1e-6),
+            resolved_fibre.pump_power(10.0),
+            20,
+        );
+
         Self {
-            view: DfbView::default(),
+            fibre,
+            pump_mode,
+            sgnl_mode,
+            pump_interaction,
+            signal_interaction,
+            pump: Pump {
+                total: pump_total,
+                balance: 1.0,
+            },
             steps: 100,
             config: BisectionConfig::default(),
             picard_config: PicardConfig {
                 max_iterations: 5_000,
                 relative_tolerance: 1e-6,
                 absolute_tolerance: 1e-10,
+                relaxation: 1.0,
             },
-            threshold_range: ThresholdRange::new_watts(
-                fibre.pump_power(1e-6),
-                fibre.pump_power(10.0),
-                20,
-            ),
-            cached_plotter: None,
-            compute_time: None,
+            threshold_range,
         }
     }
 }
 
-impl DfbMode {
-    fn compute_plot(&mut self, parameters: &LaserParameters) -> Result<Plotter, SolverError> {
-        match self.view {
-            DfbView::Threshold => self.threshold_plot(parameters),
-            DfbView::Profile => self.profile_plot(parameters),
-            DfbView::Populations => self.pops_plot(parameters),
-            DfbView::Kappa => self.kappa_plot(parameters),
-            DfbView::PiPosition => self.pi_pos_plot(parameters),
-            DfbView::PiPositionThreshold => self.pi_pos_threshold_plot(parameters),
+fn power_points(z: impl Iterator<Item = f64>, power_watts: impl Iterator<Item = f64>) -> Points {
+    z.zip(power_watts)
+        .map(|(z, power_watts)| [z, 1_000.0 * power_watts])
+        .collect()
+}
+
+pub(crate) fn field_profile_plot(profile: &FieldProfile) -> Plotter {
+    let mut plot = Plotter::new();
+    plot.add_points(power_points(profile.z(), profile.signal_forward_power()))
+        .label("Forward signal");
+    plot.add_points(power_points(profile.z(), profile.signal_backward_power()))
+        .label("Backward signal");
+    plot.add_points(power_points(profile.z(), profile.pump_forward_power()))
+        .label("Forward pump");
+    plot.add_points(power_points(profile.z(), profile.pump_backward_power()))
+        .label("Backward pump");
+    plot.xlabel("Position (m)");
+    plot.ylabel("Power (mW)");
+    plot
+}
+
+
+
+impl LaserParameters {
+    fn standard_controls(&mut self) -> SliderGrid<'_> {
+        self.make_controls(false)
+    }
+
+    fn threshold_controls(&mut self) -> SliderGrid<'_> {
+        self.make_controls(true)
+    }
+
+    fn make_controls(&mut self, include_threshold: bool) -> SliderGrid<'_> {
+        let Self {
+            fibre,
+            pump_interaction,
+            signal_interaction,
+            pump,
+            steps,
+            config,
+            threshold_range,
+            ..
+        } = self;
+        let Fibre {
+            geometry,
+            dopant,
+            grating,
+        } = fibre;
+
+        let mut groups = vec![
+            fibre_param_sliders(geometry, dopant, pump_interaction, signal_interaction),
+            grating_sliders(grating),
+            pump_sliders(pump),
+            solver_sliders(config, steps),
+        ];
+        if include_threshold {
+            groups.push(threshold_sliders(threshold_range));
         }
+
+        SliderGrid::new(4, groups)
     }
 }
 
-impl ModeUi for DfbMode {
-    fn draw_view_selector(&mut self, ui: &mut Ui) -> bool {
-        self.view.selectors(ui)
-    }
 
-    fn draw_controls(&mut self, parameters: &mut LaserParameters, ui: &mut Ui) -> bool {
-        let mut changed = false;
 
-        egui::Grid::new("global-params").show(ui, |ui| {
-            ui.vertical(|ui| {
-                ui.heading("Fibre");
-                changed |= fibre_params_slider_grid(
-                    &mut parameters.fibre,
-                    &mut parameters.pump_interaction,
-                    &mut parameters.signal_interaction,
-                    ui,
-                );
-            });
-            ui.vertical(|ui| {
-                ui.heading("Bragg");
-                changed |= grating_slider_grid(&mut parameters.fibre.grating, ui);
-            });
-            ui.vertical(|ui| {
-                ui.heading("Pump");
-                changed |= pump_slider_grid(&mut parameters.pump, ui);
-            });
-            ui.vertical(|ui| {
-                ui.heading("Solver");
-                changed |= bisection_slider_grid(&mut self.config, ui);
-                changed |= steps_slider(&mut self.steps, ui);
-            });
+const DFB_VIEWS: &[ViewOption<LaserParameters>] = &[
+    ViewOption::new(
+        "Profile",
+        LaserParameters::profile_plot,
+        LaserParameters::standard_controls,
+    ),
+    ViewOption::new(
+        "Populations",
+        LaserParameters::pops_plot,
+        LaserParameters::standard_controls,
+    ),
+    ViewOption::new(
+        "Kappa",
+        LaserParameters::kappa_plot,
+        LaserParameters::standard_controls,
+    ),
+    ViewOption::new(
+        "Threshold",
+        LaserParameters::threshold_plot,
+        LaserParameters::threshold_controls,
+    ),
+    ViewOption::new(
+        "Pi position",
+        LaserParameters::pi_pos_plot,
+        LaserParameters::standard_controls,
+    ),
+    ViewOption::new(
+        "Pi threshold",
+        LaserParameters::pi_pos_threshold_plot,
+        LaserParameters::threshold_controls,
+    ),
+];
 
-            match self.view {
-                DfbView::Threshold | DfbView::PiPositionThreshold => {
-                    ui.vertical(|ui| {
-                        ui.heading("Threshold");
-                        changed |= threshold_slider_grid(&mut self.threshold_range, ui);
-                    });
-                }
-                _ => (),
-            };
+const DFB_APP: AppDefinition<LaserParameters> =
+    AppDefinition::new("Laser Solver", "plot-canvas", DFB_VIEWS);
 
-            ui.end_row();
-        });
+#[cfg(not(target_arch = "wasm32"))]
+pub fn run_native() -> plot_app::NativeResult {
+    plot_app::run_native(DFB_APP)
+}
 
-        changed
-    }
-
-    fn reset(&mut self, parameters: &LaserParameters) {
-        *self = Self {
-            view: self.view,
-            ..Self::new(parameters)
-        };
-    }
-
-    fn clear_cached_plot(&mut self) {
-        self.cached_plotter = None;
-    }
-
-    fn has_cached_plot(&self) -> bool {
-        self.cached_plotter.is_some()
-    }
-
-    fn recompute_plot(&mut self, parameters: &LaserParameters) {
-        self.cached_plotter = Some(self.compute_plot(parameters));
-    }
-
-    fn compute_time(&self) -> Option<Duration> {
-        self.compute_time
-    }
-
-    fn draw_plot(&self, ui: &mut Ui) {
-        match &self.cached_plotter {
-            Some(Ok(plotter)) => plotter.show(ui, self.view.plot_id()),
-            Some(Err(error)) => {
-                ui.colored_label(ui.visuals().error_fg_color, error.to_string());
-            }
-            None => {}
-        }
-    }
+#[cfg(target_arch = "wasm32")]
+pub fn run_web() -> plot_app::WebResult {
+    plot_app::run_web(DFB_APP)
 }

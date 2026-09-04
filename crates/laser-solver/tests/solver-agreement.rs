@@ -3,10 +3,9 @@ use laser_solver::lase::{
     Fibre, FibreGeometry, FieldMode, FieldProfile, Pump, ResolvedFibre, Signal,
     TwoLevelCrossSections, TwoLevelDopant, pump_scan as scan_pump_totals,
 };
-use laser_solver::maths::picard::PicardConfig;
 use laser_solver::maths::rootfind::{BisectionConfig, Midpoint, RootFindConfig};
 use laser_solver::maths::utils::IterationConfig;
-use laser_solver::two_mode::TwoModeSolver;
+use laser_solver::two_mode::{PicardConfig, TwoModeSolver};
 
 const PUMP_FORWARD_AMPLITUDE: f64 = 100.0;
 static FIBRE: Fibre = Fibre {
@@ -107,6 +106,7 @@ const SYMMETRY_PICARD: PicardConfig = PicardConfig {
     max_iterations: 500,
     relative_tolerance: 1e-6,
     absolute_tolerance: 1e-10,
+    relaxation: 1.0,
 };
 
 const BISECTION: BisectionConfig = BisectionConfig {

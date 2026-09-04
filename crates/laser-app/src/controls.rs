@@ -1,159 +1,96 @@
-use eframe::egui;
-use eframe::egui::Ui;
-use laser_solver::grating::{GratingModel, PiShift};
-use laser_solver::lase::{Fibre, Pump, TwoLevelCrossSections, TwoLevelDopant};
+use laser_solver::grating::PiShift;
+use laser_solver::lase::{FibreGeometry, Pump, TwoLevelCrossSections, TwoLevelDopant};
 use laser_solver::maths::rootfind::BisectionConfig;
+use plot_app::{Slider, SliderGroup};
+use std::ops::RangeInclusive;
 
-pub(crate) fn power_slider_mw(power_watts: &mut f64, ui: &mut Ui) -> bool {
-    let mut power_mw = 1_000.0 * *power_watts;
-    let changed = ui
-        .add(egui::Slider::new(&mut power_mw, 0.0..=100.0).step_by(0.001))
-        .changed();
-    *power_watts = power_mw / 1_000.0;
-    changed
+pub(crate) fn milliwatt_slider<'a>(
+    label: &'static str,
+    power_watts: &'a mut f64,
+    range_mw: RangeInclusive<f64>,
+) -> Slider<'a> {
+    Slider::from_get_set(label, range_mw, move |power_mw| {
+        if let Some(power_mw) = power_mw {
+            *power_watts = power_mw / 1_000.0;
+        }
+        1_000.0 * *power_watts
+    })
 }
 
-pub(crate) fn bisection_slider_grid(config: &mut BisectionConfig, ui: &mut Ui) -> bool {
-    let mut changed = false;
-
-    egui::Grid::new("bisection").show(ui, |ui| {
-        ui.label("Iteration no.");
-        changed |= ui
-            .add(egui::Slider::new(&mut config.iteration.max, 10..=2000).step_by(10.0))
-            .changed();
-        ui.end_row();
-
-        ui.label("Tolerance");
-        changed |= ui
-            .add(
-                egui::Slider::new(&mut config.iteration.tol, 1e-9..=1e-2)
-                    // 1e-10 causes slider field box to resize
-                    .logarithmic(true)
-                    .custom_formatter(|value, _| format!("{value:.1e}")),
-            )
-            .changed();
-        ui.end_row();
-    });
-
-    changed
+pub(crate) fn solver_sliders<'a>(
+    config: &'a mut BisectionConfig,
+    steps: &'a mut usize,
+) -> SliderGroup<'a> {
+    let iteration = &mut config.iteration;
+    SliderGroup::new(
+        "Solver",
+        [
+            Slider::new("Iteration no.", &mut iteration.max, 10..=2000).step_by(10.0),
+            Slider::new("Tolerance", &mut iteration.tol, 1e-9..=1e-2)
+                // 1e-10 causes the slider field box to resize.
+                .logarithmic(true)
+                .custom_formatter(|value, _| format!("{value:.1e}")),
+            Slider::new("Steps", steps, 10..=1000).step_by(2.0),
+        ],
+    )
 }
 
-pub(crate) fn steps_slider(steps: &mut usize, ui: &mut Ui) -> bool {
-    let mut changed = false;
+pub(crate) fn grating_sliders(grating: &mut PiShift) -> SliderGroup<'_> {
+    let PiShift {
+        kappa_left,
+        kappa_right,
+        pi_shift_position,
+    } = grating;
 
-    egui::Grid::new("grid-steps").show(ui, |ui| {
-        ui.label("Steps");
-        changed |= ui
-            .add(egui::Slider::new(steps, 10..=1000).step_by(2.0))
-            .changed();
-        ui.end_row();
-    });
-
-    changed
+    SliderGroup::new(
+        "Bragg",
+        [
+            Slider::new("Kappa left (1/m)", kappa_left, 0.1..=10.0).step_by(0.01),
+            Slider::new("Kappa right (1/m)", kappa_right, 0.1..=10.0).step_by(0.01),
+            Slider::new("Pi Shift Pos", pi_shift_position, 0.05..=0.95).step_by(0.01),
+        ],
+    )
 }
 
-pub(crate) fn grating_slider_grid(grating: &mut PiShift, ui: &mut Ui) -> bool {
-    let mut changed = false;
+pub(crate) fn pump_sliders(pump: &mut Pump) -> SliderGroup<'_> {
+    let Pump { total, balance } = pump;
 
-    egui::Grid::new("grating").show(ui, |ui| {
-        ui.label("Kappa left (1/m)");
-        changed |= ui
-            .add(egui::Slider::new(&mut grating.kappa_left, 0.1..=10.0).step_by(0.01))
-            .changed();
-        ui.end_row();
-
-        ui.label("Kappa right (1/m)");
-        changed |= ui
-            .add(egui::Slider::new(&mut grating.kappa_right, 0.1..=10.0).step_by(0.01))
-            .changed();
-        ui.end_row();
-
-        ui.label("Pi Shift Pos");
-        changed |= ui
-            .add(egui::Slider::new(&mut grating.pi_shift_position, 0.05..=0.95).step_by(0.01))
-            .changed();
-        ui.end_row();
-    });
-
-    changed
+    SliderGroup::new(
+        "Pump",
+        [
+            milliwatt_slider("Total power (mW)", total, 0.0..=100.0).step_by(0.001),
+            Slider::new("Balance", balance, -1.0..=1.0).step_by(0.01),
+        ],
+    )
 }
 
-pub(crate) fn pump_slider_grid(pump: &mut Pump, ui: &mut Ui) -> bool {
-    let mut changed = false;
+pub(crate) fn fibre_param_sliders<'a>(
+    geometry: &'a mut FibreGeometry,
+    dopant: &'a mut TwoLevelDopant,
+    pump_interaction: &'a mut TwoLevelCrossSections,
+    signal_interaction: &'a mut TwoLevelCrossSections,
+) -> SliderGroup<'a> {
+    let FibreGeometry { length, .. } = geometry;
+    let TwoLevelDopant { density, lifetime } = dopant;
+    let TwoLevelCrossSections {
+        absorption: pump_absorption,
+        emission: pump_emission,
+    } = pump_interaction;
+    let TwoLevelCrossSections {
+        absorption: signal_absorption,
+        emission: signal_emission,
+    } = signal_interaction;
 
-    egui::Grid::new("pump").show(ui, |ui| {
-        ui.label("Total power (mW)");
-        changed |= power_slider_mw(&mut pump.total, ui);
-        ui.end_row();
-
-        ui.label("Balance");
-        changed |= ui
-            .add(egui::Slider::new(&mut pump.balance, -1.0..=1.0).step_by(0.01))
-            .changed();
-        ui.end_row();
-    });
-
-    changed
-}
-
-pub(crate) fn fibre_params_slider_grid<G: GratingModel>(
-    params: &mut Fibre<TwoLevelDopant, G>,
-    pump_interaction: &mut TwoLevelCrossSections,
-    signal_interaction: &mut TwoLevelCrossSections,
-    ui: &mut Ui,
-) -> bool {
-    let mut changed = false;
-    let dopant = &mut params.dopant;
-
-    egui::Grid::new("params").show(ui, |ui| {
-        egui::Grid::new("params1").show(ui, |ui| {
-            ui.label("Pump em. (1e-25 m²)");
-            changed |= ui
-                .add(egui::Slider::new(&mut pump_interaction.emission, 0.0..=10.0).step_by(0.01))
-                .changed();
-            ui.end_row();
-
-            ui.label("Pump abs. (1e-25 m²)");
-            changed |= ui
-                .add(egui::Slider::new(&mut pump_interaction.absorption, 0.05..=10.0).step_by(0.01))
-                .changed();
-            ui.end_row();
-
-            ui.label("Signl em. (1e-25 m²)");
-            changed |= ui
-                .add(egui::Slider::new(&mut signal_interaction.emission, 0.05..=10.0).step_by(0.01))
-                .changed();
-            ui.end_row();
-
-            ui.label("Signl abs. (1e-25 m²)");
-            changed |= ui
-                .add(
-                    egui::Slider::new(&mut signal_interaction.absorption, 0.0..=10.0).step_by(0.01),
-                )
-                .changed();
-            ui.end_row();
-        });
-
-        egui::Grid::new("params2").show(ui, |ui| {
-            ui.label("Dopant density (1e25/m³)");
-            changed |= ui
-                .add(egui::Slider::new(&mut dopant.density, 0.1..=10.0).step_by(0.01))
-                .changed();
-            ui.end_row();
-
-            ui.label("Lifetime (s)");
-            changed |= ui
-                .add(egui::Slider::new(&mut dopant.lifetime, 0.01..=2.0).step_by(0.01))
-                .changed();
-            ui.end_row();
-
-            ui.label("Length (m)");
-            changed |= ui
-                .add(egui::Slider::new(&mut params.geometry.length, 0.1..=15.0).step_by(0.01))
-                .changed();
-            ui.end_row();
-        });
-    });
-
-    changed
+    SliderGroup::new(
+        "Fibre",
+        [
+            Slider::new("Pump em. (1e-25 m²)", pump_emission, 0.0..=10.0).step_by(0.01),
+            Slider::new("Pump abs. (1e-25 m²)", pump_absorption, 0.05..=10.0).step_by(0.01),
+            Slider::new("Signl em. (1e-25 m²)", signal_emission, 0.05..=10.0).step_by(0.01),
+            Slider::new("Signl abs. (1e-25 m²)", signal_absorption, 0.0..=10.0).step_by(0.01),
+            Slider::new("Dopant density (1e25/m³)", density, 0.1..=10.0).step_by(0.01),
+            Slider::new("Lifetime (s)", lifetime, 0.01..=2.0).step_by(0.01),
+            Slider::new("Length (m)", length, 0.1..=15.0).step_by(0.01),
+        ],
+    )
 }
