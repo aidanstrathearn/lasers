@@ -12,4 +12,4 @@ pub use crate::dfb::run_native;
 #[cfg(target_arch = "wasm32")]
 pub use crate::dfb::run_web;
 #[cfg(not(target_arch = "wasm32"))]
-pub use plot_app::NativeResult;
+pub use myplotlib::NativeResult;

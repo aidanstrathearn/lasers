@@ -1,7 +1,7 @@
 use laser_solver::grating::PiShift;
 use laser_solver::lase::{FibreGeometry, Pump, TwoLevelCrossSections, TwoLevelDopant};
 use laser_solver::maths::rootfind::BisectionConfig;
-use plot_app::{Slider, SliderGroup};
+use myplotlib::{Slider, SliderGroup};
 use std::ops::RangeInclusive;
 
 pub(crate) fn milliwatt_slider<'a>(

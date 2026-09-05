@@ -1,7 +1,7 @@
 use crate::dfb::LaserParameters;
 use laser_solver::maths::rootfind::BisectionConfig;
 use laser_solver::two_mode::TwoModeSolver;
-use plot_app::{AppResult, Plotter, Points};
+use myplotlib::{AppResult, Plotter, Points};
 
 impl LaserParameters {
     pub fn pops_plot(&mut self) -> AppResult {

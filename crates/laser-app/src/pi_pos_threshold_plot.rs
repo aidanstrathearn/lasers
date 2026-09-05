@@ -4,7 +4,7 @@ use laser_solver::lase::Fibre;
 use laser_solver::maths::rootfind::BisectionConfig;
 use laser_solver::maths::utils::linspace;
 use laser_solver::two_mode::TwoModeSolver;
-use plot_app::{AppResult, Plotter, Points};
+use myplotlib::{AppResult, Plotter, Points};
 
 const PI_POSITION_INTERVALS: usize = 40;
 

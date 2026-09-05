@@ -1,6 +1,6 @@
 use crate::dfb::LaserParameters;
 use laser_solver::two_mode::TwoModeSolver;
-use plot_app::{AppResult, Plotter};
+use myplotlib::{AppResult, Plotter};
 
 impl LaserParameters {
     pub fn kappa_plot(&mut self) -> AppResult {

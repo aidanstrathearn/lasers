@@ -1,7 +1,7 @@
 use crate::dfb::{LaserParameters, field_profile_plot};
 use laser_solver::maths::rootfind::BisectionConfig;
 use laser_solver::two_mode::TwoModeSolver;
-use plot_app::AppResult;
+use myplotlib::AppResult;
 
 impl LaserParameters {
     pub fn profile_plot(&mut self) -> AppResult {

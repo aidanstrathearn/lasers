@@ -18,5 +18,6 @@ eframe = { version = "0.33.3", default-features = false }
 egui_plot = "0.34.1"
 laser-app = { path = "crates/laser-app" }
 laser-solver = { path = "crates/laser-solver" }
+myplotlib = { git = "https://github.com/aidanstrathearn/myplotlib.git" }
 plot-app = { path = "crates/plot-app" }
 web-time = "1.1.0"

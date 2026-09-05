@@ -35,6 +35,9 @@ jobs:
         with:
           tool: trunk@0.21.14
 
+      - name: Update myplotlib to latest commit
+        run: cargo update -p myplotlib
+
       - name: Build web app
         working-directory: apps/web
         run: trunk build --release --locked --public-url /lasers/

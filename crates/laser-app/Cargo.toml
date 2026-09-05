@@ -7,4 +7,4 @@ publish = false
 [dependencies]
 eframe.workspace = true
 laser-solver.workspace = true
-plot-app.workspace = true
+myplotlib.workspace = true

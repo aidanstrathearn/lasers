@@ -3,7 +3,7 @@ use crate::dfb::LaserParameters;
 use laser_solver::maths::rootfind::BisectionConfig;
 use laser_solver::maths::utils::linspace;
 use laser_solver::two_mode::TwoModeSolver;
-use plot_app::{AppResult, Plotter, Points, Slider, SliderGroup};
+use myplotlib::{AppResult, Plotter, Points, Slider, SliderGroup};
 
 #[derive(Copy, Clone)]
 pub struct ThresholdRange {

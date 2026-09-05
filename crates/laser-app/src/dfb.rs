@@ -7,7 +7,7 @@ use laser_solver::lase::{
 };
 use laser_solver::maths::rootfind::BisectionConfig;
 use laser_solver::two_mode::PicardConfig;
-use plot_app::{AppDefinition, Plotter, Points, SliderGrid, ViewOption};
+use myplotlib::{AppDefinition, Plotter, Points, SliderGrid, ViewOption};
 
 pub(crate) struct LaserParameters {
     pub(crate) fibre: Fibre<TwoLevelDopant, PiShift>,
@@ -193,11 +193,11 @@ const DFB_APP: AppDefinition<LaserParameters> =
     AppDefinition::new("Laser Solver", "plot-canvas", DFB_VIEWS);
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn run_native() -> plot_app::NativeResult {
-    plot_app::run_native(DFB_APP)
+pub fn run_native() -> myplotlib::NativeResult {
+    myplotlib::run_native(DFB_APP)
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn run_web() -> plot_app::WebResult {
-    plot_app::run_web(DFB_APP)
+pub fn run_web() -> myplotlib::WebResult {
+    myplotlib::run_web(DFB_APP)
 }
