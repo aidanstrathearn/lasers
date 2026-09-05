@@ -1,10 +1,12 @@
+[package]
+name = "laser-solver"
+version.workspace = true
+edition.workspace = true
+publish = false
+
 [workspace]
-members = [
-    "apps/desktop",
-    "apps/web",
-    "crates/laser-app",
-    "crates/laser-solver",
-]
+members = [".", "examples/dfb-example"]
+default-members = [".", "examples/dfb-example"]
 exclude = ["tools/solver-lab"]
 resolver = "3"
 
@@ -12,8 +14,13 @@ resolver = "3"
 version = "0.1.0"
 edition = "2024"
 
-[workspace.dependencies]
-eframe = { version = "0.33.3", default-features = false }
-laser-app = { path = "crates/laser-app" }
-laser-solver = { path = "crates/laser-solver" }
-myplotlib = { git = "https://github.com/aidanstrathearn/myplotlib.git" }
+[dev-dependencies]
+criterion = "0.7"
+
+[[bench]]
+name = "dfb-solvers"
+harness = false
+
+[[bench]]
+name = "propagation-steps"
+harness = false

@@ -500,6 +500,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
 
 [[package]]
+name = "dfb-example"
+version = "0.1.0"
+dependencies = [
+ "laser-solver",
+ "myplotlib",
+]
+
+[[package]]
 name = "dispatch"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1234,34 +1242,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
-name = "laser-app"
-version = "0.1.0"
-dependencies = [
- "eframe",
- "laser-solver",
- "myplotlib",
-]
-
-[[package]]
-name = "laser-desktop"
-version = "0.1.0"
-dependencies = [
- "laser-app",
-]
-
-[[package]]
 name = "laser-solver"
 version = "0.1.0"
 dependencies = [
  "criterion",
-]
-
-[[package]]
-name = "laser-web"
-version = "0.1.0"
-dependencies = [
- "laser-app",
- "wasm-bindgen",
 ]
 
 [[package]]

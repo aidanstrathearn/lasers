@@ -39,7 +39,7 @@ jobs:
         run: cargo update -p myplotlib
 
       - name: Build web app
-        working-directory: apps/web
+        working-directory: examples/dfb-example
         run: trunk build --release --locked --public-url /lasers/
 
       - name: Configure Pages
@@ -48,7 +48,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: apps/web/dist
+          path: examples/dfb-example/dist
 
   deploy:
     needs: build
