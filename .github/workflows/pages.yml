@@ -38,11 +38,22 @@ jobs:
       - name: Update myplotlib to latest commit
         run: cargo update -p myplotlib
 
+      - name: Install cargo-myplotlib
+        run: |
+          cargo install \
+            --git https://github.com/aidanstrathearn/myplotlib.git \
+            cargo-myplotlib \
+            --locked
+
       - name: Build web app
         working-directory: examples/dfb-example
         run: |
-          wasm-pack build --target web --release --out-dir dist/pkg --out-name app --no-typescript --no-pack -- --locked
-          cp index.html loader.js dist/
+          cargo myplotlib build-web \
+            --manifest-path Cargo.toml \
+            --out-dir dist/pkg \
+            --release \
+            --locked
+          cp index.html dist/index.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

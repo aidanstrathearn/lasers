@@ -32,16 +32,13 @@
     <p id="error" role="alert"></p>
 
     <script type="module">
-      import { mountApp } from "./loader.js";
+      import { mount } from "./pkg/app.js";
 
       try {
-        await mountApp({
-          canvas: document.querySelector("#plot-canvas"),
-          module: new URL("./pkg/app.js", import.meta.url),
-        });
+        await mount(document.querySelector("#plot-canvas"));
       } catch (error) {
         document.querySelector("#error").textContent = String(error);
-        throw error;
+        console.error(error);
       }
     </script>
   </body>
