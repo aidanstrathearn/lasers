@@ -7,7 +7,7 @@ use laser_solver::lase::{
 };
 use laser_solver::maths::rootfind::BisectionConfig;
 use laser_solver::two_mode::PicardConfig;
-use myplotlib::{AppDefinition, Plotter, Points, SliderGrid, ViewOption};
+use myplotlib::{AppDefinition, AxisScale, Plotter, Points, SliderGrid, ViewOption};
 
 pub(crate) struct LaserParameters {
     pub(crate) fibre: Fibre<TwoLevelDopant, PiShift>,
@@ -109,6 +109,7 @@ pub(crate) fn field_profile_plot(profile: &FieldProfile) -> Plotter {
         .label("Backward pump");
     plot.xlabel("Position (m)");
     plot.ylabel("Power (mW)");
+    //plot.yscale(AxisScale::Log10);
     plot
 }
 
@@ -189,15 +190,6 @@ const DFB_VIEWS: &[ViewOption<LaserParameters>] = &[
     ),
 ];
 
-const DFB_APP: AppDefinition<LaserParameters> =
-    AppDefinition::new("Laser Solver", "plot-canvas", DFB_VIEWS);
-
-#[cfg(not(target_arch = "wasm32"))]
-pub fn run_native() -> myplotlib::NativeResult {
-    myplotlib::run_native(DFB_APP)
-}
-
-#[cfg(target_arch = "wasm32")]
-pub fn run_web() -> myplotlib::WebResult {
-    myplotlib::run_web(DFB_APP)
+pub(crate) fn definition() -> AppDefinition<LaserParameters> {
+    AppDefinition::new("Laser Solver", DFB_VIEWS)
 }

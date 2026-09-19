@@ -505,6 +505,9 @@ version = "0.1.0"
 dependencies = [
  "laser-solver",
  "myplotlib",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
@@ -1368,12 +1371,11 @@ dependencies = [
 [[package]]
 name = "myplotlib"
 version = "0.1.0"
-source = "git+https://github.com/aidanstrathearn/myplotlib.git#5eafcbe534fb5591f355189be8213ba4addfe26b"
+source = "git+https://github.com/aidanstrathearn/myplotlib.git#d5a2eb842182222f6491c9430b6fe803da7031f8"
 dependencies = [
  "eframe",
  "egui_plot",
  "wasm-bindgen",
- "wasm-bindgen-futures",
  "web-sys",
  "web-time",
 ]

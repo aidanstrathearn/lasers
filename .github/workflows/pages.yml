@@ -30,17 +30,19 @@ jobs:
         with:
           workspaces: . -> target
 
-      - name: Install Trunk
+      - name: Install wasm-pack
         uses: taiki-e/install-action@v2
         with:
-          tool: trunk@0.21.14
+          tool: wasm-pack@0.13.1
 
       - name: Update myplotlib to latest commit
         run: cargo update -p myplotlib
 
       - name: Build web app
         working-directory: examples/dfb-example
-        run: trunk build --release --locked --public-url /lasers/
+        run: |
+          wasm-pack build --target web --release --out-dir dist/pkg --out-name app --no-typescript --no-pack -- --locked
+          cp index.html dist/index.html
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

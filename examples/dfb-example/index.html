@@ -4,7 +4,6 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Laser Solver</title>
-    <link data-trunk rel="rust" />
     <style>
       html,
       body {
@@ -19,9 +18,31 @@
         height: 100%;
         display: block;
       }
+
+      #error {
+        position: fixed;
+        inset: 1rem auto auto 1rem;
+        color: #a40000;
+        background: white;
+      }
     </style>
   </head>
   <body>
     <canvas id="plot-canvas"></canvas>
+    <p id="error" role="alert"></p>
+
+    <script type="module">
+      import init, { mountApp } from "./pkg/app.js";
+
+      let appHandle;
+
+      try {
+        await init();
+        appHandle = await mountApp(document.querySelector("#plot-canvas"));
+      } catch (error) {
+        document.querySelector("#error").textContent = String(error);
+        throw error;
+      }
+    </script>
   </body>
 </html>
