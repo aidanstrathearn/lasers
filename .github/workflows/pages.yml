@@ -42,7 +42,7 @@ jobs:
         working-directory: examples/dfb-example
         run: |
           wasm-pack build --target web --release --out-dir dist/pkg --out-name app --no-typescript --no-pack -- --locked
-          cp index.html dist/index.html
+          cp index.html loader.js dist/
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

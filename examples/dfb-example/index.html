@@ -32,14 +32,13 @@
     <p id="error" role="alert"></p>
 
     <script type="module">
-      import init, { mountApp } from "./pkg/app.js";
+      import { mountApp } from "./loader.js";
 
       try {
-        await init();
-        // wasm-bindgen finalizes an unreferenced WebHandle, which destroys the runner.
-        globalThis.dfbAppHandle = await mountApp(
-          document.querySelector("#plot-canvas"),
-        );
+        await mountApp({
+          canvas: document.querySelector("#plot-canvas"),
+          module: new URL("./pkg/app.js", import.meta.url),
+        });
       } catch (error) {
         document.querySelector("#error").textContent = String(error);
         throw error;
