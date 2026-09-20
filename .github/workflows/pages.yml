@@ -35,22 +35,21 @@ jobs:
         with:
           tool: wasm-pack@0.13.1
 
-      - name: Update myplotlib to latest commit
-        run: cargo update -p myplotlib
-
       - name: Install cargo-myplotlib
         run: |
           cargo install \
             --git https://github.com/aidanstrathearn/myplotlib.git \
+            --tag v0.1.0 \
             cargo-myplotlib \
             --locked
+          test "$(cargo myplotlib --version)" = "cargo-myplotlib 0.1.0"
 
       - name: Build web app
         working-directory: examples/dfb-example
         run: |
           cargo myplotlib build-web \
             --manifest-path Cargo.toml \
-            --out-dir dist/pkg \
+            --out-dir dist/dist \
             --release \
             --locked
           cp index.html dist/index.html
